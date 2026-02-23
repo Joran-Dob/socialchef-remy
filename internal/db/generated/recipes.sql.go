@@ -207,3 +207,17 @@ func (q *Queries) UpdateRecipe(ctx context.Context, arg UpdateRecipeParams) (Rec
 	)
 	return i, err
 }
+
+const updateRecipeEmbedding = `-- name: UpdateRecipeEmbedding :exec
+UPDATE recipes SET embedding = $2, updated_at = NOW() WHERE id = $1
+`
+
+type UpdateRecipeEmbeddingParams struct {
+	ID        pgtype.UUID
+	Embedding pgvector.Vector
+}
+
+func (q *Queries) UpdateRecipeEmbedding(ctx context.Context, arg UpdateRecipeEmbeddingParams) error {
+	_, err := q.db.Exec(ctx, updateRecipeEmbedding, arg.ID, arg.Embedding)
+	return err
+}

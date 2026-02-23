@@ -29,3 +29,6 @@ RETURNING *;
 
 -- name: DeleteRecipe :exec
 DELETE FROM recipes WHERE id = $1 AND created_by = $2;
+
+-- name: UpdateRecipeEmbedding :exec
+UPDATE recipes SET embedding = $2, updated_at = NOW() WHERE id = $1;
