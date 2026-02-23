@@ -1,0 +1,13 @@
+version: "2"
+sql:
+  - schema: "internal/db/queries" # sqlc needs a schema to generate code, even if empty for now
+    queries: "internal/db/queries"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "generated"
+        out: "internal/db/generated"
+        sql_package: "pgx/v5"
+        overrides:
+          - db_type: "pgcatalog.vector"
+            go_type: "github.com/pgvector/pgvector-go.Vector"
