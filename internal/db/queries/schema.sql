@@ -34,13 +34,6 @@ CREATE TABLE recipes (
     total_time INTEGER,
     original_serving_size INTEGER,
     difficulty_rating SMALLINT CHECK (difficulty_rating BETWEEN 1 AND 5),
-    cuisine_categories TEXT[],
-    meal_type TEXT[],
-    occasion TEXT[],
-    dietary_restrictions TEXT[],
-    focused_diet TEXT,
-    estimated_calories INTEGER,
-    equipment TEXT[],
     origin recipe_origin NOT NULL,
     url TEXT NOT NULL,
     created_by UUID NOT NULL REFERENCES auth.users(id),
@@ -49,7 +42,6 @@ CREATE TABLE recipes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
 -- Recipe ingredients table
 CREATE TABLE recipe_ingredients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

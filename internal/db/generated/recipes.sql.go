@@ -16,7 +16,7 @@ INSERT INTO recipes (
     id, created_by, recipe_name, description, prep_time, cooking_time, original_serving_size, difficulty_rating, origin, url, owner_id, thumbnail_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-) RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, cuisine_categories, meal_type, occasion, dietary_restrictions, focused_diet, estimated_calories, equipment, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at
+) RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at
 `
 
 type CreateRecipeParams struct {
@@ -59,13 +59,6 @@ func (q *Queries) CreateRecipe(ctx context.Context, arg CreateRecipeParams) (Rec
 		&i.TotalTime,
 		&i.OriginalServingSize,
 		&i.DifficultyRating,
-		&i.CuisineCategories,
-		&i.MealType,
-		&i.Occasion,
-		&i.DietaryRestrictions,
-		&i.FocusedDiet,
-		&i.EstimatedCalories,
-		&i.Equipment,
 		&i.Origin,
 		&i.Url,
 		&i.CreatedBy,
@@ -92,7 +85,7 @@ func (q *Queries) DeleteRecipe(ctx context.Context, arg DeleteRecipeParams) erro
 }
 
 const getRecipe = `-- name: GetRecipe :one
-SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, cuisine_categories, meal_type, occasion, dietary_restrictions, focused_diet, estimated_calories, equipment, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at FROM recipes WHERE id = $1
+SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at FROM recipes WHERE id = $1
 `
 
 func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error) {
@@ -107,13 +100,6 @@ func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error)
 		&i.TotalTime,
 		&i.OriginalServingSize,
 		&i.DifficultyRating,
-		&i.CuisineCategories,
-		&i.MealType,
-		&i.Occasion,
-		&i.DietaryRestrictions,
-		&i.FocusedDiet,
-		&i.EstimatedCalories,
-		&i.Equipment,
 		&i.Origin,
 		&i.Url,
 		&i.CreatedBy,
@@ -126,7 +112,7 @@ func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error)
 }
 
 const getRecipesByUser = `-- name: GetRecipesByUser :many
-SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, cuisine_categories, meal_type, occasion, dietary_restrictions, focused_diet, estimated_calories, equipment, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at FROM recipes WHERE created_by = $1 ORDER BY created_at DESC
+SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at FROM recipes WHERE created_by = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) GetRecipesByUser(ctx context.Context, createdBy pgtype.UUID) ([]Recipe, error) {
@@ -147,13 +133,6 @@ func (q *Queries) GetRecipesByUser(ctx context.Context, createdBy pgtype.UUID) (
 			&i.TotalTime,
 			&i.OriginalServingSize,
 			&i.DifficultyRating,
-			&i.CuisineCategories,
-			&i.MealType,
-			&i.Occasion,
-			&i.DietaryRestrictions,
-			&i.FocusedDiet,
-			&i.EstimatedCalories,
-			&i.Equipment,
 			&i.Origin,
 			&i.Url,
 			&i.CreatedBy,
@@ -187,7 +166,7 @@ SET
     thumbnail_id = $11,
     updated_at = NOW()
 WHERE id = $1 AND created_by = $12
-RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, cuisine_categories, meal_type, occasion, dietary_restrictions, focused_diet, estimated_calories, equipment, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at
+RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at
 `
 
 type UpdateRecipeParams struct {
@@ -230,13 +209,6 @@ func (q *Queries) UpdateRecipe(ctx context.Context, arg UpdateRecipeParams) (Rec
 		&i.TotalTime,
 		&i.OriginalServingSize,
 		&i.DifficultyRating,
-		&i.CuisineCategories,
-		&i.MealType,
-		&i.Occasion,
-		&i.DietaryRestrictions,
-		&i.FocusedDiet,
-		&i.EstimatedCalories,
-		&i.Equipment,
 		&i.Origin,
 		&i.Url,
 		&i.CreatedBy,

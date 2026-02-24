@@ -159,13 +159,6 @@ type Recipe struct {
 	TotalTime           pgtype.Int4
 	OriginalServingSize pgtype.Int4
 	DifficultyRating    pgtype.Int2
-	CuisineCategories   []string
-	MealType            []string
-	Occasion            []string
-	DietaryRestrictions []string
-	FocusedDiet         pgtype.Text
-	EstimatedCalories   pgtype.Int4
-	Equipment           []string
 	Origin              RecipeOrigin
 	Url                 string
 	CreatedBy           pgtype.UUID
