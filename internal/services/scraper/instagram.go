@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"regexp"
 	"time"
+
+	"github.com/socialchef/remy/internal/utils"
 )
 
 const (
@@ -86,11 +87,9 @@ func (s *InstagramScraper) Scrape(ctx context.Context, postURL string) (*Instagr
 
 	graphQLURL := fmt.Sprintf("https://www.instagram.com/api/graphql?variables={\"shortcode\":\"%s\"}&doc_id=10015901848480474", shortcode)
 
-	const maxRetries = 3
-	var resp *http.Response
-	var body []byte
+	config := utils.DefaultRetryConfig()
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	data, err := utils.WithRetry(ctx, func(attemptCtx context.Context) ([]byte, error) {
 		reqBody := map[string]interface{}{
 			"url":    graphQLURL,
 			"method": "POST",
@@ -103,43 +102,31 @@ func (s *InstagramScraper) Scrape(ctx context.Context, postURL string) (*Instagr
 				"Sec-Fetch-Site": "same-origin",
 			},
 		}
-		body, _ = json.Marshal(reqBody)
+		body, _ := json.Marshal(reqBody)
 
-		var req *http.Request
-		req, err = http.NewRequestWithContext(ctx, "POST", s.proxyURL, bytes.NewReader(body))
+		req, err := http.NewRequestWithContext(attemptCtx, "POST", s.proxyURL, bytes.NewReader(body))
 		if err != nil {
 			return nil, err
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("x-api-key", s.proxyKey)
 
-		resp, err = s.httpClient.Do(req)
-		if err == nil && resp.StatusCode != 429 {
-			break
-		}
-
+		resp, err := s.httpClient.Do(req)
 		if err != nil {
-			slog.Warn("Instagram scrape attempt failed", "attempt", attempt+1, "error", err)
-		} else if resp.StatusCode == 429 {
-			slog.Warn("Rate limited, backing off", "attempt", attempt+1)
-			resp.Body.Close()
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return nil, ErrRateLimited
+		}
+		if resp.StatusCode >= 500 {
+			return nil, fmt.Errorf("server error: %d", resp.StatusCode)
 		}
 
-		if attempt < maxRetries-1 {
-			time.Sleep(time.Duration(attempt+1) * time.Second)
-		}
-	}
+		return io.ReadAll(resp.Body)
+	}, config)
 
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 429 {
-		return nil, ErrRateLimited
-	}
-
-	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

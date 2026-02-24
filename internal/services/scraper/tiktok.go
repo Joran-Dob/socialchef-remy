@@ -57,29 +57,37 @@ func (s *TikTokScraper) Scrape(ctx context.Context, postURL string) (*TikTokPost
 	}
 	inputData, _ := json.Marshal(input)
 
-	req, err := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("https://api.apify.com/v2/acts/%s/run-sync", apifyActorID),
-		bytes.NewReader(inputData))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+s.apifyKey)
-	req.Header.Set("Content-Type", "application/json")
+	config := utils.DefaultRetryConfig()
 
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	body, err := utils.WithRetry(ctx, func(attemptCtx context.Context) ([]byte, error) {
+		req, err := http.NewRequestWithContext(attemptCtx, "POST",
+			fmt.Sprintf("https://api.apify.com/v2/acts/%s/run-sync", apifyActorID),
+			bytes.NewReader(inputData))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+s.apifyKey)
+		req.Header.Set("Content-Type", "application/json")
 
-	if resp.StatusCode == 429 {
-		return nil, ErrRateLimited
-	}
-	if resp.StatusCode == 404 {
-		return nil, ErrVideoNotFound
-	}
+		resp, err := s.httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return nil, ErrRateLimited
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, ErrVideoNotFound
+		}
+		if resp.StatusCode >= 500 {
+			return nil, fmt.Errorf("server error: %d", resp.StatusCode)
+		}
+
+		return io.ReadAll(resp.Body)
+	}, config)
+
 	if err != nil {
 		return nil, err
 	}
