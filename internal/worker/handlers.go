@@ -202,22 +202,22 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 					storedImageUUID := parseUUID(existing.ID)
 
 					// Create recipe_images record
-					_, err = p.db.CreateRecipeImage(ctx, generated.CreateRecipeImageParams{
+					recipeImage, err := p.db.CreateRecipeImage(ctx, generated.CreateRecipeImageParams{
 						RecipeID:      savedRecipe.ID,
 						StoredImageID: storedImageUUID,
 						ImageType:     "full",
 					})
 					if err != nil {
 						slog.Error("Failed to create recipe image record", "error", err)
-					}
-
-					// Update recipe thumbnail
-					err = p.db.UpdateRecipeThumbnail(ctx, generated.UpdateRecipeThumbnailParams{
-						ID:          savedRecipe.ID,
-						ThumbnailID: storedImageUUID,
-					})
-					if err != nil {
-						slog.Error("Failed to update recipe thumbnail", "error", err)
+					} else {
+						// Update recipe thumbnail with recipe_images.id (not stored_images.id)
+						err = p.db.UpdateRecipeThumbnail(ctx, generated.UpdateRecipeThumbnailParams{
+							ID:          savedRecipe.ID,
+							ThumbnailID: recipeImage.ID,
+						})
+						if err != nil {
+							slog.Error("Failed to update recipe thumbnail", "error", err)
+						}
 					}
 				}
 			}
