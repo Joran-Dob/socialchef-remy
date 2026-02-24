@@ -190,7 +190,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		} else {
 			hash := storage.HashContent(imageData)
 			path := fmt.Sprintf("post_images/%s", hash)
-			_, err := p.storage.UploadImageWithHash(ctx, "recipes", path, imageData)
+			_, err := p.storage.UploadImageWithHash(ctx, "recipes", path, imageURL, imageData)
 			if err != nil {
 				slog.Error("Failed to upload image", "error", err)
 			} else {

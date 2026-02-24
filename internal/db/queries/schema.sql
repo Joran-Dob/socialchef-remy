@@ -39,6 +39,7 @@ CREATE TABLE recipes (
     created_by UUID NOT NULL REFERENCES auth.users(id),
     owner_id UUID REFERENCES social_media_owners(id),
     thumbnail_id UUID REFERENCES recipe_images(id),
+    embedding vector(1536),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

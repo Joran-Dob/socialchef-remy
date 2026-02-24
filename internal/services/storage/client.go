@@ -108,13 +108,14 @@ func (c *Client) GetImageByHash(ctx context.Context, hash string) (*existingImag
 	return &results[0], nil
 }
 
-func (c *Client) CreateStoredImageRecord(ctx context.Context, id, hash, storagePath string) error {
+func (c *Client) CreateStoredImageRecord(ctx context.Context, id, hash, storagePath, sourceURL string) error {
 	url := fmt.Sprintf("%s/rest/v1/stored_images", c.supabaseURL)
 
 	body := map[string]string{
 		"id":           id,
 		"content_hash": hash,
 		"storage_path": storagePath,
+		"source_url":   sourceURL,
 	}
 	data, _ := json.Marshal(body)
 
@@ -141,7 +142,7 @@ func (c *Client) CreateStoredImageRecord(ctx context.Context, id, hash, storageP
 	return nil
 }
 
-func (c *Client) UploadImageWithHash(ctx context.Context, bucket, path string, data []byte) (string, error) {
+func (c *Client) UploadImageWithHash(ctx context.Context, bucket, path, sourceURL string, data []byte) (string, error) {
 	hash := HashContent(data)
 
 	existing, err := c.GetImageByHash(ctx, hash)
@@ -163,7 +164,7 @@ func (c *Client) UploadImageWithHash(ctx context.Context, bucket, path string, d
 	}
 
 	imageID := generateUUID()
-	if err := c.CreateStoredImageRecord(ctx, imageID, hash, path); err != nil {
+	if err := c.CreateStoredImageRecord(ctx, imageID, hash, path, sourceURL); err != nil {
 		return "", err
 	}
 
