@@ -1233,7 +1233,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `test: integration tests`
   - Files: `internal/integration/*.go`
 
-- [ ] 22. Fly.io Deployment
+- [x] 22. Fly.io Deployment
 
   **What to do**:
   - Create production `Dockerfile` (multi-stage build)
@@ -1309,7 +1309,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
 
   **Commit**: NO (secrets are external)
 
-- [ ] 24. End-to-End Verification
+- [x] 24. End-to-End Verification
 
   **What to do**:
   - Deploy to Fly.io staging environment
