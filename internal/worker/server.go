@@ -1,11 +1,18 @@
 package worker
 
-import "github.com/hibiken/asynq"
+import (
+	"github.com/hibiken/asynq"
+)
 
 // NewServer creates a new Asynq server for processing tasks
 func NewServer(redisURL string) *asynq.Server {
+	opt, err := ParseRedisURL(redisURL)
+	if err != nil {
+		panic("failed to parse Redis URL: " + err.Error())
+	}
+
 	return asynq.NewServer(
-		asynq.RedisClientOpt{Addr: redisURL},
+		opt,
 		asynq.Config{
 			Concurrency: 10,
 		},
