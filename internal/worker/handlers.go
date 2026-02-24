@@ -67,7 +67,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 	slog.Info("Processing recipe", "job_id", jobID, "url", url)
 
-	p.updateProgress(ctx, jobID, userID, "scraping", "Fetching post content...")
+	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Fetching post content...")
 
 	var caption, platform string
 
@@ -92,7 +92,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("invalid URL")
 	}
 
-	p.updateProgress(ctx, jobID, userID, "generating", "Generating recipe with AI...")
+	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Generating recipe with AI...")
 
 	recipe, err := p.groq.GenerateRecipe(ctx, caption, "", platform)
 	if err != nil {
@@ -100,7 +100,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		return err
 	}
 
-	p.updateProgress(ctx, jobID, userID, "saving", "Saving recipe to database...")
+	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Saving recipe to database...")
 
 	recipeUUID := parseUUID(uuid.New().String())
 	userUUID := parseUUID(userID)
@@ -174,7 +174,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		}
 	}
 
-	p.updateProgress(ctx, jobID, userID, "completed", "Recipe saved successfully!")
+	p.updateProgress(ctx, jobID, userID, "COMPLETED", "Recipe saved successfully!")
 
 	return nil
 }
