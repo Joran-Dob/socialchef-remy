@@ -361,15 +361,72 @@ fly postgres connect --app socialchef-remy-db   # Connect to Fly Postgres
 
 ---
 
-## Configuration Files Summary
+## Schema Synchronization
 
-| File | Purpose |
-|------|---------|
-| `fly.toml` | Fly.io app configuration (region, services, health checks) |
-| `Dockerfile` | Multi-stage build for Go server and worker binaries |
-| `internal/config/config.go` | Go config struct and environment variable loading |
+The Go backend's database schema must stay in sync with the Supabase production database. The schema is defined in `internal/db/queries/schema.sql` and used by sqlc to generate type-safe Go code.
+
+### When to Sync
+
+Run schema sync after **any** Supabase migration that modifies tables used by the Go backend:
+- `recipes`
+- `recipe_ingredients`
+- `recipe_instructions`
+- `recipe_nutrition`
+- `recipe_import_jobs`
+- `social_media_owners`
+- `profiles`
+
+### How to Sync
+
+```bash
+# Option 1: Use the Makefile target (recommended)
+make sync-schema
+
+# Option 2: Run the script directly
+./scripts/sync-schema.sh
+```
+
+Both commands:
+1. Dump the schema from Supabase production database
+2. Save it to `internal/db/queries/schema.sql`
+
+### After Syncing Schema
+
+1. **Regenerate sqlc code**:
+   ```bash
+   make sqlc-generate
+   ```
+
+2. **Fix any Go code** that uses old field names:
+   ```bash
+   go build ./...
+   ```
+
+3. **Run tests**:
+   ```bash
+   go test ./...
+   ```
+
+4. **Deploy** the updated code to Fly.io
+
+### Common Schema Mismatches
+
+| Old Field | New Field | Table |
+|-----------|-----------|-------|
+| `name` | `recipe_name` | `recipes` |
+| `cook_time` | `cooking_time` | `recipes` |
+| `servings` | `original_serving_size` | `recipes` |
+| `difficulty` | `difficulty_rating` | `recipes` |
+
+### Important Notes
+
+- **Never manually edit** `internal/db/queries/schema.sql` — always sync from production
+- **Source of truth**: Production Supabase database
+- The sync script uses `pg_dump` via Docker, so no local PostgreSQL installation is needed
 
 ---
+
+## Configuration Files Summary
 
 ## Environment Variable Cross-Reference
 
