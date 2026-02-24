@@ -1357,10 +1357,10 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
 
 ## Final Verification Wave
 
-- [ ] F1. **Plan Compliance Audit** — Verify all deliverables exist and work
-- [ ] F2. **API Contract Verification** — Compare Go responses to TypeScript responses
-- [ ] F3. **End-to-End QA** — Submit real Instagram/TikTok URLs, verify complete flow
-- [ ] F4. **Deployment Verification** — Confirm Fly.io app is live and healthy
+- [x] F1. **Plan Compliance Audit** — Verify all deliverables exist and work
+- [x] F2. **API Contract Verification** — Compare Go responses to TypeScript responses
+- [x] F3. **End-to-End QA** — Submit real Instagram/TikTok URLs, verify complete flow
+- [x] F4. **Deployment Verification** — Confirm Fly.io app is live and healthy
 
 ---
 
