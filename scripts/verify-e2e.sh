@@ -55,7 +55,8 @@ check_prerequisites() {
     
     log_info "API URL: $API_URL"
     log_info "Timeout: ${TIMEOUT_SECONDS}s"
-    log_success "Prerequisites check"\}
+    log_success "Prerequisites check"
+}
 
 # Test 1: Health endpoint
 test_health() {
