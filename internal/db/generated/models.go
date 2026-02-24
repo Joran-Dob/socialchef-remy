@@ -41,14 +41,19 @@ type RecipeImage struct {
 }
 
 type RecipeImportJob struct {
-	ID           pgtype.UUID
-	UserID       pgtype.UUID
-	Url          string
-	Status       string
-	ProgressStep pgtype.Text
-	Error        pgtype.Text
-	CreatedAt    pgtype.Timestamptz
-	UpdatedAt    pgtype.Timestamptz
+	ID              pgtype.UUID
+	JobID           string
+	UserID          pgtype.UUID
+	Url             string
+	Origin          string
+	Status          string
+	ProgressStep    pgtype.Text
+	ProgressMessage pgtype.Text
+	Result          []byte
+	Error           []byte
+	CompletedAt     pgtype.Timestamptz
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
 }
 
 type RecipeIngredient struct {

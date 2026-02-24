@@ -217,7 +217,7 @@ func (p *RecipeProcessor) updateProgress(ctx context.Context, jobID, userID, sta
 	slog.Info("Progress update", "job_id", jobID, "status", status, "message", message)
 
 	p.db.UpdateImportJobStatus(ctx, generated.UpdateImportJobStatusParams{
-		ID:           parseUUID(jobID),
+		JobID:        jobID,
 		Status:       status,
 		ProgressStep: pgtype.Text{String: message, Valid: true},
 	})
@@ -235,10 +235,10 @@ func (p *RecipeProcessor) markFailed(ctx context.Context, jobID, userID, errorMs
 	slog.Error("Job failed", "job_id", jobID, "error", errorMsg)
 
 	p.db.UpdateImportJobStatus(ctx, generated.UpdateImportJobStatusParams{
-		ID:           parseUUID(jobID),
-		Status:       "failed",
+		JobID:        jobID,
+		Status:       "FAILED",
 		ProgressStep: pgtype.Text{String: "Failed", Valid: true},
-		Error:        pgtype.Text{String: errorMsg, Valid: true},
+		Error:        []byte(errorMsg),
 	})
 
 	if p.broadcaster != nil {

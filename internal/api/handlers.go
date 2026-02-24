@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -63,19 +64,29 @@ func (s *Server) HandleImportRecipe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Detect origin from URL
+	origin := "instagram"
+	if strings.Contains(req.URL, "tiktok") {
+		origin = "tiktok"
+	}
+
+	// Generate separate IDs: database ID and job/task ID
+	id := uuid.New().String()
 	jobID := uuid.New().String()
 
 	_, err := s.db.CreateImportJob(r.Context(), generated.CreateImportJobParams{
-		ID:     parseUUID(jobID),
+		ID:     parseUUID(id),
+		JobID:  jobID,
 		UserID: parseUUID(userID),
 		Url:    req.URL,
-		Status: "pending",
+		Origin: origin,
+		Status: "QUEUED",
 	})
 	if err != nil {
 		slog.Error("Failed to create import job", "error", err, "user_id", userID, "job_id", jobID)
-http.Error(w, "Failed to create import job", http.StatusInternalServerError)
-return
-}
+		http.Error(w, "Failed to create import job", http.StatusInternalServerError)
+		return
+	}
 
 	task, err := worker.NewProcessRecipeTask(worker.ProcessRecipePayload{
 		JobID:  jobID,
@@ -138,7 +149,7 @@ func (s *Server) HandleJobStatus(w http.ResponseWriter, r *http.Request) {
 		ID:           uuid.UUID(job.ID.Bytes).String(),
 		Status:       job.Status,
 		ProgressStep: job.ProgressStep.String,
-		Error:        job.Error.String,
+		Error:        string(job.Error),
 		CreatedAt:    job.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:    job.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 	})
@@ -170,7 +181,7 @@ func (s *Server) HandleUserImportStatus(w http.ResponseWriter, r *http.Request) 
 			ID:           uuid.UUID(job.ID.Bytes).String(),
 			Status:       job.Status,
 			ProgressStep: job.ProgressStep.String,
-			Error:        job.Error.String,
+			Error:        string(job.Error),
 			CreatedAt:    job.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 			UpdatedAt:    job.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		}

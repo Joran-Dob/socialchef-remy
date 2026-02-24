@@ -80,11 +80,16 @@ CREATE TABLE recipe_images (
 
 CREATE TABLE recipe_import_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    job_id TEXT NOT NULL UNIQUE,
+    user_id UUID NOT NULL,
     url TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'PENDING',
+    origin TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'QUEUED',
     progress_step TEXT,
-    error TEXT,
+    progress_message TEXT,
+    result JSONB,
+    error JSONB,
+    completed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );

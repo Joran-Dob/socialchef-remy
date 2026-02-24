@@ -13,34 +13,43 @@ import (
 
 const createImportJob = `-- name: CreateImportJob :one
 INSERT INTO recipe_import_jobs (
-    id, user_id, url, status
+    id, job_id, user_id, url, origin, status
 ) VALUES (
-    $1, $2, $3, $4
-) RETURNING id, user_id, url, status, progress_step, error, created_at, updated_at
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at
 `
 
 type CreateImportJobParams struct {
 	ID     pgtype.UUID
+	JobID  string
 	UserID pgtype.UUID
 	Url    string
+	Origin string
 	Status string
 }
 
 func (q *Queries) CreateImportJob(ctx context.Context, arg CreateImportJobParams) (RecipeImportJob, error) {
 	row := q.db.QueryRow(ctx, createImportJob,
 		arg.ID,
+		arg.JobID,
 		arg.UserID,
 		arg.Url,
+		arg.Origin,
 		arg.Status,
 	)
 	var i RecipeImportJob
 	err := row.Scan(
 		&i.ID,
+		&i.JobID,
 		&i.UserID,
 		&i.Url,
+		&i.Origin,
 		&i.Status,
 		&i.ProgressStep,
+		&i.ProgressMessage,
+		&i.Result,
 		&i.Error,
+		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -48,7 +57,7 @@ func (q *Queries) CreateImportJob(ctx context.Context, arg CreateImportJobParams
 }
 
 const getImportJob = `-- name: GetImportJob :one
-SELECT id, user_id, url, status, progress_step, error, created_at, updated_at FROM recipe_import_jobs WHERE id = $1
+SELECT id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at FROM recipe_import_jobs WHERE id = $1
 `
 
 func (q *Queries) GetImportJob(ctx context.Context, id pgtype.UUID) (RecipeImportJob, error) {
@@ -56,11 +65,41 @@ func (q *Queries) GetImportJob(ctx context.Context, id pgtype.UUID) (RecipeImpor
 	var i RecipeImportJob
 	err := row.Scan(
 		&i.ID,
+		&i.JobID,
 		&i.UserID,
 		&i.Url,
+		&i.Origin,
 		&i.Status,
 		&i.ProgressStep,
+		&i.ProgressMessage,
+		&i.Result,
 		&i.Error,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getImportJobByJobID = `-- name: GetImportJobByJobID :one
+SELECT id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at FROM recipe_import_jobs WHERE job_id = $1
+`
+
+func (q *Queries) GetImportJobByJobID(ctx context.Context, jobID string) (RecipeImportJob, error) {
+	row := q.db.QueryRow(ctx, getImportJobByJobID, jobID)
+	var i RecipeImportJob
+	err := row.Scan(
+		&i.ID,
+		&i.JobID,
+		&i.UserID,
+		&i.Url,
+		&i.Origin,
+		&i.Status,
+		&i.ProgressStep,
+		&i.ProgressMessage,
+		&i.Result,
+		&i.Error,
+		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -68,7 +107,7 @@ func (q *Queries) GetImportJob(ctx context.Context, id pgtype.UUID) (RecipeImpor
 }
 
 const getImportJobsByUser = `-- name: GetImportJobsByUser :many
-SELECT id, user_id, url, status, progress_step, error, created_at, updated_at FROM recipe_import_jobs WHERE user_id = $1 ORDER BY created_at DESC
+SELECT id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at FROM recipe_import_jobs WHERE user_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) GetImportJobsByUser(ctx context.Context, userID pgtype.UUID) ([]RecipeImportJob, error) {
@@ -82,11 +121,16 @@ func (q *Queries) GetImportJobsByUser(ctx context.Context, userID pgtype.UUID) (
 		var i RecipeImportJob
 		if err := rows.Scan(
 			&i.ID,
+			&i.JobID,
 			&i.UserID,
 			&i.Url,
+			&i.Origin,
 			&i.Status,
 			&i.ProgressStep,
+			&i.ProgressMessage,
+			&i.Result,
 			&i.Error,
+			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -107,19 +151,19 @@ SET
     progress_step = $3, 
     error = $4,
     updated_at = NOW()
-WHERE id = $1
+WHERE job_id = $1
 `
 
 type UpdateImportJobStatusParams struct {
-	ID           pgtype.UUID
+	JobID        string
 	Status       string
 	ProgressStep pgtype.Text
-	Error        pgtype.Text
+	Error        []byte
 }
 
 func (q *Queries) UpdateImportJobStatus(ctx context.Context, arg UpdateImportJobStatusParams) error {
 	_, err := q.db.Exec(ctx, updateImportJobStatus,
-		arg.ID,
+		arg.JobID,
 		arg.Status,
 		arg.ProgressStep,
 		arg.Error,
