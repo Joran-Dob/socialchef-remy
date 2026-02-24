@@ -21,10 +21,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Allow custom user ID via command line arg
+	userID := "test-user-id"
+	if len(os.Args) > 1 {
+		userID = os.Args[1]
+	}
+
 	// Create claims with Supabase-compatible structure
 	now := time.Now()
 	claims := jwt.MapClaims{
-		"sub":  "test-user-id",
+		"sub":  userID,
 		"role": "authenticated",
 		"aud":  "authenticated",
 		"iat":  now.Unix(),
