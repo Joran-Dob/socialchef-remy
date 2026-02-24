@@ -6,15 +6,18 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Read JWT secret from environment
+	// Load .env file from project root (ignore error if not found)
+	godotenv.Load()
+
+	// Read JWT secret and Supabase URL from environment
 	secret := os.Getenv("SUPABASE_JWT_SECRET")
 	supabaseURL := os.Getenv("SUPABASE_URL")
 	if secret == "" || supabaseURL == "" {
-		fmt.Fprintln(os.Stderr, "Error: SUPABASE_JWT_SECRET and SUPABASE_URL environment variables must be set")
-		fmt.Fprintln(os.Stderr, "Usage: SUPABASE_JWT_SECRET=secret SUPABASE_URL=https://xyz.supabase.co go run scripts/generate-jwt.go")
+		fmt.Fprintln(os.Stderr, "Error: SUPABASE_JWT_SECRET and SUPABASE_URL must be set (in .env or environment)")
 		os.Exit(1)
 	}
 
