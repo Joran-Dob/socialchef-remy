@@ -1,4 +1,4 @@
-.PHONY: build test test-integration sqlc-generate docker-up docker-down
+.PHONY: build test test-integration sqlc-generate docker-up docker-down verify-e2e
 
 build:
 	go build -o bin/server ./cmd/server
@@ -18,3 +18,6 @@ docker-up:
 
 docker-down:
 	docker-compose down
+
+verify-e2e:
+	./scripts/verify-e2e.sh $(API_URL) $(JWT_TOKEN)
