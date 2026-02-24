@@ -100,8 +100,11 @@ test_create_recipe() {
         log_success "Create recipe endpoint returned HTTP $http_code"
         log_info "Response: $body"
         
-        # Extract recipe_id from response
-        RECIPE_ID=$(echo "$body" | grep -o '"recipe_id":"[^"]*"' | cut -d'"' -f4)
+        # Extract job_id from response
+        RECIPE_ID=$(echo "$body" | grep -o '"job_id":"[^"]*"' | cut -d'"' -f4)
+        if [[ -z "$RECIPE_ID" ]]; then
+            RECIPE_ID=$(echo "$body" | grep -o '"recipe_id":"[^"]*"' | cut -d'"' -f4)
+        fi
         if [[ -z "$RECIPE_ID" ]]; then
             RECIPE_ID=$(echo "$body" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
         fi
@@ -133,7 +136,7 @@ test_poll_recipe_status() {
     while [[ $elapsed -lt $TIMEOUT_SECONDS ]]; do
         response=$(curl -s -w "\n%{http_code}" \
             -H "Authorization: Bearer $JWT_TOKEN" \
-            "$API_URL/api/recipe-status" 2>/dev/null || echo -e "\n000")
+            "$API_URL/api/recipe-status?job_id=$RECIPE_ID" 2>/dev/null || echo -e "\n000")
         
         http_code=$(echo "$response" | tail -n1)
         body=$(echo "$response" | sed '$d')

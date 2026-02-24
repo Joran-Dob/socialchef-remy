@@ -133,7 +133,7 @@ func (s *Server) HandleJobStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, err := s.db.GetImportJob(r.Context(), parseUUID(jobID))
+	job, err := s.db.GetImportJobByJobID(r.Context(), jobID)
 	if err != nil {
 		http.Error(w, "Job not found", http.StatusNotFound)
 		return
