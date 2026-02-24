@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
+	"github.com/hibiken/asynq"
 	"log"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/hibiken/asynq"
 	"github.com/socialchef/remy/internal/config"
 	"github.com/socialchef/remy/internal/db"
 	"github.com/socialchef/remy/internal/db/generated"
@@ -22,7 +22,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -67,12 +67,7 @@ func main() {
 	)
 
 	// Asynq server
-	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: cfg.RedisURL},
-		asynq.Config{
-			Concurrency: 10,
-		},
-	)
+	srv := worker.NewServer(cfg.RedisURL)
 
 	// Register handlers
 	mux := asynq.NewServeMux()
