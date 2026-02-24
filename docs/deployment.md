@@ -5,7 +5,7 @@ This document provides complete instructions for deploying the SocialChef Remy a
 ## Overview
 
 **App Name**: `socialchef-remy`  
-**Primary Region**: `sjc` (San Jose)  
+**Primary Region**: `arn` (Stockholm, Sweden)
 **Health Check**: `GET /health` on port 8080  
 
 The application runs two processes:
@@ -100,7 +100,7 @@ The application requires Redis for Asynq background job processing.
 
 ```bash
 # Create a Fly Redis instance
-fly redis create --name socialchef-remy-redis --region sjc --eviction --no-replicas
+fly redis create --name socialchef-remy-redis --region arn --eviction --no-replicas
 
 # Get the connection string
 fly redis status --name socialchef-remy-redis
@@ -112,7 +112,7 @@ fly secrets set REDIS_URL="redis://default:PASSWORD@HOST:6379" --app socialchef-
 ### Option B: Upstash Redis
 
 1. Create a Redis database at [Upstash Console](https://console.upstash.com/)
-2. Choose region close to `sjc` for lowest latency
+2. Choose region close to `arn` (Stockholm) for lowest latency
 3. Copy the Redis connection string
 4. Set as `REDIS_URL` secret
 
