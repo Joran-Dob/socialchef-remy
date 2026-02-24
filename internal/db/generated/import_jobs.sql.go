@@ -56,6 +56,28 @@ func (q *Queries) CreateImportJob(ctx context.Context, arg CreateImportJobParams
 	return i, err
 }
 
+const deleteOldImportJobs = `-- name: DeleteOldImportJobs :exec
+DELETE FROM recipe_import_jobs 
+WHERE status IN ('COMPLETED', 'FAILED', 'CRASHED', 'TIMED_OUT', 'CANCELED')
+AND created_at < NOW() - INTERVAL '7 days'
+`
+
+func (q *Queries) DeleteOldImportJobs(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteOldImportJobs)
+	return err
+}
+
+const deleteStaleImportJobs = `-- name: DeleteStaleImportJobs :exec
+DELETE FROM recipe_import_jobs 
+WHERE status IN ('QUEUED', 'EXECUTING')
+AND created_at < NOW() - INTERVAL '24 hours'
+`
+
+func (q *Queries) DeleteStaleImportJobs(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteStaleImportJobs)
+	return err
+}
+
 const getImportJob = `-- name: GetImportJob :one
 SELECT id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at FROM recipe_import_jobs WHERE id = $1
 `

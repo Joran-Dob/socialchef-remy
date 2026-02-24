@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"github.com/google/uuid"
+
 )
 
 type Client struct {
@@ -169,5 +171,5 @@ func (c *Client) UploadImageWithHash(ctx context.Context, bucket, path string, d
 }
 
 func generateUUID() string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%d", len("socialchef")))))[:36]
+	return uuid.New().String()
 }

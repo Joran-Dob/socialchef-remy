@@ -6,8 +6,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
+	"time"
+)
+
+const (
+	lsdToken  = "AVqbxe3J_YA"
+	asbdID    = "129477"
+	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 )
 
 type InstagramPost struct {
@@ -30,7 +38,7 @@ func NewInstagramScraper(proxyURL, proxyKey string) *InstagramScraper {
 	return &InstagramScraper{
 		proxyURL:   proxyURL,
 		proxyKey:   proxyKey,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -78,24 +86,50 @@ func (s *InstagramScraper) Scrape(ctx context.Context, postURL string) (*Instagr
 
 	graphQLURL := fmt.Sprintf("https://www.instagram.com/api/graphql?variables={\"shortcode\":\"%s\"}&doc_id=10015901848480474", shortcode)
 
-	reqBody := map[string]interface{}{
-		"url":    graphQLURL,
-		"method": "POST",
-		"headers": map[string]string{
-			"Content-Type": "application/x-www-form-urlencoded",
-			"X-IG-App-ID":  "936619743392459",
-		},
-	}
-	body, _ := json.Marshal(reqBody)
+	const maxRetries = 3
+	var resp *http.Response
+	var body []byte
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.proxyURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", s.proxyKey)
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		reqBody := map[string]interface{}{
+			"url":    graphQLURL,
+			"method": "POST",
+			"headers": map[string]string{
+				"User-Agent":     userAgent,
+				"Content-Type":   "application/x-www-form-urlencoded",
+				"X-IG-App-ID":    "936619743392459",
+				"X-FB-LSD":       lsdToken,
+				"X-ASBD-ID":      asbdID,
+				"Sec-Fetch-Site": "same-origin",
+			},
+		}
+		body, _ = json.Marshal(reqBody)
 
-	resp, err := s.httpClient.Do(req)
+		var req *http.Request
+		req, err = http.NewRequestWithContext(ctx, "POST", s.proxyURL, bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("x-api-key", s.proxyKey)
+
+		resp, err = s.httpClient.Do(req)
+		if err == nil && resp.StatusCode != 429 {
+			break
+		}
+
+		if err != nil {
+			slog.Warn("Instagram scrape attempt failed", "attempt", attempt+1, "error", err)
+		} else if resp.StatusCode == 429 {
+			slog.Warn("Rate limited, backing off", "attempt", attempt+1)
+			resp.Body.Close()
+		}
+
+		if attempt < maxRetries-1 {
+			time.Sleep(time.Duration(attempt+1) * time.Second)
+		}
+	}
+
 	if err != nil {
 		return nil, err
 	}

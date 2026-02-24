@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"io"
+	"net/http"
 	"math/big"
 
 	"github.com/google/uuid"
@@ -69,7 +71,8 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Fetching post content...")
 
-	var caption, platform string
+	var caption, platform, imageURL string
+
 
 	if scraper.IsInstagramURL(url) {
 		platform = "instagram"
@@ -79,6 +82,8 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 			return err
 		}
 		caption = post.Caption
+		imageURL = post.ImageURL
+
 	} else if scraper.IsTikTokURL(url) {
 		platform = "tiktok"
 		post, err := p.tiktok.Scrape(ctx, url)
@@ -87,6 +92,8 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 			return err
 		}
 		caption = post.Caption
+		imageURL = post.ThumbnailURL
+
 	} else {
 		p.markFailed(ctx, jobID, userID, "Invalid URL: must be Instagram or TikTok")
 		return fmt.Errorf("invalid URL")
@@ -174,6 +181,50 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		}
 	}
 
+	// Handle image processing
+	if imageURL != "" {
+		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Processing recipe image...")
+		imageData, err := downloadImage(ctx, imageURL)
+		if err != nil {
+			slog.Error("Failed to download image", "url", imageURL, "error", err)
+		} else {
+			hash := storage.HashContent(imageData)
+			path := fmt.Sprintf("post_images/%s", hash)
+			_, err := p.storage.UploadImageWithHash(ctx, "recipes", path, imageData)
+			if err != nil {
+				slog.Error("Failed to upload image", "error", err)
+			} else {
+				// Get the stored image record to get its ID
+				existing, err := p.storage.GetImageByHash(ctx, hash)
+				if err != nil || existing == nil {
+					slog.Error("Failed to get stored image after upload", "error", err)
+				} else {
+					storedImageUUID := parseUUID(existing.ID)
+
+					// Create recipe_images record
+					_, err = p.db.CreateRecipeImage(ctx, generated.CreateRecipeImageParams{
+						RecipeID:      savedRecipe.ID,
+						StoredImageID: storedImageUUID,
+						ImageType:     "full",
+					})
+					if err != nil {
+						slog.Error("Failed to create recipe image record", "error", err)
+					}
+
+					// Update recipe thumbnail
+					err = p.db.UpdateRecipeThumbnail(ctx, generated.UpdateRecipeThumbnailParams{
+						ID:          savedRecipe.ID,
+						ThumbnailID: storedImageUUID,
+					})
+					if err != nil {
+						slog.Error("Failed to update recipe thumbnail", "error", err)
+					}
+				}
+			}
+		}
+	}
+
+
 	p.updateProgress(ctx, jobID, userID, "COMPLETED", "Recipe saved successfully!")
 
 	return nil
@@ -208,6 +259,22 @@ func (p *RecipeProcessor) HandleGenerateEmbedding(ctx context.Context, t *asynq.
 
 func (p *RecipeProcessor) HandleCleanupJobs(ctx context.Context, t *asynq.Task) error {
 	slog.Info("Running cleanup job")
+
+	// Delete old completed/failed jobs (older than 7 days)
+	err := p.db.DeleteOldImportJobs(ctx)
+	if err != nil {
+		slog.Error("Failed to delete old import jobs", "error", err)
+		return err
+	}
+
+	// Delete stale queued/executing jobs (older than 24 hours)
+	err = p.db.DeleteStaleImportJobs(ctx)
+	if err != nil {
+		slog.Error("Failed to delete stale import jobs", "error", err)
+		return err
+	}
+
+	slog.Info("Cleanup job completed successfully")
 	return nil
 }
 
@@ -257,3 +324,23 @@ func ptrToInt(i *int) int {
 	}
 	return *i
 }
+func downloadImage(ctx context.Context, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to download image: status %d", resp.StatusCode)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+

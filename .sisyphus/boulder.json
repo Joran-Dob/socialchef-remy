@@ -1,10 +1,8 @@
 {
-  "active_plan": "/Users/jorandob/Documents/Projects/SocialChef/socialchef-remy/.sisyphus/plans/schema-sync.md",
-  "started_at": "2026-02-24T15:51:48.153Z",
-  "session_ids": [
-    "ses_370da884fffeZZ0Mmoyfbws9Vn"
-  ],
-  "plan_name": "schema-sync",
-  "agent": "atlas",
-  "progress": "8/8 tasks complete"
+  "active_plan": "/Users/jorandob/Documents/Projects/SocialChef/socialchef-remy/.sisyphus/plans/rebuild-investigation.md",
+  "started_at": "2026-02-24T18:57:29.094Z",
+  "session_ids": ["ses_36f469d0affew2vak4Swpp54Cb"],
+  "plan_name": "rebuild-investigation",
+  "agent": "sisyphus",
+  "progress": "6/7 tasks done - 1 blocked by DB migration"
 }
