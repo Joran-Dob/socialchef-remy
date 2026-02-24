@@ -295,7 +295,7 @@ func TestHandleGenerateEmbedding_ValidRequest(t *testing.T) {
 	fixtures.mockDB.recipes[recipeID] = generated.Recipe{
 		ID:          uuidToPgtype(uuid.MustParse(recipeID)),
 		CreatedBy:   uuidToPgtype(uuid.MustParse(userID)),
-		Name:        "Test Recipe",
+		RecipeName:  "Test Recipe",
 		Description: pgtype.Text{String: "A test recipe", Valid: true},
 		CreatedAt:   pgtype.Timestamptz{Time: time.Now(), Valid: true},
 		UpdatedAt:   pgtype.Timestamptz{Time: time.Now(), Valid: true},
@@ -307,8 +307,8 @@ func TestHandleGenerateEmbedding_ValidRequest(t *testing.T) {
 		t.Fatalf("failed to get recipe: %v", err)
 	}
 
-	if recipe.Name != "Test Recipe" {
-		t.Errorf("expected recipe name 'Test Recipe', got %s", recipe.Name)
+	if recipe.RecipeName != "Test Recipe" {
+		t.Errorf("expected recipe name 'Test Recipe', got %s", recipe.RecipeName)
 	}
 }
 

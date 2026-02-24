@@ -10,15 +10,15 @@ INSERT INTO stored_images (
 
 -- name: CreateRecipeImage :one
 INSERT INTO recipe_images (
-    recipe_id, image_id
+    recipe_id, stored_image_id, image_type
 ) VALUES (
-    $1, $2
+    $1, $2, $3
 ) RETURNING *;
 
 -- name: GetImagesByRecipe :many
 SELECT si.* 
 FROM stored_images si 
-JOIN recipe_images ri ON si.id = ri.image_id 
+JOIN recipe_images ri ON si.id = ri.stored_image_id 
 WHERE ri.recipe_id = $1;
 
 -- name: DeleteRecipeImages :exec

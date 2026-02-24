@@ -12,7 +12,7 @@ import (
 )
 
 const getProfile = `-- name: GetProfile :one
-SELECT id, username, avatar_url, measurement_units, created_at, updated_at FROM profiles WHERE id = $1
+SELECT id, email, first_name, last_name, username, avatar_url, measurement_unit, full_name, created_at, updated_at FROM profiles WHERE id = $1
 `
 
 func (q *Queries) GetProfile(ctx context.Context, id pgtype.UUID) (Profile, error) {
@@ -20,9 +20,13 @@ func (q *Queries) GetProfile(ctx context.Context, id pgtype.UUID) (Profile, erro
 	var i Profile
 	err := row.Scan(
 		&i.ID,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
 		&i.Username,
 		&i.AvatarUrl,
-		&i.MeasurementUnits,
+		&i.MeasurementUnit,
+		&i.FullName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -34,17 +38,17 @@ UPDATE profiles
 SET 
     username = $2, 
     avatar_url = $3, 
-    measurement_units = $4,
+    measurement_unit = $4,
     updated_at = NOW()
 WHERE id = $1 
-RETURNING id, username, avatar_url, measurement_units, created_at, updated_at
+RETURNING id, email, first_name, last_name, username, avatar_url, measurement_unit, full_name, created_at, updated_at
 `
 
 type UpdateProfileParams struct {
-	ID               pgtype.UUID
-	Username         string
-	AvatarUrl        pgtype.Text
-	MeasurementUnits string
+	ID              pgtype.UUID
+	Username        pgtype.Text
+	AvatarUrl       pgtype.Text
+	MeasurementUnit NullMeasurementUnit
 }
 
 func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error) {
@@ -52,14 +56,18 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (P
 		arg.ID,
 		arg.Username,
 		arg.AvatarUrl,
-		arg.MeasurementUnits,
+		arg.MeasurementUnit,
 	)
 	var i Profile
 	err := row.Scan(
 		&i.ID,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
 		&i.Username,
 		&i.AvatarUrl,
-		&i.MeasurementUnits,
+		&i.MeasurementUnit,
+		&i.FullName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

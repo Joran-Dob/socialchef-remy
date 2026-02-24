@@ -1,11 +1,9 @@
 {
-  "active_plan": "/Users/jorandob/Documents/Projects/SocialChef/socialchef-remy/.sisyphus/plans/go-rebuild.md",
-  "started_at": "2026-02-23T17:23:48.167Z",
+  "active_plan": "/Users/jorandob/Documents/Projects/SocialChef/socialchef-remy/.sisyphus/plans/schema-sync.md",
+  "started_at": "2026-02-24T15:51:48.153Z",
   "session_ids": [
-    "ses_374d03a8affe1vR90H3vWWKHmA",
     "ses_370da884fffeZZ0Mmoyfbws9Vn"
   ],
-  "plan_name": "go-rebuild",
-  "agent": "atlas",
-  "progress": "24/24 main tasks complete. F1-F4 (Final Verification) requires manual deployment."
+  "plan_name": "schema-sync",
+  "agent": "atlas"
 }

@@ -6,7 +6,7 @@ UPDATE profiles
 SET 
     username = $2, 
     avatar_url = $3, 
-    measurement_units = $4,
+    measurement_unit = $4,
     updated_at = NOW()
 WHERE id = $1 
 RETURNING *;

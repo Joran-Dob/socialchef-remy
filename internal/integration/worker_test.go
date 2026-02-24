@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/pgvector/pgvector-go"
 
 	"github.com/socialchef/remy/internal/db/generated"
 	"github.com/socialchef/remy/internal/services/scraper"
@@ -103,10 +102,10 @@ func TestMockDB_UpdateImportJobStatus(t *testing.T) {
 	})
 
 	err := fixtures.mockDB.UpdateImportJobStatus(context.Background(), generated.UpdateImportJobStatusParams{
-		ID:           uuidToPgtype(uuid.MustParse(jobID)),
+		JobID:        jobID,
 		Status:       "completed",
 		ProgressStep: pgtype.Text{String: "Done", Valid: true},
-		Error:        pgtype.Text{},
+		Error:        nil,
 	})
 	if err != nil {
 		t.Fatalf("failed to update job: %v", err)
@@ -167,24 +166,23 @@ func TestMockDB_CreateAndGetRecipe(t *testing.T) {
 	userID := uuid.New().String()
 
 	recipe, err := fixtures.mockDB.CreateRecipe(context.Background(), generated.CreateRecipeParams{
-		ID:          uuidToPgtype(uuid.MustParse(recipeID)),
-		CreatedBy:   uuidToPgtype(uuid.MustParse(userID)),
-		Name:        "Test Recipe",
-		Description: pgtype.Text{String: "A test recipe", Valid: true},
-		PrepTime:    pgtype.Int4{Int32: 15, Valid: true},
-		CookTime:    pgtype.Int4{Int32: 30, Valid: true},
-		Servings:    pgtype.Int4{Int32: 4, Valid: true},
-		Difficulty:  pgtype.Text{String: "medium", Valid: true},
-		OriginUrl:   pgtype.Text{String: "https://instagram.com/p/test", Valid: true},
-		Embedding:   pgvector.Vector{},
-		IsPublic:    false,
+		ID:                  uuidToPgtype(uuid.MustParse(recipeID)),
+		CreatedBy:           uuidToPgtype(uuid.MustParse(userID)),
+		RecipeName:          "Test Recipe",
+		Description:         pgtype.Text{String: "A test recipe", Valid: true},
+		PrepTime:            pgtype.Int4{Int32: 15, Valid: true},
+		CookingTime:         pgtype.Int4{Int32: 30, Valid: true},
+		OriginalServingSize: pgtype.Int4{Int32: 4, Valid: true},
+		DifficultyRating:    pgtype.Int2{Int16: 3, Valid: true},
+		Origin:              generated.RecipeOriginInstagram,
+		Url:                 "https://instagram.com/p/test",
 	})
 	if err != nil {
 		t.Fatalf("failed to create recipe: %v", err)
 	}
 
-	if recipe.Name != "Test Recipe" {
-		t.Errorf("expected recipe name 'Test Recipe', got %s", recipe.Name)
+	if recipe.RecipeName != "Test Recipe" {
+		t.Errorf("expected recipe name 'Test Recipe', got %s", recipe.RecipeName)
 	}
 
 	retrievedRecipe, err := fixtures.mockDB.GetRecipe(context.Background(), uuidToPgtype(uuid.MustParse(recipeID)))
@@ -192,8 +190,8 @@ func TestMockDB_CreateAndGetRecipe(t *testing.T) {
 		t.Fatalf("failed to get recipe: %v", err)
 	}
 
-	if retrievedRecipe.Name != "Test Recipe" {
-		t.Errorf("expected retrieved name 'Test Recipe', got %s", retrievedRecipe.Name)
+	if retrievedRecipe.RecipeName != "Test Recipe" {
+		t.Errorf("expected retrieved name 'Test Recipe', got %s", retrievedRecipe.RecipeName)
 	}
 }
 
@@ -214,10 +212,12 @@ func TestMockDB_CreateIngredients(t *testing.T) {
 
 	for _, ing := range ingredients {
 		_, err := fixtures.mockDB.CreateIngredient(context.Background(), generated.CreateIngredientParams{
-			RecipeID: uuidToPgtype(uuid.MustParse(recipeID)),
-			Name:     ing.name,
-			Quantity: pgtype.Text{String: ing.quantity, Valid: true},
-			Unit:     pgtype.Text{String: ing.unit, Valid: ing.unit != ""},
+			RecipeID:         uuidToPgtype(uuid.MustParse(recipeID)),
+			Name:             ing.name,
+			Quantity:         pgtype.Text{String: ing.quantity, Valid: true},
+			Unit:             pgtype.Text{String: ing.unit, Valid: ing.unit != ""},
+			OriginalQuantity: pgtype.Text{String: ing.quantity, Valid: true},
+			OriginalUnit:     pgtype.Text{String: ing.unit, Valid: ing.unit != ""},
 		})
 		if err != nil {
 			t.Fatalf("failed to create ingredient: %v", err)
@@ -269,7 +269,6 @@ func TestMockDB_CreateNutrition(t *testing.T) {
 
 	_, err := fixtures.mockDB.CreateNutrition(context.Background(), generated.CreateNutritionParams{
 		RecipeID: uuidToPgtype(uuid.MustParse(recipeID)),
-		Calories: pgtype.Int4{Int32: 350, Valid: true},
 		Protein:  pgtype.Numeric{Int: big.NewInt(1500), Exp: -2, Valid: true},
 		Carbs:    pgtype.Numeric{Int: big.NewInt(4500), Exp: -2, Valid: true},
 		Fat:      pgtype.Numeric{Int: big.NewInt(1200), Exp: -2, Valid: true},
@@ -284,12 +283,12 @@ func TestMockDB_CreateNutrition(t *testing.T) {
 		t.Fatal("nutrition not found")
 	}
 
-	if nutrition.Calories.Int32 != 350 {
-		t.Errorf("expected 350 calories, got %d", nutrition.Calories.Int32)
+	if nutrition.Protein.Int.Cmp(big.NewInt(1500)) != 0 {
+		t.Errorf("expected protein 15.00, got %v", nutrition.Protein)
 	}
 }
 
-func TestMockDB_UpdateRecipeEmbedding(t *testing.T) {
+func TestMockDB_UpdateRecipe(t *testing.T) {
 	fixtures := setupTestFixtures()
 
 	recipeID := uuid.New().String()
@@ -298,22 +297,27 @@ func TestMockDB_UpdateRecipeEmbedding(t *testing.T) {
 	fixtures.mockDB.CreateRecipe(context.Background(), generated.CreateRecipeParams{
 		ID:          uuidToPgtype(uuid.MustParse(recipeID)),
 		CreatedBy:   uuidToPgtype(uuid.MustParse(userID)),
-		Name:        "Test Recipe",
+		RecipeName:  "Test Recipe",
 		Description: pgtype.Text{String: "A test recipe", Valid: true},
-		Embedding:   pgvector.Vector{},
+		Origin:      generated.RecipeOriginInstagram,
+		Url:         "https://instagram.com/p/test",
 	})
 
-	embedding := pgvector.NewVector([]float32{0.1, 0.2, 0.3, 0.4, 0.5})
 	updatedRecipe, err := fixtures.mockDB.UpdateRecipe(context.Background(), generated.UpdateRecipeParams{
-		ID:        uuidToPgtype(uuid.MustParse(recipeID)),
-		Embedding: embedding,
+		ID:          uuidToPgtype(uuid.MustParse(recipeID)),
+		RecipeName:  "Updated Recipe",
+		Description: pgtype.Text{String: "An updated recipe", Valid: true},
+		PrepTime:    pgtype.Int4{Int32: 20, Valid: true},
+		CookingTime: pgtype.Int4{Int32: 40, Valid: true},
+		Origin:      generated.RecipeOriginInstagram,
+		Url:         "https://instagram.com/p/test",
 	})
 	if err != nil {
 		t.Fatalf("failed to update recipe: %v", err)
 	}
 
-	if len(updatedRecipe.Embedding.Slice()) != 5 {
-		t.Errorf("expected embedding with 5 dimensions, got %d", len(updatedRecipe.Embedding.Slice()))
+	if updatedRecipe.RecipeName != "Updated Recipe" {
+		t.Errorf("expected updated recipe name 'Updated Recipe', got %s", updatedRecipe.RecipeName)
 	}
 }
 
@@ -502,21 +506,22 @@ func TestRecipePipeline_MockDBOperations(t *testing.T) {
 	}
 
 	fixtures.mockDB.UpdateImportJobStatus(ctx, generated.UpdateImportJobStatusParams{
-		ID:           uuidToPgtype(uuid.MustParse(jobID)),
+		JobID:        jobID,
 		Status:       "scraping",
 		ProgressStep: pgtype.Text{String: "Fetching post content...", Valid: true},
 	})
 
 	recipeID := uuid.New().String()
 	_, err = fixtures.mockDB.CreateRecipe(ctx, generated.CreateRecipeParams{
-		ID:          uuidToPgtype(uuid.MustParse(recipeID)),
-		CreatedBy:   uuidToPgtype(uuid.MustParse(userID)),
-		Name:        "Chocolate Cake",
-		Description: pgtype.Text{String: "Rich chocolate cake recipe", Valid: true},
-		PrepTime:    pgtype.Int4{Int32: 15, Valid: true},
-		CookTime:    pgtype.Int4{Int32: 35, Valid: true},
-		Servings:    pgtype.Int4{Int32: 8, Valid: true},
-		OriginUrl:   pgtype.Text{String: "https://instagram.com/p/chocolate-cake", Valid: true},
+		ID:                  uuidToPgtype(uuid.MustParse(recipeID)),
+		CreatedBy:           uuidToPgtype(uuid.MustParse(userID)),
+		RecipeName:          "Chocolate Cake",
+		Description:         pgtype.Text{String: "Rich chocolate cake recipe", Valid: true},
+		PrepTime:            pgtype.Int4{Int32: 15, Valid: true},
+		CookingTime:         pgtype.Int4{Int32: 35, Valid: true},
+		OriginalServingSize: pgtype.Int4{Int32: 8, Valid: true},
+		Origin:              generated.RecipeOriginInstagram,
+		Url:                 "https://instagram.com/p/chocolate-cake",
 	})
 	if err != nil {
 		t.Fatalf("failed to create recipe: %v", err)
@@ -536,10 +541,12 @@ func TestRecipePipeline_MockDBOperations(t *testing.T) {
 
 	for _, ing := range ingredients {
 		_, err := fixtures.mockDB.CreateIngredient(ctx, generated.CreateIngredientParams{
-			RecipeID: uuidToPgtype(uuid.MustParse(recipeID)),
-			Name:     ing.name,
-			Quantity: pgtype.Text{String: ing.quantity, Valid: true},
-			Unit:     pgtype.Text{String: ing.unit, Valid: ing.unit != ""},
+			RecipeID:         uuidToPgtype(uuid.MustParse(recipeID)),
+			Name:             ing.name,
+			Quantity:         pgtype.Text{String: ing.quantity, Valid: true},
+			Unit:             pgtype.Text{String: ing.unit, Valid: ing.unit != ""},
+			OriginalQuantity: pgtype.Text{String: ing.quantity, Valid: true},
+			OriginalUnit:     pgtype.Text{String: ing.unit, Valid: ing.unit != ""},
 		})
 		if err != nil {
 			t.Fatalf("failed to create ingredient: %v", err)
@@ -567,7 +574,6 @@ func TestRecipePipeline_MockDBOperations(t *testing.T) {
 
 	_, err = fixtures.mockDB.CreateNutrition(ctx, generated.CreateNutritionParams{
 		RecipeID: uuidToPgtype(uuid.MustParse(recipeID)),
-		Calories: pgtype.Int4{Int32: 320, Valid: true},
 		Protein:  pgtype.Numeric{Int: big.NewInt(400), Exp: -2, Valid: true},
 		Carbs:    pgtype.Numeric{Int: big.NewInt(4800), Exp: -2, Valid: true},
 		Fat:      pgtype.Numeric{Int: big.NewInt(1400), Exp: -2, Valid: true},
@@ -578,7 +584,7 @@ func TestRecipePipeline_MockDBOperations(t *testing.T) {
 	}
 
 	fixtures.mockDB.UpdateImportJobStatus(ctx, generated.UpdateImportJobStatusParams{
-		ID:           uuidToPgtype(uuid.MustParse(jobID)),
+		JobID:        jobID,
 		Status:       "completed",
 		ProgressStep: pgtype.Text{String: "Recipe saved successfully!", Valid: true},
 	})
@@ -589,8 +595,8 @@ func TestRecipePipeline_MockDBOperations(t *testing.T) {
 	}
 
 	retrievedRecipe, _ := fixtures.mockDB.GetRecipe(ctx, uuidToPgtype(uuid.MustParse(recipeID)))
-	if retrievedRecipe.Name != "Chocolate Cake" {
-		t.Errorf("expected recipe name 'Chocolate Cake', got %s", retrievedRecipe.Name)
+	if retrievedRecipe.RecipeName != "Chocolate Cake" {
+		t.Errorf("expected recipe name 'Chocolate Cake', got %s", retrievedRecipe.RecipeName)
 	}
 
 	retrievedIngredients, _ := fixtures.mockDB.GetIngredientsByRecipe(ctx, uuidToPgtype(uuid.MustParse(recipeID)))
@@ -598,15 +604,20 @@ func TestRecipePipeline_MockDBOperations(t *testing.T) {
 		t.Errorf("expected 5 ingredients, got %d", len(retrievedIngredients))
 	}
 
-	embedding := pgvector.NewVector([]float32{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8})
-	fixtures.mockDB.UpdateRecipe(ctx, generated.UpdateRecipeParams{
-		ID:        uuidToPgtype(uuid.MustParse(recipeID)),
-		Embedding: embedding,
+	_, err = fixtures.mockDB.UpdateRecipe(ctx, generated.UpdateRecipeParams{
+		ID:          uuidToPgtype(uuid.MustParse(recipeID)),
+		RecipeName:  "Updated Chocolate Cake",
+		Description: pgtype.Text{String: "Rich chocolate cake recipe", Valid: true},
+		Origin:      generated.RecipeOriginInstagram,
+		Url:         "https://instagram.com/p/chocolate-cake",
 	})
+	if err != nil {
+		t.Fatalf("failed to update recipe: %v", err)
+	}
 
 	finalRecipe, _ := fixtures.mockDB.GetRecipe(ctx, uuidToPgtype(uuid.MustParse(recipeID)))
-	if len(finalRecipe.Embedding.Slice()) != 8 {
-		t.Errorf("expected embedding with 8 dimensions, got %d", len(finalRecipe.Embedding.Slice()))
+	if finalRecipe.RecipeName != "Updated Chocolate Cake" {
+		t.Errorf("expected updated recipe name 'Updated Chocolate Cake', got %s", finalRecipe.RecipeName)
 	}
 
 	t.Logf("Recipe pipeline completed successfully: created job %s, recipe %s with %d ingredients",

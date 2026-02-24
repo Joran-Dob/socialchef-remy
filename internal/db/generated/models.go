@@ -5,39 +5,182 @@
 package generated
 
 import (
+	"database/sql/driver"
+	"fmt"
+
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/pgvector/pgvector-go"
 )
 
+type MeasurementUnit string
+
+const (
+	MeasurementUnitMetric   MeasurementUnit = "metric"
+	MeasurementUnitImperial MeasurementUnit = "imperial"
+)
+
+func (e *MeasurementUnit) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = MeasurementUnit(s)
+	case string:
+		*e = MeasurementUnit(s)
+	default:
+		return fmt.Errorf("unsupported scan type for MeasurementUnit: %T", src)
+	}
+	return nil
+}
+
+type NullMeasurementUnit struct {
+	MeasurementUnit MeasurementUnit
+	Valid           bool // Valid is true if MeasurementUnit is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullMeasurementUnit) Scan(value interface{}) error {
+	if value == nil {
+		ns.MeasurementUnit, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.MeasurementUnit.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullMeasurementUnit) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.MeasurementUnit), nil
+}
+
+type RecipeOrigin string
+
+const (
+	RecipeOriginInstagram RecipeOrigin = "instagram"
+	RecipeOriginTiktok    RecipeOrigin = "tiktok"
+)
+
+func (e *RecipeOrigin) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RecipeOrigin(s)
+	case string:
+		*e = RecipeOrigin(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RecipeOrigin: %T", src)
+	}
+	return nil
+}
+
+type NullRecipeOrigin struct {
+	RecipeOrigin RecipeOrigin
+	Valid        bool // Valid is true if RecipeOrigin is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRecipeOrigin) Scan(value interface{}) error {
+	if value == nil {
+		ns.RecipeOrigin, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RecipeOrigin.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRecipeOrigin) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RecipeOrigin), nil
+}
+
+type SocialMediaPlatform string
+
+const (
+	SocialMediaPlatformInstagram SocialMediaPlatform = "instagram"
+	SocialMediaPlatformTiktok    SocialMediaPlatform = "tiktok"
+)
+
+func (e *SocialMediaPlatform) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = SocialMediaPlatform(s)
+	case string:
+		*e = SocialMediaPlatform(s)
+	default:
+		return fmt.Errorf("unsupported scan type for SocialMediaPlatform: %T", src)
+	}
+	return nil
+}
+
+type NullSocialMediaPlatform struct {
+	SocialMediaPlatform SocialMediaPlatform
+	Valid               bool // Valid is true if SocialMediaPlatform is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullSocialMediaPlatform) Scan(value interface{}) error {
+	if value == nil {
+		ns.SocialMediaPlatform, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.SocialMediaPlatform.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullSocialMediaPlatform) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.SocialMediaPlatform), nil
+}
+
 type Profile struct {
-	ID               pgtype.UUID
-	Username         string
-	AvatarUrl        pgtype.Text
-	MeasurementUnits string
-	CreatedAt        pgtype.Timestamptz
-	UpdatedAt        pgtype.Timestamptz
+	ID              pgtype.UUID
+	Email           pgtype.Text
+	FirstName       pgtype.Text
+	LastName        pgtype.Text
+	Username        pgtype.Text
+	AvatarUrl       pgtype.Text
+	MeasurementUnit NullMeasurementUnit
+	FullName        pgtype.Text
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
 }
 
 type Recipe struct {
-	ID          pgtype.UUID
-	CreatedBy   pgtype.UUID
-	Name        string
-	Description pgtype.Text
-	PrepTime    pgtype.Int4
-	CookTime    pgtype.Int4
-	Servings    pgtype.Int4
-	Difficulty  pgtype.Text
-	OriginUrl   pgtype.Text
-	Embedding   pgvector.Vector
-	IsPublic    bool
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	ID                  pgtype.UUID
+	RecipeName          string
+	Description         pgtype.Text
+	PrepTime            pgtype.Int4
+	CookingTime         pgtype.Int4
+	TotalTime           pgtype.Int4
+	OriginalServingSize pgtype.Int4
+	DifficultyRating    pgtype.Int2
+	CuisineCategories   []string
+	MealType            []string
+	Occasion            []string
+	DietaryRestrictions []string
+	FocusedDiet         pgtype.Text
+	EstimatedCalories   pgtype.Int4
+	Equipment           []string
+	Origin              RecipeOrigin
+	Url                 string
+	CreatedBy           pgtype.UUID
+	OwnerID             pgtype.UUID
+	ThumbnailID         pgtype.UUID
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
 }
 
 type RecipeImage struct {
-	ID       pgtype.UUID
-	RecipeID pgtype.UUID
-	ImageID  pgtype.UUID
+	ID            pgtype.UUID
+	RecipeID      pgtype.UUID
+	StoredImageID pgtype.UUID
+	ImageType     string
+	CreatedAt     pgtype.Timestamptz
 }
 
 type RecipeImportJob struct {
@@ -57,11 +200,14 @@ type RecipeImportJob struct {
 }
 
 type RecipeIngredient struct {
-	ID       pgtype.UUID
-	RecipeID pgtype.UUID
-	Quantity pgtype.Text
-	Unit     pgtype.Text
-	Name     string
+	ID               pgtype.UUID
+	RecipeID         pgtype.UUID
+	Quantity         pgtype.Text
+	Unit             pgtype.Text
+	OriginalQuantity pgtype.Text
+	OriginalUnit     pgtype.Text
+	Name             string
+	CreatedAt        pgtype.Timestamptz
 }
 
 type RecipeInstruction struct {
@@ -69,12 +215,12 @@ type RecipeInstruction struct {
 	RecipeID    pgtype.UUID
 	StepNumber  int32
 	Instruction string
+	CreatedAt   pgtype.Timestamptz
 }
 
 type RecipeNutrition struct {
 	ID        pgtype.UUID
 	RecipeID  pgtype.UUID
-	Calories  pgtype.Int4
 	Protein   pgtype.Numeric
 	Carbs     pgtype.Numeric
 	Fat       pgtype.Numeric
@@ -84,18 +230,23 @@ type RecipeNutrition struct {
 }
 
 type SocialMediaOwner struct {
-	ID              pgtype.UUID
-	InstagramHandle pgtype.Text
-	TiktokID        pgtype.Text
-	Name            string
-	AvatarUrl       pgtype.Text
-	CreatedAt       pgtype.Timestamptz
-	UpdatedAt       pgtype.Timestamptz
+	ID                      pgtype.UUID
+	Username                string
+	ProfilePicStoredImageID pgtype.Text
+	OriginID                string
+	Platform                SocialMediaPlatform
+	CreatedAt               pgtype.Timestamptz
+	UpdatedAt               pgtype.Timestamptz
 }
 
 type StoredImage struct {
 	ID          pgtype.UUID
-	ContentHash string
 	StoragePath string
+	SourceUrl   string
+	ContentHash string
+	MimeType    pgtype.Text
+	Width       pgtype.Int4
+	Height      pgtype.Int4
+	FileSize    pgtype.Int8
 	CreatedAt   pgtype.Timestamptz
 }

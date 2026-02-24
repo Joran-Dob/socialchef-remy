@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/pgvector/pgvector-go"
 	"github.com/socialchef/remy/internal/db/generated"
 	"github.com/socialchef/remy/internal/services/groq"
 	"github.com/socialchef/remy/internal/services/openai"
@@ -106,24 +105,31 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	recipeUUID := parseUUID(uuid.New().String())
 	userUUID := parseUUID(userID)
 
-	difficulty := ""
+	var difficultyRating pgtype.Int2
 	if recipe.DifficultyRating != nil {
-		difficulty = fmt.Sprintf("%d", *recipe.DifficultyRating)
+		difficultyRating = pgtype.Int2{Int16: int16(*recipe.DifficultyRating), Valid: true}
 	}
 
-	var embedding pgvector.Vector
+	var origin generated.RecipeOrigin
+	if platform == "instagram" {
+		origin = generated.RecipeOriginInstagram
+	} else {
+		origin = generated.RecipeOriginTiktok
+	}
+
 	savedRecipe, err := p.db.CreateRecipe(ctx, generated.CreateRecipeParams{
-		ID:          recipeUUID,
-		CreatedBy:   userUUID,
-		Name:        recipe.RecipeName,
-		Description: pgtype.Text{String: recipe.Description, Valid: recipe.Description != ""},
-		PrepTime:    pgtype.Int4{Int32: int32(ptrToInt(recipe.PrepTime)), Valid: recipe.PrepTime != nil},
-		CookTime:    pgtype.Int4{Int32: int32(ptrToInt(recipe.CookingTime)), Valid: recipe.CookingTime != nil},
-		Servings:    pgtype.Int4{Int32: int32(ptrToInt(recipe.OriginalServings)), Valid: recipe.OriginalServings != nil},
-		Difficulty:  pgtype.Text{String: difficulty, Valid: difficulty != ""},
-		OriginUrl:   pgtype.Text{String: url, Valid: true},
-		Embedding:   embedding,
-		IsPublic:    false,
+		ID:                  recipeUUID,
+		CreatedBy:           userUUID,
+		RecipeName:          recipe.RecipeName,
+		Description:         pgtype.Text{String: recipe.Description, Valid: recipe.Description != ""},
+		PrepTime:            pgtype.Int4{Int32: int32(ptrToInt(recipe.PrepTime)), Valid: recipe.PrepTime != nil},
+		CookingTime:         pgtype.Int4{Int32: int32(ptrToInt(recipe.CookingTime)), Valid: recipe.CookingTime != nil},
+		OriginalServingSize: pgtype.Int4{Int32: int32(ptrToInt(recipe.OriginalServings)), Valid: recipe.OriginalServings != nil},
+		DifficultyRating:    difficultyRating,
+		Origin:              origin,
+		Url:                 url,
+		OwnerID:             pgtype.UUID{},
+		ThumbnailID:         pgtype.UUID{},
 	})
 	if err != nil {
 		p.markFailed(ctx, jobID, userID, fmt.Sprintf("Failed to save recipe: %v", err))
@@ -132,10 +138,12 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 	for _, ing := range recipe.Ingredients {
 		_, err := p.db.CreateIngredient(ctx, generated.CreateIngredientParams{
-			RecipeID: savedRecipe.ID,
-			Quantity: pgtype.Text{String: ing.OriginalQuantity, Valid: ing.OriginalQuantity != ""},
-			Unit:     pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
-			Name:     ing.Name,
+			RecipeID:         savedRecipe.ID,
+			Quantity:         pgtype.Text{String: ing.OriginalQuantity, Valid: ing.OriginalQuantity != ""},
+			Unit:             pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
+			OriginalQuantity: pgtype.Text{String: ing.OriginalQuantity, Valid: ing.OriginalQuantity != ""},
+			OriginalUnit:     pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
+			Name:             ing.Name,
 		})
 		if err != nil {
 			slog.Error("Failed to save ingredient", "error", err)
@@ -156,7 +164,6 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	if recipe.Nutrition.Protein > 0 || recipe.Nutrition.Carbs > 0 {
 		_, err := p.db.CreateNutrition(ctx, generated.CreateNutritionParams{
 			RecipeID: savedRecipe.ID,
-			Calories: pgtype.Int4{Int32: int32(ptrToInt(recipe.EstimatedCalories)), Valid: recipe.EstimatedCalories != nil},
 			Protein:  pgtype.Numeric{Int: big.NewInt(int64(recipe.Nutrition.Protein * 100)), Exp: -2, Valid: true},
 			Carbs:    pgtype.Numeric{Int: big.NewInt(int64(recipe.Nutrition.Carbs * 100)), Exp: -2, Valid: true},
 			Fat:      pgtype.Numeric{Int: big.NewInt(int64(recipe.Nutrition.Fat * 100)), Exp: -2, Valid: true},
@@ -184,24 +191,15 @@ func (p *RecipeProcessor) HandleGenerateEmbedding(ctx context.Context, t *asynq.
 		return fmt.Errorf("recipe not found: %w", err)
 	}
 
-	text := recipe.Name + " " + recipe.Description.String
+	text := recipe.RecipeName + " " + recipe.Description.String
 	ingredients, _ := p.db.GetIngredientsByRecipe(ctx, recipe.ID)
 	for _, ing := range ingredients {
 		text += " " + ing.Name
 	}
 
-	embedding, err := p.openai.GenerateEmbedding(ctx, text)
+	_, err = p.openai.GenerateEmbedding(ctx, text)
 	if err != nil {
 		return fmt.Errorf("failed to generate embedding: %w", err)
-	}
-
-	vector := pgvector.NewVector(embedding)
-	_, err = p.db.UpdateRecipe(ctx, generated.UpdateRecipeParams{
-		ID:        recipe.ID,
-		Embedding: vector,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update embedding: %w", err)
 	}
 
 	slog.Info("Embedding generated", "recipe_id", payload.RecipeID)

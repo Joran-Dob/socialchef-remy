@@ -1,6 +1,6 @@
--- name: SearchRecipes :many
-SELECT r.*, 1 - (r.embedding <=> $1::vector) as similarity
+-- name: SearchRecipesByName :many
+SELECT r.*
 FROM recipes r
-WHERE (r.created_by = $2 OR r.is_public = true)
-ORDER BY r.embedding <=> $1::vector
-LIMIT $3;
+WHERE r.recipe_name ILIKE '%' || $1 || '%'
+ORDER BY r.created_at DESC
+LIMIT $2;

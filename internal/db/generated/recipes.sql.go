@@ -9,58 +9,68 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/pgvector/pgvector-go"
 )
 
 const createRecipe = `-- name: CreateRecipe :one
 INSERT INTO recipes (
-    id, created_by, name, description, prep_time, cook_time, servings, difficulty, origin_url, embedding, is_public
+    id, created_by, recipe_name, description, prep_time, cooking_time, original_serving_size, difficulty_rating, origin, url, owner_id, thumbnail_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-) RETURNING id, created_by, name, description, prep_time, cook_time, servings, difficulty, origin_url, embedding, is_public, created_at, updated_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+) RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, cuisine_categories, meal_type, occasion, dietary_restrictions, focused_diet, estimated_calories, equipment, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at
 `
 
 type CreateRecipeParams struct {
-	ID          pgtype.UUID
-	CreatedBy   pgtype.UUID
-	Name        string
-	Description pgtype.Text
-	PrepTime    pgtype.Int4
-	CookTime    pgtype.Int4
-	Servings    pgtype.Int4
-	Difficulty  pgtype.Text
-	OriginUrl   pgtype.Text
-	Embedding   pgvector.Vector
-	IsPublic    bool
+	ID                  pgtype.UUID
+	CreatedBy           pgtype.UUID
+	RecipeName          string
+	Description         pgtype.Text
+	PrepTime            pgtype.Int4
+	CookingTime         pgtype.Int4
+	OriginalServingSize pgtype.Int4
+	DifficultyRating    pgtype.Int2
+	Origin              RecipeOrigin
+	Url                 string
+	OwnerID             pgtype.UUID
+	ThumbnailID         pgtype.UUID
 }
 
 func (q *Queries) CreateRecipe(ctx context.Context, arg CreateRecipeParams) (Recipe, error) {
 	row := q.db.QueryRow(ctx, createRecipe,
 		arg.ID,
 		arg.CreatedBy,
-		arg.Name,
+		arg.RecipeName,
 		arg.Description,
 		arg.PrepTime,
-		arg.CookTime,
-		arg.Servings,
-		arg.Difficulty,
-		arg.OriginUrl,
-		arg.Embedding,
-		arg.IsPublic,
+		arg.CookingTime,
+		arg.OriginalServingSize,
+		arg.DifficultyRating,
+		arg.Origin,
+		arg.Url,
+		arg.OwnerID,
+		arg.ThumbnailID,
 	)
 	var i Recipe
 	err := row.Scan(
 		&i.ID,
-		&i.CreatedBy,
-		&i.Name,
+		&i.RecipeName,
 		&i.Description,
 		&i.PrepTime,
-		&i.CookTime,
-		&i.Servings,
-		&i.Difficulty,
-		&i.OriginUrl,
-		&i.Embedding,
-		&i.IsPublic,
+		&i.CookingTime,
+		&i.TotalTime,
+		&i.OriginalServingSize,
+		&i.DifficultyRating,
+		&i.CuisineCategories,
+		&i.MealType,
+		&i.Occasion,
+		&i.DietaryRestrictions,
+		&i.FocusedDiet,
+		&i.EstimatedCalories,
+		&i.Equipment,
+		&i.Origin,
+		&i.Url,
+		&i.CreatedBy,
+		&i.OwnerID,
+		&i.ThumbnailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -82,7 +92,7 @@ func (q *Queries) DeleteRecipe(ctx context.Context, arg DeleteRecipeParams) erro
 }
 
 const getRecipe = `-- name: GetRecipe :one
-SELECT id, created_by, name, description, prep_time, cook_time, servings, difficulty, origin_url, embedding, is_public, created_at, updated_at FROM recipes WHERE id = $1
+SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, cuisine_categories, meal_type, occasion, dietary_restrictions, focused_diet, estimated_calories, equipment, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at FROM recipes WHERE id = $1
 `
 
 func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error) {
@@ -90,16 +100,25 @@ func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error)
 	var i Recipe
 	err := row.Scan(
 		&i.ID,
-		&i.CreatedBy,
-		&i.Name,
+		&i.RecipeName,
 		&i.Description,
 		&i.PrepTime,
-		&i.CookTime,
-		&i.Servings,
-		&i.Difficulty,
-		&i.OriginUrl,
-		&i.Embedding,
-		&i.IsPublic,
+		&i.CookingTime,
+		&i.TotalTime,
+		&i.OriginalServingSize,
+		&i.DifficultyRating,
+		&i.CuisineCategories,
+		&i.MealType,
+		&i.Occasion,
+		&i.DietaryRestrictions,
+		&i.FocusedDiet,
+		&i.EstimatedCalories,
+		&i.Equipment,
+		&i.Origin,
+		&i.Url,
+		&i.CreatedBy,
+		&i.OwnerID,
+		&i.ThumbnailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -107,7 +126,7 @@ func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error)
 }
 
 const getRecipesByUser = `-- name: GetRecipesByUser :many
-SELECT id, created_by, name, description, prep_time, cook_time, servings, difficulty, origin_url, embedding, is_public, created_at, updated_at FROM recipes WHERE created_by = $1 ORDER BY created_at DESC
+SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, cuisine_categories, meal_type, occasion, dietary_restrictions, focused_diet, estimated_calories, equipment, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at FROM recipes WHERE created_by = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) GetRecipesByUser(ctx context.Context, createdBy pgtype.UUID) ([]Recipe, error) {
@@ -121,16 +140,25 @@ func (q *Queries) GetRecipesByUser(ctx context.Context, createdBy pgtype.UUID) (
 		var i Recipe
 		if err := rows.Scan(
 			&i.ID,
-			&i.CreatedBy,
-			&i.Name,
+			&i.RecipeName,
 			&i.Description,
 			&i.PrepTime,
-			&i.CookTime,
-			&i.Servings,
-			&i.Difficulty,
-			&i.OriginUrl,
-			&i.Embedding,
-			&i.IsPublic,
+			&i.CookingTime,
+			&i.TotalTime,
+			&i.OriginalServingSize,
+			&i.DifficultyRating,
+			&i.CuisineCategories,
+			&i.MealType,
+			&i.Occasion,
+			&i.DietaryRestrictions,
+			&i.FocusedDiet,
+			&i.EstimatedCalories,
+			&i.Equipment,
+			&i.Origin,
+			&i.Url,
+			&i.CreatedBy,
+			&i.OwnerID,
+			&i.ThumbnailID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -147,77 +175,89 @@ func (q *Queries) GetRecipesByUser(ctx context.Context, createdBy pgtype.UUID) (
 const updateRecipe = `-- name: UpdateRecipe :one
 UPDATE recipes 
 SET 
-    name = $2, 
+    recipe_name = $2, 
     description = $3, 
     prep_time = $4, 
-    cook_time = $5, 
-    servings = $6, 
-    difficulty = $7, 
-    origin_url = $8, 
-    embedding = $9, 
-    is_public = $10,
+    cooking_time = $5, 
+    original_serving_size = $6, 
+    difficulty_rating = $7, 
+    origin = $8,
+    url = $9,
+    owner_id = $10,
+    thumbnail_id = $11,
     updated_at = NOW()
-WHERE id = $1 AND created_by = $11
-RETURNING id, created_by, name, description, prep_time, cook_time, servings, difficulty, origin_url, embedding, is_public, created_at, updated_at
+WHERE id = $1 AND created_by = $12
+RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, cuisine_categories, meal_type, occasion, dietary_restrictions, focused_diet, estimated_calories, equipment, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at
 `
 
 type UpdateRecipeParams struct {
-	ID          pgtype.UUID
-	Name        string
-	Description pgtype.Text
-	PrepTime    pgtype.Int4
-	CookTime    pgtype.Int4
-	Servings    pgtype.Int4
-	Difficulty  pgtype.Text
-	OriginUrl   pgtype.Text
-	Embedding   pgvector.Vector
-	IsPublic    bool
-	CreatedBy   pgtype.UUID
+	ID                  pgtype.UUID
+	RecipeName          string
+	Description         pgtype.Text
+	PrepTime            pgtype.Int4
+	CookingTime         pgtype.Int4
+	OriginalServingSize pgtype.Int4
+	DifficultyRating    pgtype.Int2
+	Origin              RecipeOrigin
+	Url                 string
+	OwnerID             pgtype.UUID
+	ThumbnailID         pgtype.UUID
+	CreatedBy           pgtype.UUID
 }
 
 func (q *Queries) UpdateRecipe(ctx context.Context, arg UpdateRecipeParams) (Recipe, error) {
 	row := q.db.QueryRow(ctx, updateRecipe,
 		arg.ID,
-		arg.Name,
+		arg.RecipeName,
 		arg.Description,
 		arg.PrepTime,
-		arg.CookTime,
-		arg.Servings,
-		arg.Difficulty,
-		arg.OriginUrl,
-		arg.Embedding,
-		arg.IsPublic,
+		arg.CookingTime,
+		arg.OriginalServingSize,
+		arg.DifficultyRating,
+		arg.Origin,
+		arg.Url,
+		arg.OwnerID,
+		arg.ThumbnailID,
 		arg.CreatedBy,
 	)
 	var i Recipe
 	err := row.Scan(
 		&i.ID,
-		&i.CreatedBy,
-		&i.Name,
+		&i.RecipeName,
 		&i.Description,
 		&i.PrepTime,
-		&i.CookTime,
-		&i.Servings,
-		&i.Difficulty,
-		&i.OriginUrl,
-		&i.Embedding,
-		&i.IsPublic,
+		&i.CookingTime,
+		&i.TotalTime,
+		&i.OriginalServingSize,
+		&i.DifficultyRating,
+		&i.CuisineCategories,
+		&i.MealType,
+		&i.Occasion,
+		&i.DietaryRestrictions,
+		&i.FocusedDiet,
+		&i.EstimatedCalories,
+		&i.Equipment,
+		&i.Origin,
+		&i.Url,
+		&i.CreatedBy,
+		&i.OwnerID,
+		&i.ThumbnailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const updateRecipeEmbedding = `-- name: UpdateRecipeEmbedding :exec
-UPDATE recipes SET embedding = $2, updated_at = NOW() WHERE id = $1
+const updateRecipeThumbnail = `-- name: UpdateRecipeThumbnail :exec
+UPDATE recipes SET thumbnail_id = $2, updated_at = NOW() WHERE id = $1
 `
 
-type UpdateRecipeEmbeddingParams struct {
-	ID        pgtype.UUID
-	Embedding pgvector.Vector
+type UpdateRecipeThumbnailParams struct {
+	ID          pgtype.UUID
+	ThumbnailID pgtype.UUID
 }
 
-func (q *Queries) UpdateRecipeEmbedding(ctx context.Context, arg UpdateRecipeEmbeddingParams) error {
-	_, err := q.db.Exec(ctx, updateRecipeEmbedding, arg.ID, arg.Embedding)
+func (q *Queries) UpdateRecipeThumbnail(ctx context.Context, arg UpdateRecipeThumbnailParams) error {
+	_, err := q.db.Exec(ctx, updateRecipeThumbnail, arg.ID, arg.ThumbnailID)
 	return err
 }

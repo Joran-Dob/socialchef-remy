@@ -13,21 +13,28 @@ import (
 
 const createRecipeImage = `-- name: CreateRecipeImage :one
 INSERT INTO recipe_images (
-    recipe_id, image_id
+    recipe_id, stored_image_id, image_type
 ) VALUES (
-    $1, $2
-) RETURNING id, recipe_id, image_id
+    $1, $2, $3
+) RETURNING id, recipe_id, stored_image_id, image_type, created_at
 `
 
 type CreateRecipeImageParams struct {
-	RecipeID pgtype.UUID
-	ImageID  pgtype.UUID
+	RecipeID      pgtype.UUID
+	StoredImageID pgtype.UUID
+	ImageType     string
 }
 
 func (q *Queries) CreateRecipeImage(ctx context.Context, arg CreateRecipeImageParams) (RecipeImage, error) {
-	row := q.db.QueryRow(ctx, createRecipeImage, arg.RecipeID, arg.ImageID)
+	row := q.db.QueryRow(ctx, createRecipeImage, arg.RecipeID, arg.StoredImageID, arg.ImageType)
 	var i RecipeImage
-	err := row.Scan(&i.ID, &i.RecipeID, &i.ImageID)
+	err := row.Scan(
+		&i.ID,
+		&i.RecipeID,
+		&i.StoredImageID,
+		&i.ImageType,
+		&i.CreatedAt,
+	)
 	return i, err
 }
 
@@ -36,7 +43,7 @@ INSERT INTO stored_images (
     id, content_hash, storage_path
 ) VALUES (
     $1, $2, $3
-) RETURNING id, content_hash, storage_path, created_at
+) RETURNING id, storage_path, source_url, content_hash, mime_type, width, height, file_size, created_at
 `
 
 type CreateStoredImageParams struct {
@@ -50,8 +57,13 @@ func (q *Queries) CreateStoredImage(ctx context.Context, arg CreateStoredImagePa
 	var i StoredImage
 	err := row.Scan(
 		&i.ID,
-		&i.ContentHash,
 		&i.StoragePath,
+		&i.SourceUrl,
+		&i.ContentHash,
+		&i.MimeType,
+		&i.Width,
+		&i.Height,
+		&i.FileSize,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -67,9 +79,9 @@ func (q *Queries) DeleteRecipeImages(ctx context.Context, recipeID pgtype.UUID) 
 }
 
 const getImagesByRecipe = `-- name: GetImagesByRecipe :many
-SELECT si.id, si.content_hash, si.storage_path, si.created_at 
+SELECT si.id, si.storage_path, si.source_url, si.content_hash, si.mime_type, si.width, si.height, si.file_size, si.created_at 
 FROM stored_images si 
-JOIN recipe_images ri ON si.id = ri.image_id 
+JOIN recipe_images ri ON si.id = ri.stored_image_id 
 WHERE ri.recipe_id = $1
 `
 
@@ -84,8 +96,13 @@ func (q *Queries) GetImagesByRecipe(ctx context.Context, recipeID pgtype.UUID) (
 		var i StoredImage
 		if err := rows.Scan(
 			&i.ID,
-			&i.ContentHash,
 			&i.StoragePath,
+			&i.SourceUrl,
+			&i.ContentHash,
+			&i.MimeType,
+			&i.Width,
+			&i.Height,
+			&i.FileSize,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -99,7 +116,7 @@ func (q *Queries) GetImagesByRecipe(ctx context.Context, recipeID pgtype.UUID) (
 }
 
 const getStoredImageByHash = `-- name: GetStoredImageByHash :one
-SELECT id, content_hash, storage_path, created_at FROM stored_images WHERE content_hash = $1
+SELECT id, storage_path, source_url, content_hash, mime_type, width, height, file_size, created_at FROM stored_images WHERE content_hash = $1
 `
 
 func (q *Queries) GetStoredImageByHash(ctx context.Context, contentHash string) (StoredImage, error) {
@@ -107,8 +124,13 @@ func (q *Queries) GetStoredImageByHash(ctx context.Context, contentHash string) 
 	var i StoredImage
 	err := row.Scan(
 		&i.ID,
-		&i.ContentHash,
 		&i.StoragePath,
+		&i.SourceUrl,
+		&i.ContentHash,
+		&i.MimeType,
+		&i.Width,
+		&i.Height,
+		&i.FileSize,
 		&i.CreatedAt,
 	)
 	return i, err

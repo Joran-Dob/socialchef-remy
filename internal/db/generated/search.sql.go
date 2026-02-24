@@ -9,64 +9,53 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/pgvector/pgvector-go"
 )
 
-const searchRecipes = `-- name: SearchRecipes :many
-SELECT r.id, r.created_by, r.name, r.description, r.prep_time, r.cook_time, r.servings, r.difficulty, r.origin_url, r.embedding, r.is_public, r.created_at, r.updated_at, 1 - (r.embedding <=> $1::vector) as similarity
+const searchRecipesByName = `-- name: SearchRecipesByName :many
+SELECT r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time, r.total_time, r.original_serving_size, r.difficulty_rating, r.cuisine_categories, r.meal_type, r.occasion, r.dietary_restrictions, r.focused_diet, r.estimated_calories, r.equipment, r.origin, r.url, r.created_by, r.owner_id, r.thumbnail_id, r.created_at, r.updated_at
 FROM recipes r
-WHERE (r.created_by = $2 OR r.is_public = true)
-ORDER BY r.embedding <=> $1::vector
-LIMIT $3
+WHERE r.recipe_name ILIKE '%' || $1 || '%'
+ORDER BY r.created_at DESC
+LIMIT $2
 `
 
-type SearchRecipesParams struct {
-	Column1   pgvector.Vector
-	CreatedBy pgtype.UUID
-	Limit     int32
+type SearchRecipesByNameParams struct {
+	Column1 pgtype.Text
+	Limit   int32
 }
 
-type SearchRecipesRow struct {
-	ID          pgtype.UUID
-	CreatedBy   pgtype.UUID
-	Name        string
-	Description pgtype.Text
-	PrepTime    pgtype.Int4
-	CookTime    pgtype.Int4
-	Servings    pgtype.Int4
-	Difficulty  pgtype.Text
-	OriginUrl   pgtype.Text
-	Embedding   pgvector.Vector
-	IsPublic    bool
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
-	Similarity  int32
-}
-
-func (q *Queries) SearchRecipes(ctx context.Context, arg SearchRecipesParams) ([]SearchRecipesRow, error) {
-	rows, err := q.db.Query(ctx, searchRecipes, arg.Column1, arg.CreatedBy, arg.Limit)
+func (q *Queries) SearchRecipesByName(ctx context.Context, arg SearchRecipesByNameParams) ([]Recipe, error) {
+	rows, err := q.db.Query(ctx, searchRecipesByName, arg.Column1, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SearchRecipesRow
+	var items []Recipe
 	for rows.Next() {
-		var i SearchRecipesRow
+		var i Recipe
 		if err := rows.Scan(
 			&i.ID,
-			&i.CreatedBy,
-			&i.Name,
+			&i.RecipeName,
 			&i.Description,
 			&i.PrepTime,
-			&i.CookTime,
-			&i.Servings,
-			&i.Difficulty,
-			&i.OriginUrl,
-			&i.Embedding,
-			&i.IsPublic,
+			&i.CookingTime,
+			&i.TotalTime,
+			&i.OriginalServingSize,
+			&i.DifficultyRating,
+			&i.CuisineCategories,
+			&i.MealType,
+			&i.Occasion,
+			&i.DietaryRestrictions,
+			&i.FocusedDiet,
+			&i.EstimatedCalories,
+			&i.Equipment,
+			&i.Origin,
+			&i.Url,
+			&i.CreatedBy,
+			&i.OwnerID,
+			&i.ThumbnailID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Similarity,
 		); err != nil {
 			return nil, err
 		}

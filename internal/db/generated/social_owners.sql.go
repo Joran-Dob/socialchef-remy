@@ -13,33 +13,33 @@ import (
 
 const createSocialMediaOwner = `-- name: CreateSocialMediaOwner :one
 INSERT INTO social_media_owners (
-    instagram_handle, tiktok_id, name, avatar_url
+    username, profile_pic_stored_image_id, origin_id, platform
 ) VALUES (
     $1, $2, $3, $4
-) RETURNING id, instagram_handle, tiktok_id, name, avatar_url, created_at, updated_at
+) RETURNING id, username, profile_pic_stored_image_id, origin_id, platform, created_at, updated_at
 `
 
 type CreateSocialMediaOwnerParams struct {
-	InstagramHandle pgtype.Text
-	TiktokID        pgtype.Text
-	Name            string
-	AvatarUrl       pgtype.Text
+	Username                string
+	ProfilePicStoredImageID pgtype.Text
+	OriginID                string
+	Platform                SocialMediaPlatform
 }
 
 func (q *Queries) CreateSocialMediaOwner(ctx context.Context, arg CreateSocialMediaOwnerParams) (SocialMediaOwner, error) {
 	row := q.db.QueryRow(ctx, createSocialMediaOwner,
-		arg.InstagramHandle,
-		arg.TiktokID,
-		arg.Name,
-		arg.AvatarUrl,
+		arg.Username,
+		arg.ProfilePicStoredImageID,
+		arg.OriginID,
+		arg.Platform,
 	)
 	var i SocialMediaOwner
 	err := row.Scan(
 		&i.ID,
-		&i.InstagramHandle,
-		&i.TiktokID,
-		&i.Name,
-		&i.AvatarUrl,
+		&i.Username,
+		&i.ProfilePicStoredImageID,
+		&i.OriginID,
+		&i.Platform,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -47,7 +47,7 @@ func (q *Queries) CreateSocialMediaOwner(ctx context.Context, arg CreateSocialMe
 }
 
 const getSocialMediaOwner = `-- name: GetSocialMediaOwner :one
-SELECT id, instagram_handle, tiktok_id, name, avatar_url, created_at, updated_at FROM social_media_owners WHERE id = $1
+SELECT id, username, profile_pic_stored_image_id, origin_id, platform, created_at, updated_at FROM social_media_owners WHERE id = $1
 `
 
 func (q *Queries) GetSocialMediaOwner(ctx context.Context, id pgtype.UUID) (SocialMediaOwner, error) {
@@ -55,35 +55,54 @@ func (q *Queries) GetSocialMediaOwner(ctx context.Context, id pgtype.UUID) (Soci
 	var i SocialMediaOwner
 	err := row.Scan(
 		&i.ID,
-		&i.InstagramHandle,
-		&i.TiktokID,
-		&i.Name,
-		&i.AvatarUrl,
+		&i.Username,
+		&i.ProfilePicStoredImageID,
+		&i.OriginID,
+		&i.Platform,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const getSocialMediaOwnerByHandle = `-- name: GetSocialMediaOwnerByHandle :one
-SELECT id, instagram_handle, tiktok_id, name, avatar_url, created_at, updated_at FROM social_media_owners 
-WHERE instagram_handle = $1 OR tiktok_id = $2
+const getSocialMediaOwnerByOrigin = `-- name: GetSocialMediaOwnerByOrigin :one
+SELECT id, username, profile_pic_stored_image_id, origin_id, platform, created_at, updated_at FROM social_media_owners 
+WHERE origin_id = $1 AND platform = $2
 `
 
-type GetSocialMediaOwnerByHandleParams struct {
-	InstagramHandle pgtype.Text
-	TiktokID        pgtype.Text
+type GetSocialMediaOwnerByOriginParams struct {
+	OriginID string
+	Platform SocialMediaPlatform
 }
 
-func (q *Queries) GetSocialMediaOwnerByHandle(ctx context.Context, arg GetSocialMediaOwnerByHandleParams) (SocialMediaOwner, error) {
-	row := q.db.QueryRow(ctx, getSocialMediaOwnerByHandle, arg.InstagramHandle, arg.TiktokID)
+func (q *Queries) GetSocialMediaOwnerByOrigin(ctx context.Context, arg GetSocialMediaOwnerByOriginParams) (SocialMediaOwner, error) {
+	row := q.db.QueryRow(ctx, getSocialMediaOwnerByOrigin, arg.OriginID, arg.Platform)
 	var i SocialMediaOwner
 	err := row.Scan(
 		&i.ID,
-		&i.InstagramHandle,
-		&i.TiktokID,
-		&i.Name,
-		&i.AvatarUrl,
+		&i.Username,
+		&i.ProfilePicStoredImageID,
+		&i.OriginID,
+		&i.Platform,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getSocialMediaOwnerByUsername = `-- name: GetSocialMediaOwnerByUsername :one
+SELECT id, username, profile_pic_stored_image_id, origin_id, platform, created_at, updated_at FROM social_media_owners WHERE username = $1
+`
+
+func (q *Queries) GetSocialMediaOwnerByUsername(ctx context.Context, username string) (SocialMediaOwner, error) {
+	row := q.db.QueryRow(ctx, getSocialMediaOwnerByUsername, username)
+	var i SocialMediaOwner
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.ProfilePicStoredImageID,
+		&i.OriginID,
+		&i.Platform,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

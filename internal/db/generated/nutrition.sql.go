@@ -13,15 +13,14 @@ import (
 
 const createNutrition = `-- name: CreateNutrition :one
 INSERT INTO recipe_nutrition (
-    recipe_id, calories, protein, carbs, fat, fiber
+    recipe_id, protein, carbs, fat, fiber
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
-) RETURNING id, recipe_id, calories, protein, carbs, fat, fiber, created_at, updated_at
+    $1, $2, $3, $4, $5
+) RETURNING id, recipe_id, protein, carbs, fat, fiber, created_at, updated_at
 `
 
 type CreateNutritionParams struct {
 	RecipeID pgtype.UUID
-	Calories pgtype.Int4
 	Protein  pgtype.Numeric
 	Carbs    pgtype.Numeric
 	Fat      pgtype.Numeric
@@ -31,7 +30,6 @@ type CreateNutritionParams struct {
 func (q *Queries) CreateNutrition(ctx context.Context, arg CreateNutritionParams) (RecipeNutrition, error) {
 	row := q.db.QueryRow(ctx, createNutrition,
 		arg.RecipeID,
-		arg.Calories,
 		arg.Protein,
 		arg.Carbs,
 		arg.Fat,
@@ -41,7 +39,6 @@ func (q *Queries) CreateNutrition(ctx context.Context, arg CreateNutritionParams
 	err := row.Scan(
 		&i.ID,
 		&i.RecipeID,
-		&i.Calories,
 		&i.Protein,
 		&i.Carbs,
 		&i.Fat,
@@ -53,7 +50,7 @@ func (q *Queries) CreateNutrition(ctx context.Context, arg CreateNutritionParams
 }
 
 const getNutritionByRecipe = `-- name: GetNutritionByRecipe :one
-SELECT id, recipe_id, calories, protein, carbs, fat, fiber, created_at, updated_at FROM recipe_nutrition WHERE recipe_id = $1
+SELECT id, recipe_id, protein, carbs, fat, fiber, created_at, updated_at FROM recipe_nutrition WHERE recipe_id = $1
 `
 
 func (q *Queries) GetNutritionByRecipe(ctx context.Context, recipeID pgtype.UUID) (RecipeNutrition, error) {
@@ -62,7 +59,6 @@ func (q *Queries) GetNutritionByRecipe(ctx context.Context, recipeID pgtype.UUID
 	err := row.Scan(
 		&i.ID,
 		&i.RecipeID,
-		&i.Calories,
 		&i.Protein,
 		&i.Carbs,
 		&i.Fat,
@@ -76,19 +72,17 @@ func (q *Queries) GetNutritionByRecipe(ctx context.Context, recipeID pgtype.UUID
 const updateNutrition = `-- name: UpdateNutrition :one
 UPDATE recipe_nutrition
 SET 
-    calories = $2,
-    protein = $3,
-    carbs = $4,
-    fat = $5,
-    fiber = $6,
+    protein = $2,
+    carbs = $3,
+    fat = $4,
+    fiber = $5,
     updated_at = NOW()
 WHERE recipe_id = $1
-RETURNING id, recipe_id, calories, protein, carbs, fat, fiber, created_at, updated_at
+RETURNING id, recipe_id, protein, carbs, fat, fiber, created_at, updated_at
 `
 
 type UpdateNutritionParams struct {
 	RecipeID pgtype.UUID
-	Calories pgtype.Int4
 	Protein  pgtype.Numeric
 	Carbs    pgtype.Numeric
 	Fat      pgtype.Numeric
@@ -98,7 +92,6 @@ type UpdateNutritionParams struct {
 func (q *Queries) UpdateNutrition(ctx context.Context, arg UpdateNutritionParams) (RecipeNutrition, error) {
 	row := q.db.QueryRow(ctx, updateNutrition,
 		arg.RecipeID,
-		arg.Calories,
 		arg.Protein,
 		arg.Carbs,
 		arg.Fat,
@@ -108,7 +101,6 @@ func (q *Queries) UpdateNutrition(ctx context.Context, arg UpdateNutritionParams
 	err := row.Scan(
 		&i.ID,
 		&i.RecipeID,
-		&i.Calories,
 		&i.Protein,
 		&i.Carbs,
 		&i.Fat,

@@ -106,7 +106,7 @@ func (m *MockQueries) GetImportJobsByUser(ctx context.Context, userID pgtype.UUI
 }
 
 func (m *MockQueries) UpdateImportJobStatus(ctx context.Context, arg generated.UpdateImportJobStatusParams) error {
-	jobID := uuid.UUID(arg.ID.Bytes).String()
+	jobID := arg.JobID
 	if job, ok := m.importJobs[jobID]; ok {
 		job.Status = arg.Status
 		job.ProgressStep = arg.ProgressStep
@@ -119,19 +119,20 @@ func (m *MockQueries) UpdateImportJobStatus(ctx context.Context, arg generated.U
 
 func (m *MockQueries) CreateRecipe(ctx context.Context, arg generated.CreateRecipeParams) (generated.Recipe, error) {
 	recipe := generated.Recipe{
-		ID:          arg.ID,
-		CreatedBy:   arg.CreatedBy,
-		Name:        arg.Name,
-		Description: arg.Description,
-		PrepTime:    arg.PrepTime,
-		CookTime:    arg.CookTime,
-		Servings:    arg.Servings,
-		Difficulty:  arg.Difficulty,
-		OriginUrl:   arg.OriginUrl,
-		Embedding:   arg.Embedding,
-		IsPublic:    arg.IsPublic,
-		CreatedAt:   pgtype.Timestamptz{Time: time.Now(), Valid: true},
-		UpdatedAt:   pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		ID:                  arg.ID,
+		CreatedBy:           arg.CreatedBy,
+		RecipeName:          arg.RecipeName,
+		Description:         arg.Description,
+		PrepTime:            arg.PrepTime,
+		CookingTime:         arg.CookingTime,
+		OriginalServingSize: arg.OriginalServingSize,
+		DifficultyRating:    arg.DifficultyRating,
+		Origin:              arg.Origin,
+		Url:                 arg.Url,
+		OwnerID:             arg.OwnerID,
+		ThumbnailID:         arg.ThumbnailID,
+		CreatedAt:           pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		UpdatedAt:           pgtype.Timestamptz{Time: time.Now(), Valid: true},
 	}
 	recipeID := uuid.UUID(arg.ID.Bytes).String()
 	m.recipes[recipeID] = recipe
@@ -149,7 +150,17 @@ func (m *MockQueries) GetRecipe(ctx context.Context, id pgtype.UUID) (generated.
 func (m *MockQueries) UpdateRecipe(ctx context.Context, arg generated.UpdateRecipeParams) (generated.Recipe, error) {
 	recipeID := uuid.UUID(arg.ID.Bytes).String()
 	if recipe, ok := m.recipes[recipeID]; ok {
-		recipe.Embedding = arg.Embedding
+		recipe.RecipeName = arg.RecipeName
+		recipe.Description = arg.Description
+		recipe.PrepTime = arg.PrepTime
+		recipe.CookingTime = arg.CookingTime
+		recipe.OriginalServingSize = arg.OriginalServingSize
+		recipe.DifficultyRating = arg.DifficultyRating
+		recipe.Origin = arg.Origin
+		recipe.Url = arg.Url
+		recipe.OwnerID = arg.OwnerID
+		recipe.ThumbnailID = arg.ThumbnailID
+		recipe.UpdatedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
 		m.recipes[recipeID] = recipe
 		return recipe, nil
 	}
@@ -158,11 +169,14 @@ func (m *MockQueries) UpdateRecipe(ctx context.Context, arg generated.UpdateReci
 
 func (m *MockQueries) CreateIngredient(ctx context.Context, arg generated.CreateIngredientParams) (generated.RecipeIngredient, error) {
 	ingredient := generated.RecipeIngredient{
-		ID:       uuidToPgtype(uuid.New()),
-		RecipeID: arg.RecipeID,
-		Quantity: arg.Quantity,
-		Unit:     arg.Unit,
-		Name:     arg.Name,
+		ID:               uuidToPgtype(uuid.New()),
+		RecipeID:         arg.RecipeID,
+		Quantity:         arg.Quantity,
+		Unit:             arg.Unit,
+		OriginalQuantity: arg.OriginalQuantity,
+		OriginalUnit:     arg.OriginalUnit,
+		Name:             arg.Name,
+		CreatedAt:        pgtype.Timestamptz{Time: time.Now(), Valid: true},
 	}
 	recipeID := uuid.UUID(arg.RecipeID.Bytes).String()
 	m.ingredients[recipeID] = append(m.ingredients[recipeID], ingredient)
@@ -175,6 +189,7 @@ func (m *MockQueries) CreateInstruction(ctx context.Context, arg generated.Creat
 		RecipeID:    arg.RecipeID,
 		StepNumber:  arg.StepNumber,
 		Instruction: arg.Instruction,
+		CreatedAt:   pgtype.Timestamptz{Time: time.Now(), Valid: true},
 	}
 	recipeID := uuid.UUID(arg.RecipeID.Bytes).String()
 	m.instructions[recipeID] = append(m.instructions[recipeID], instruction)
@@ -185,7 +200,6 @@ func (m *MockQueries) CreateNutrition(ctx context.Context, arg generated.CreateN
 	nutrition := generated.RecipeNutrition{
 		ID:        uuidToPgtype(uuid.New()),
 		RecipeID:  arg.RecipeID,
-		Calories:  arg.Calories,
 		Protein:   arg.Protein,
 		Carbs:     arg.Carbs,
 		Fat:       arg.Fat,
@@ -283,7 +297,6 @@ func setupTestFixtures() *testFixtures {
 // Ensure MockQueries implements DBQueries interface
 var _ DBQueries = (*MockQueries)(nil)
 
-
 // ============================================================================
 // Mock Tests
 // ============================================================================
@@ -292,21 +305,21 @@ func TestMockQueries_CreateImportJob(t *testing.T) {
 	m := NewMockQueries()
 	userID := uuid.New()
 	jobID := uuid.New()
-	
+
 	arg := generated.CreateImportJobParams{
 		ID:     uuidToPgtype(jobID),
 		UserID: uuidToPgtype(userID),
 		Url:    "https://example.com/recipe",
 		Status: "pending",
 	}
-	
+
 	job, err := m.CreateImportJob(context.Background(), arg)
 	require.NoError(t, err)
 	assert.Equal(t, arg.Url, job.Url)
 	assert.Equal(t, arg.Status, job.Status)
 	assert.True(t, job.CreatedAt.Valid)
 	assert.True(t, job.UpdatedAt.Valid)
-	
+
 	// Verify job was stored
 	stored, err := m.GetImportJob(context.Background(), arg.ID)
 	require.NoError(t, err)
@@ -317,7 +330,7 @@ func TestMockQueries_GetImportJob(t *testing.T) {
 	m := NewMockQueries()
 	userID := uuid.New()
 	jobID := uuid.New()
-	
+
 	// Create a job first
 	arg := generated.CreateImportJobParams{
 		ID:     uuidToPgtype(jobID),
@@ -326,13 +339,13 @@ func TestMockQueries_GetImportJob(t *testing.T) {
 		Status: "pending",
 	}
 	created, _ := m.CreateImportJob(context.Background(), arg)
-	
+
 	// Test getting existing job
 	job, err := m.GetImportJob(context.Background(), arg.ID)
 	require.NoError(t, err)
 	assert.Equal(t, created.Url, job.Url)
 	assert.Equal(t, created.Status, job.Status)
-	
+
 	// Test getting non-existent job
 	nonExistentID := uuidToPgtype(uuid.New())
 	job, err = m.GetImportJob(context.Background(), nonExistentID)
@@ -344,7 +357,7 @@ func TestMockQueries_GetImportJobsByUser(t *testing.T) {
 	m := NewMockQueries()
 	userID := uuid.New()
 	otherUserID := uuid.New()
-	
+
 	// Create jobs for user1
 	for i := 0; i < 3; i++ {
 		arg := generated.CreateImportJobParams{
@@ -356,7 +369,7 @@ func TestMockQueries_GetImportJobsByUser(t *testing.T) {
 		_, err := m.CreateImportJob(context.Background(), arg)
 		require.NoError(t, err)
 	}
-	
+
 	// Create job for user2
 	arg := generated.CreateImportJobParams{
 		ID:     uuidToPgtype(uuid.New()),
@@ -366,12 +379,12 @@ func TestMockQueries_GetImportJobsByUser(t *testing.T) {
 	}
 	_, err := m.CreateImportJob(context.Background(), arg)
 	require.NoError(t, err)
-	
+
 	// Get jobs for user1
 	jobs, err := m.GetImportJobsByUser(context.Background(), uuidToPgtype(userID))
 	require.NoError(t, err)
 	assert.Len(t, jobs, 3)
-	
+
 	// Get jobs for user2
 	jobs, err = m.GetImportJobsByUser(context.Background(), uuidToPgtype(otherUserID))
 	require.NoError(t, err)
@@ -383,35 +396,32 @@ func TestMockQueries_CreateRecipe(t *testing.T) {
 	m := NewMockQueries()
 	userID := uuid.New()
 	recipeID := uuid.New()
-	
+
 	description := pgtype.Text{String: "A delicious test recipe", Valid: true}
-	difficulty := pgtype.Text{String: "medium", Valid: true}
-	originUrl := pgtype.Text{String: "https://example.com/recipe", Valid: true}
-	
+
 	arg := generated.CreateRecipeParams{
-		ID:          uuidToPgtype(recipeID),
-		CreatedBy:   uuidToPgtype(userID),
-		Name:        "Test Recipe",
-		Description: description,
-		PrepTime:    pgtype.Int4{Int32: 30, Valid: true},
-		CookTime:    pgtype.Int4{Int32: 45, Valid: true},
-		Servings:    pgtype.Int4{Int32: 4, Valid: true},
-		Difficulty:  difficulty,
-		OriginUrl:   originUrl,
-		IsPublic:    true,
+		ID:                  uuidToPgtype(recipeID),
+		CreatedBy:           uuidToPgtype(userID),
+		RecipeName:          "Test Recipe",
+		Description:         description,
+		PrepTime:            pgtype.Int4{Int32: 30, Valid: true},
+		CookingTime:         pgtype.Int4{Int32: 45, Valid: true},
+		OriginalServingSize: pgtype.Int4{Int32: 4, Valid: true},
+		DifficultyRating:    pgtype.Int2{Int16: 3, Valid: true},
+		Origin:              generated.RecipeOriginInstagram,
+		Url:                 "https://example.com/recipe",
 	}
-	
+
 	recipe, err := m.CreateRecipe(context.Background(), arg)
 	require.NoError(t, err)
-	assert.Equal(t, "Test Recipe", recipe.Name)
+	assert.Equal(t, "Test Recipe", recipe.RecipeName)
 	assert.Equal(t, description.String, recipe.Description.String)
 	assert.Equal(t, int32(30), recipe.PrepTime.Int32)
-	assert.True(t, recipe.IsPublic)
 	assert.True(t, recipe.CreatedAt.Valid)
 	assert.True(t, recipe.UpdatedAt.Valid)
-	
+
 	// Verify recipe was stored
 	stored, err := m.GetRecipe(context.Background(), arg.ID)
 	require.NoError(t, err)
-	assert.Equal(t, recipe.Name, stored.Name)
+	assert.Equal(t, recipe.RecipeName, stored.RecipeName)
 }
