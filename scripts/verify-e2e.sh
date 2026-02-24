@@ -8,7 +8,7 @@ set -e
 
 # Configuration
 API_URL="${1:-${API_URL:-"https://socialchef-remy.fly.dev"}}"
-JWT_TOKEN="Gb2wmGBbsf0WH2Fqw7ny/iMiuXa8O3jj8T+i8RJHqWpmvMGYPNCsemdEz02N83GL/NbCDEDHYEE18PomzAUvng=="
+JWT_TOKEN="${2:-${JWT_TOKEN:-""}}"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-300}"  # 5 minutes default
 POLL_INTERVAL="${POLL_INTERVAL:-5}"
 
@@ -53,17 +53,9 @@ check_prerequisites() {
         exit 1
     fi
     
-    if [[ -z "$JWT_TOKEN" ]]; then
-        log_error "JWT_TOKEN not provided. Pass as argument or set as environment variable."
-        echo "Usage: $0 [API_URL] [JWT_TOKEN]"
-        echo "   or: API_URL=<url> JWT_TOKEN=<token> $0"
-        exit 1
-    fi
-    
     log_info "API URL: $API_URL"
     log_info "Timeout: ${TIMEOUT_SECONDS}s"
-    log_success "Prerequisites check"
-}
+    log_success "Prerequisites check"\}
 
 # Test 1: Health endpoint
 test_health() {
