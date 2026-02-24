@@ -214,11 +214,14 @@ func (p *RecipeProcessor) HandleCleanupJobs(ctx context.Context, t *asynq.Task) 
 func (p *RecipeProcessor) updateProgress(ctx context.Context, jobID, userID, status, message string) {
 	slog.Info("Progress update", "job_id", jobID, "status", status, "message", message)
 
-	p.db.UpdateImportJobStatus(ctx, generated.UpdateImportJobStatusParams{
+	err := p.db.UpdateImportJobStatus(ctx, generated.UpdateImportJobStatusParams{
 		JobID:        jobID,
 		Status:       status,
 		ProgressStep: pgtype.Text{String: message, Valid: true},
 	})
+	if err != nil {
+		slog.Error("Failed to update job status in database", "error", err, "job_id", jobID)
+	}
 
 	if p.broadcaster != nil {
 		p.broadcaster.Broadcast(userID, ProgressUpdate{
