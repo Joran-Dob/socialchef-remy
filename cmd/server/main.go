@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/hibiken/asynq"
 	"github.com/socialchef/remy/internal/api"
 	"github.com/socialchef/remy/internal/config"
 	"github.com/socialchef/remy/internal/db"
@@ -46,7 +45,7 @@ func main() {
 	queries := generated.New(pool)
 
 	// Asynq client for enqueuing tasks
-	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisURL})
+	asynqClient := worker.NewClient(cfg.RedisURL)
 	defer asynqClient.Close()
 
 	// Initialize broadcaster for progress updates

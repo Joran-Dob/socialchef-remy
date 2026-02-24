@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -71,9 +72,10 @@ func (s *Server) HandleImportRecipe(w http.ResponseWriter, r *http.Request) {
 		Status: "pending",
 	})
 	if err != nil {
-		http.Error(w, "Failed to create import job", http.StatusInternalServerError)
-		return
-	}
+		slog.Error("Failed to create import job", "error", err, "user_id", userID, "job_id", jobID)
+http.Error(w, "Failed to create import job", http.StatusInternalServerError)
+return
+}
 
 	task, err := worker.NewProcessRecipeTask(worker.ProcessRecipePayload{
 		JobID:  jobID,
