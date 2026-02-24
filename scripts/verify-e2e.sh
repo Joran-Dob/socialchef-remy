@@ -8,7 +8,7 @@ set -e
 
 # Configuration
 API_URL="${1:-${API_URL:-"https://socialchef-remy.fly.dev"}}"
-JWT_TOKEN="${2:-${JWT_TOKEN:-""}}"
+JWT_TOKEN="Gb2wmGBbsf0WH2Fqw7ny/iMiuXa8O3jj8T+i8RJHqWpmvMGYPNCsemdEz02N83GL/NbCDEDHYEE18PomzAUvng=="
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-300}"  # 5 minutes default
 POLL_INTERVAL="${POLL_INTERVAL:-5}"
 
@@ -91,7 +91,7 @@ test_create_recipe() {
     
     local response
     local http_code
-    local test_url="https://www.allrecipes.com/recipe/240376/grandmas-famous-salmon-cakes/"
+    local test_url="https://www.instagram.com/p/DU8Wm-pCF3M/"
     
     response=$(curl -s -w "\n%{http_code}" \
         -X POST \
