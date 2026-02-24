@@ -8,7 +8,10 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
+
+	"github.com/socialchef/remy/internal/utils"
 )
 
 type TikTokPost struct {
@@ -20,6 +23,11 @@ type TikTokPost struct {
 	OwnerName     string
 	OwnerAvatar   string
 }
+
+const (
+	apifyActorID   = "GdWCkxBtKWOsKjdch"
+	videoKvStoreID = "wHhZCBV1UdGLJZHkV"
+)
 
 type TikTokScraper struct {
 	apifyKey   string
@@ -40,16 +48,17 @@ func IsTikTokURL(u string) bool {
 
 func (s *TikTokScraper) Scrape(ctx context.Context, postURL string) (*TikTokPost, error) {
 	input := map[string]interface{}{
-		"postURLs":               []string{postURL},
-		"resultsPerPage":         1,
-		"shouldDownloadVideos":   false,
-		"shouldDownloadCovers":   true,
+		"postURLs":                []string{postURL},
+		"resultsPerPage":          1,
+		"shouldDownloadVideos":    true,
+		"shouldDownloadCovers":    true,
 		"shouldDownloadSubtitles": false,
+		"videoKvStoreIdOrName":    videoKvStoreID,
 	}
 	inputData, _ := json.Marshal(input)
 
 	req, err := http.NewRequestWithContext(ctx, "POST",
-		"https://api.apify.com/v2/acts/GdWCkxBtKWOsKjdch/run-sync",
+		fmt.Sprintf("https://api.apify.com/v2/acts/%s/run-sync", apifyActorID),
 		bytes.NewReader(inputData))
 	if err != nil {
 		return nil, err
@@ -85,7 +94,7 @@ func (s *TikTokScraper) Scrape(ctx context.Context, postURL string) (*TikTokPost
 	}
 
 	item := results[0]
-	return &TikTokPost{
+	post := &TikTokPost{
 		ID:            getString(item, "id"),
 		Caption:       getString(item, "text"),
 		VideoURL:      getString(item, "videoUrl"),
@@ -93,7 +102,64 @@ func (s *TikTokScraper) Scrape(ctx context.Context, postURL string) (*TikTokPost
 		OwnerUsername: getStringNested(item, "authorMeta", "name"),
 		OwnerName:     getStringNested(item, "authorMeta", "nickName"),
 		OwnerAvatar:   getStringNested(item, "authorMeta", "avatar"),
-	}, nil
+	}
+
+	// If videoUrl is not directly available, try to get it from the key-value store
+	if post.VideoURL == "" && post.ID != "" {
+		if videoURL := s.getVideoUrlFromStore(ctx, post.ID); videoURL != "" {
+			post.VideoURL = videoURL
+		}
+	}
+
+	return post, nil
+}
+
+func (s *TikTokScraper) getVideoUrlFromStore(ctx context.Context, videoID string) string {
+	config := utils.DefaultRetryConfig()
+
+	videoKey, err := utils.WithRetry(ctx, func(attemptCtx context.Context) (string, error) {
+		url := fmt.Sprintf("https://api.apify.com/v2/key-value-stores/%s/keys?token=%s", videoKvStoreID, s.apifyKey)
+		req, err := http.NewRequestWithContext(attemptCtx, "GET", url, nil)
+		if err != nil {
+			return "", err
+		}
+
+		resp, err := s.httpClient.Do(req)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		}
+
+		var result struct {
+			Data struct {
+				Items []struct {
+					Key string `json:"key"`
+				} `json:"items"`
+			} `json:"data"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return "", err
+		}
+
+		for _, item := range result.Data.Items {
+			if strings.Contains(item.Key, videoID) && strings.HasSuffix(item.Key, ".mp4") {
+				return item.Key, nil
+			}
+		}
+
+		return "", fmt.Errorf("video key not found for ID: %s", videoID)
+	}, config)
+
+	if err != nil {
+		return ""
+	}
+
+	return fmt.Sprintf("https://api.apify.com/v2/key-value-stores/%s/records/%s?token=%s", videoKvStoreID, videoKey, s.apifyKey)
 }
 
 func getString(m map[string]interface{}, key string) string {
