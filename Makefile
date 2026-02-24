@@ -1,4 +1,4 @@
-.PHONY: build test sqlc-generate docker-up docker-down
+.PHONY: build test test-integration sqlc-generate docker-up docker-down
 
 build:
 	go build -o bin/server ./cmd/server
@@ -6,6 +6,9 @@ build:
 
 test:
 	go test ./...
+
+test-integration:
+	go test -v ./internal/integration/...
 
 sqlc-generate:
 	sqlc generate
