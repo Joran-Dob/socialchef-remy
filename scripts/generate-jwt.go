@@ -11,9 +11,10 @@ import (
 func main() {
 	// Read JWT secret from environment
 	secret := os.Getenv("SUPABASE_JWT_SECRET")
-	if secret == "" {
-		fmt.Fprintln(os.Stderr, "Error: SUPABASE_JWT_SECRET environment variable not set")
-		fmt.Fprintln(os.Stderr, "Usage: SUPABASE_JWT_SECRET=your_secret go run scripts/generate-jwt.go")
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if secret == "" || supabaseURL == "" {
+		fmt.Fprintln(os.Stderr, "Error: SUPABASE_JWT_SECRET and SUPABASE_URL environment variables must be set")
+		fmt.Fprintln(os.Stderr, "Usage: SUPABASE_JWT_SECRET=secret SUPABASE_URL=https://xyz.supabase.co go run scripts/generate-jwt.go")
 		os.Exit(1)
 	}
 
@@ -25,7 +26,7 @@ func main() {
 		"aud":  "authenticated",
 		"iat":  now.Unix(),
 		"exp":  now.Add(time.Hour).Unix(),
-		"iss":  "supabase",
+		"iss":  supabaseURL + "/auth/v1",
 	}
 
 	// Create token with HS256
