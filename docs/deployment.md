@@ -157,7 +157,7 @@ fly status --app socialchef-remy
 # Expected output shows running machines
 Machines
 PROCESS ID              VERSION REGION  STATE   ROLE    CHECKS                  LAST UPDATED
-app     123456789abcde  1       sjc     started         1 total, 1 passing      2024-01-15T10:35:00Z
+app     123456789abcde  1       arn     started         1 total, 1 passing      2024-01-15T10:35:00Z
 ```
 
 ### 4. Verify Health Check
@@ -192,7 +192,7 @@ Create a separate `fly.worker.toml`:
 
 ```toml
 app = "socialchef-remy-worker"
-primary_region = "sjc"
+primary_region = "arn"
 
 [build]
   dockerfile = "Dockerfile"
@@ -239,7 +239,7 @@ Modify `fly.toml` to define multiple processes:
 - [ ] `Dockerfile` builds successfully locally: `docker build -t test .`
 - [ ] All required secrets are set via `fly secrets set`
 - [ ] `DATABASE_URL` points to correct Supabase project
-- [ ] `REDIS_URL` is accessible from Fly region (`sjc`)
+- [ ] `REDIS_URL` is accessible from Fly region (`arn`)
 
 ### After Deploy
 
