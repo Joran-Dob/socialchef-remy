@@ -80,15 +80,14 @@ Build a production-ready Go backend service that replaces Supabase Edge Function
 - `go.mod`, `sqlc.yaml`, `Makefile`
 
 ### Definition of Done
-- [ ] All 4 API endpoints return identical response shapes to current system
-- [ ] Recipe pipeline processes Instagram and TikTok URLs end-to-end
-- [ ] Progress updates broadcast to Supabase Realtime during processing
-- [ ] JWT auth middleware properly verifies Supabase tokens
-- [ ] Local dev environment starts with `docker-compose up`
+- [x] All 4 API endpoints return identical response shapes to current system
+- [x] Recipe pipeline processes Instagram and TikTok URLs end-to-end
+- [x] Progress updates broadcast to Supabase Realtime during processing
+- [x] JWT auth middleware properly verifies Supabase tokens
+- [x] Local dev environment starts with `docker-compose up`
 - [ ] Deployed to Fly.io with Redis
 - [ ] OpenTelemetry traces visible in Grafana Cloud
 - [ ] All unit tests pass with `go test ./...`
-
 ### Must Have
 - Feature parity with current system (excluding CMS)
 - Proper JWT signature verification
@@ -175,7 +174,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
 
 ### Wave 1: Foundation (7 tasks — all parallel)
 
-- [ ] 1. Project Scaffold
+- [x] 1. Project Scaffold
 
   **What to do**:
   - Initialize Go module: `go mod init github.com/socialchef/remy`
@@ -224,7 +223,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(scaffold): initial project structure`
   - Files: `go.mod`, `Makefile`, `.gitignore`, `.env.example`
 
-- [ ] 2. Docker Compose Local Dev
+- [x] 2. Docker Compose Local Dev
 
   **What to do**:
   - Create `docker-compose.yml` with services: `app` (Go), `redis` (for Asynq)
@@ -272,7 +271,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(dev): docker compose local development`
   - Files: `docker-compose.yml`, `Dockerfile.dev`
 
-- [ ] 3. sqlc Configuration + Connection Pool
+- [x] 3. sqlc Configuration + Connection Pool
 
   **What to do**:
   - Create `sqlc.yaml` configuration
@@ -321,7 +320,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(db): sqlc configuration and connection pool`
   - Files: `sqlc.yaml`, `internal/db/db.go`
 
-- [ ] 4. Database Queries (sqlc)
+- [x] 4. Database Queries (sqlc)
 
   **What to do**:
   - Create SQL query files in `internal/db/queries/` for all operations:
@@ -376,7 +375,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(db): add all sqlc queries`
   - Files: `internal/db/queries/*.sql`, generated `internal/db/*.go`
 
-- [ ] 5. Configuration Management
+- [x] 5. Configuration Management
 
   **What to do**:
   - Create `internal/config/config.go` with typed configuration struct
@@ -434,7 +433,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(config): configuration management`
   - Files: `internal/config/config.go`
 
-- [ ] 6. OpenTelemetry Setup
+- [x] 6. OpenTelemetry Setup
 
   **What to do**:
   - Create `internal/telemetry/telemetry.go` with OTel initialization
@@ -486,7 +485,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(telemetry): OpenTelemetry setup`
   - Files: `internal/telemetry/telemetry.go`
 
-- [ ] 7. Supabase JWT Auth Middleware
+- [x] 7. Supabase JWT Auth Middleware
 
   **What to do**:
   - Create `internal/middleware/auth.go`
@@ -544,7 +543,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
 
 ### Wave 2: Core Services (6 tasks — parallel after Wave 1)
 
-- [ ] 8. Asynq Server + Client Setup
+- [x] 8. Asynq Server + Client Setup
 
   **What to do**:
   - Create `internal/worker/server.go` with Asynq server initialization
@@ -595,7 +594,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(worker): Asynq server and client setup`
   - Files: `internal/worker/server.go`, `internal/worker/client.go`, `cmd/worker/main.go`
 
-- [ ] 9. OpenAI Client
+- [x] 9. OpenAI Client
 
   **What to do**:
   - Create `internal/services/openai/client.go`
@@ -646,7 +645,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(services): OpenAI client`
   - Files: `internal/services/openai/client.go`, `internal/services/openai/prompts.go`
 
-- [ ] 10. Groq Client
+- [x] 10. Groq Client
 
   **What to do**:
   - Create `internal/services/groq/client.go`
@@ -695,7 +694,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(services): Groq client`
   - Files: `internal/services/groq/client.go`
 
-- [ ] 11. Instagram Scraper
+- [x] 11. Instagram Scraper
 
   **What to do**:
   - Create `internal/services/scraper/instagram.go`
@@ -744,7 +743,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(services): Instagram scraper`
   - Files: `internal/services/scraper/instagram.go`
 
-- [ ] 12. TikTok Scraper
+- [x] 12. TikTok Scraper
 
   **What to do**:
   - Create `internal/services/scraper/tiktok.go`
@@ -793,7 +792,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(services): TikTok scraper`
   - Files: `internal/services/scraper/tiktok.go`
 
-- [ ] 13. Supabase Storage Client
+- [x] 13. Supabase Storage Client
 
   **What to do**:
   - Create `internal/services/storage/client.go`
@@ -845,7 +844,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
 
 ### Wave 3: Business Logic (6 tasks — parallel after Wave 2)
 
-- [ ] 14. Recipe Processing Pipeline (Asynq Handler)
+- [x] 14. Recipe Processing Pipeline (Asynq Handler)
 
   **What to do**:
   - Create `internal/worker/handlers/process_recipe.go`
@@ -913,7 +912,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(worker): recipe processing pipeline`
   - Files: `internal/worker/handlers/process_recipe.go`
 
-- [ ] 15. Realtime Progress Broadcaster
+- [x] 15. Realtime Progress Broadcaster
 
   **What to do**:
   - Create `internal/services/realtime/broadcaster.go`
@@ -961,7 +960,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(services): Realtime progress broadcaster`
   - Files: `internal/services/realtime/broadcaster.go`
 
-- [ ] 16. Cleanup Cron Job
+- [x] 16. Cleanup Cron Job
 
   **What to do**:
   - Create `internal/worker/handlers/cleanup.go`
@@ -1007,7 +1006,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(worker): cleanup cron job`
   - Files: `internal/worker/handlers/cleanup.go`
 
-- [ ] 17. POST /recipe Endpoint
+- [x] 17. POST /recipe Endpoint
 
   **What to do**:
   - Create `internal/api/handlers/recipe.go`
@@ -1065,7 +1064,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(api): POST /recipe endpoint`
   - Files: `internal/api/handlers/recipe.go`
 
-- [ ] 18. POST /recipe-status Endpoint
+- [x] 18. POST /recipe-status Endpoint
 
   **What to do**:
   - Create `internal/api/handlers/recipe_status.go`
@@ -1113,7 +1112,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(api): POST /recipe-status endpoint`
   - Files: `internal/api/handlers/recipe_status.go`
 
-- [ ] 19. GET /user-import-status Endpoint
+- [x] 19. GET /user-import-status Endpoint
 
   **What to do**:
   - Create `internal/api/handlers/user_import_status.go`
@@ -1162,7 +1161,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
 
 ### Wave 4: Finalization (5 tasks — parallel after Wave 3)
 
-- [ ] 20. POST /generate-embedding Endpoint
+- [x] 20. POST /generate-embedding Endpoint
 
   **What to do**:
   - Create `internal/api/handlers/generate_embedding.go`
@@ -1204,7 +1203,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(api): POST /generate-embedding endpoint`
   - Files: `internal/api/handlers/generate_embedding.go`
 
-- [ ] 21. Integration Tests
+- [x] 21. Integration Tests
 
   **What to do**:
   - Create `internal/integration/` directory
@@ -1281,7 +1280,7 @@ Critical Path: T1 → T3 → T4 → T8 → T14 → T17 → T22 → T24
   - Message: `feat(deploy): Fly.io configuration`
   - Files: `Dockerfile`, `fly.toml`
 
-- [ ] 23. Production Config + Secrets
+- [x] 23. Production Config + Secrets
 
   **What to do**:
   - Set Fly.io secrets for all environment variables:

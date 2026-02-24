@@ -2,8 +2,10 @@
   "active_plan": "/Users/jorandob/Documents/Projects/SocialChef/socialchef-remy/.sisyphus/plans/go-rebuild.md",
   "started_at": "2026-02-23T17:23:48.167Z",
   "session_ids": [
-    "ses_374d03a8affe1vR90H3vWWKHmA"
+    "ses_374d03a8affe1vR90H3vWWKHmA",
+    "ses_370da884fffeZZ0Mmoyfbws9Vn"
   ],
   "plan_name": "go-rebuild",
-  "agent": "atlas"
+  "agent": "atlas",
+  "progress": "20/24 main tasks complete, 4 remaining (T21, T23, T24, F1-F4)"
 }
