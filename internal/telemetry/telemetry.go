@@ -42,7 +42,7 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 			endpoint = strings.TrimPrefix(endpoint, "https://")
 		} else if strings.HasPrefix(endpoint, "http://") {
 			endpoint = strings.TrimPrefix(endpoint, "http://")
-		insecure = true
+			insecure = true
 		}
 
 		if idx := strings.Index(endpoint, "/"); idx > 0 {
@@ -52,7 +52,7 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 	}
 
 	traceUrlPath := "/v1/traces"
-	logUrlPath := "/" // Better Stack accepts logs at root path
+	logUrlPath := "/v1/logs" // Better Stack uses standard OTLP path
 
 	if basePath == "/otlp" {
 		traceUrlPath = "/otlp/v1/traces"
@@ -72,15 +72,13 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 	logOpts := []otlploghttp.Option{
 		otlploghttp.WithEndpoint(endpoint),
 		otlploghttp.WithURLPath(logUrlPath),
-	}  // Gzip compression may be needed - testing without first
+	}
 	if len(headers) > 0 {
 		traceOpts = append(traceOpts, otlptracehttp.WithHeaders(headers))
-		logOpts = append(logOpts, otlploghttp.WithHeaders(headers))
 	}
 
 	if insecure {
 		traceOpts = append(traceOpts, otlptracehttp.WithInsecure())
-		logOpts = append(logOpts, otlploghttp.WithInsecure())
 	}
 
 	traceExporter, err := otlptracehttp.New(ctx, traceOpts...)

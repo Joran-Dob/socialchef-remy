@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -52,6 +53,9 @@ func (h *otelHandler) Handle(ctx context.Context, r slog.Record) error {
 	if err := h.handler.Handle(ctx, r); err != nil {
 		return err
 	}
+
+	// Debug: log that we're trying to send to OTel
+	fmt.Fprintf(os.Stderr, "[LOGGER DEBUG] Emitting log to OTel: %s\n", r.Message)
 
 	// Also send to OpenTelemetry Logs
 	logger := global.GetLoggerProvider().Logger("github.com/socialchef/remy")
