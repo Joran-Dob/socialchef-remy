@@ -52,7 +52,7 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 	}
 
 	traceUrlPath := "/v1/traces"
-	logUrlPath := "/v1/logs"
+	logUrlPath := "/" // Better Stack accepts logs at root path
 
 	if basePath == "/otlp" {
 		traceUrlPath = "/otlp/v1/traces"
