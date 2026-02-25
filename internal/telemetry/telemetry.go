@@ -92,6 +92,9 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 		return nil, err
 	}
 
+	// Debug: Test if log exporter can be created
+	slog.Info("Log exporter created", "endpoint", endpoint, "path", logUrlPath)
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(traceExporter),
 		sdktrace.WithResource(res),
