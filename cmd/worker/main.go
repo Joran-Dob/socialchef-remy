@@ -32,7 +32,7 @@ func main() {
 
 	// Initialize telemetry
 	if cfg.OtelExporterOTLPEndpoint != "" {
-		shutdown, err := telemetry.InitTelemetry(ctx, "socialchef-remy-worker", cfg.OtelExporterOTLPEndpoint)
+		shutdown, err := telemetry.InitTelemetry(ctx, "socialchef-remy-worker", "", "", cfg.OtelExporterOTLPEndpoint, nil)
 		if err != nil {
 			slog.Warn("Failed to init telemetry", "error", err)
 		} else {

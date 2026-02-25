@@ -17,10 +17,12 @@ import (
 
 // InitTelemetry initializes OpenTelemetry with OTLP exporter
 // Returns shutdown function and error
-func InitTelemetry(ctx context.Context, serviceName, otlpEndpoint string) (func(context.Context) error, error) {
+func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEndpoint string, headers map[string]string) (func(context.Context) error, error) {
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String(serviceName),
+			semconv.ServiceVersionKey.String(serviceVersion),
+			semconv.DeploymentEnvironmentKey.String(env),
 		),
 	)
 	if err != nil {
@@ -41,6 +43,9 @@ func InitTelemetry(ctx context.Context, serviceName, otlpEndpoint string) (func(
 	opts := []otlptracehttp.Option{
 		otlptracehttp.WithEndpoint(endpoint),
 		otlptracehttp.WithURLPath("/v1/traces"),
+	}
+	if len(headers) > 0 {
+		opts = append(opts, otlptracehttp.WithHeaders(headers))
 	}
 
 	if insecure {

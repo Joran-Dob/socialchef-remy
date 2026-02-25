@@ -6,6 +6,10 @@ import (
 )
 
 type Config struct {
+	Env            string
+	ServiceName    string
+	ServiceVersion string
+
 	DatabaseURL string
 
 	SupabaseURL           string
@@ -22,12 +26,16 @@ type Config struct {
 	ProxyAPIKey    string
 
 	OtelExporterOTLPEndpoint string
+	OtelExporterOTLPHeaders  string
 
 	Port string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
+		Env:                    os.Getenv("ENV"),
+		ServiceName:            os.Getenv("SERVICE_NAME"),
+		ServiceVersion:        os.Getenv("SERVICE_VERSION"),
 		DatabaseURL:            os.Getenv("DATABASE_URL"),
 		SupabaseURL:            os.Getenv("SUPABASE_URL"),
 		SupabaseJWTSecret:      os.Getenv("SUPABASE_JWT_SECRET"),
@@ -39,7 +47,18 @@ func Load() (*Config, error) {
 		ProxyServerURL:         os.Getenv("PROXY_SERVER_URL"),
 		ProxyAPIKey:            os.Getenv("PROXY_API_KEY"),
 		OtelExporterOTLPEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		OtelExporterOTLPHeaders:  os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"),
 		Port:                   os.Getenv("PORT"),
+	}
+
+	if cfg.Env == "" {
+		cfg.Env = "development"
+	}
+	if cfg.ServiceName == "" {
+		cfg.ServiceName = "socialchef-remy"
+	}
+	if cfg.ServiceVersion == "" {
+		cfg.ServiceVersion = "1.0.0"
 	}
 
 	if cfg.Port == "" {
