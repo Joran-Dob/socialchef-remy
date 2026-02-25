@@ -29,20 +29,44 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 		return nil, err
 	}
 
-	// Handle endpoint with scheme
+	// Parse the endpoint URL
+	// For Grafana Cloud, use: https://otlp-gateway-prod-REGION.grafana.net/otlp
+	// The /v1/traces will be appended automatically
 	endpoint := otlpEndpoint
-	insecure := true
-	if strings.HasPrefix(endpoint, "https://") {
-		endpoint = strings.TrimPrefix(endpoint, "https://")
-		insecure = false
-	} else if strings.HasPrefix(endpoint, "http://") {
-		endpoint = strings.TrimPrefix(endpoint, "http://")
-		insecure = true
+	urlPath := "/v1/traces" // default OTLP path
+	insecure := false
+
+	if endpoint != "" {
+		// Handle full URLs
+		if strings.HasPrefix(endpoint, "https://") {
+			endpoint = strings.TrimPrefix(endpoint, "https://")
+			insecure = false
+		} else if strings.HasPrefix(endpoint, "http://") {
+			endpoint = strings.TrimPrefix(endpoint, "http://")
+			insecure = true
+		}
+
+		// Extract path from endpoint if present
+		if idx := strings.Index(endpoint, "/"); idx > 0 {
+			path := endpoint[idx:]
+			endpoint = endpoint[:idx]
+			// For Grafana Cloud, the path is /otlp and we need /otlp/v1/traces
+			// For other backends, the path might already include /v1/traces
+			if path == "/otlp" {
+				urlPath = "/otlp/v1/traces"
+			} else if strings.HasSuffix(path, "/v1/traces") {
+				urlPath = path
+			} else if strings.HasSuffix(path, "/") {
+				urlPath = path + "v1/traces"
+			} else {
+				urlPath = path + "/v1/traces"
+			}
+		}
 	}
 
 	opts := []otlptracehttp.Option{
 		otlptracehttp.WithEndpoint(endpoint),
-		otlptracehttp.WithURLPath("/v1/traces"),
+		otlptracehttp.WithURLPath(urlPath),
 	}
 	if len(headers) > 0 {
 		opts = append(opts, otlptracehttp.WithHeaders(headers))
@@ -51,7 +75,6 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 	if insecure {
 		opts = append(opts, otlptracehttp.WithInsecure())
 	}
-
 	exporter, err := otlptracehttp.New(ctx, opts...)
 	if err != nil {
 		return nil, err
