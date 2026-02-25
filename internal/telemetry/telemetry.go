@@ -72,8 +72,7 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 	logOpts := []otlploghttp.Option{
 		otlploghttp.WithEndpoint(endpoint),
 		otlploghttp.WithURLPath(logUrlPath),
-	}
-
+	}  // Gzip compression may be needed - testing without first
 	if len(headers) > 0 {
 		traceOpts = append(traceOpts, otlptracehttp.WithHeaders(headers))
 		logOpts = append(logOpts, otlploghttp.WithHeaders(headers))

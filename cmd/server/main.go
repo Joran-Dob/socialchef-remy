@@ -95,6 +95,7 @@ func main() {
 	}
 
 	slog.Info("Starting server", "port", port)
+	slog.Info("TEST LOG - This should appear in Better Stack", "source", "server")
 	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
