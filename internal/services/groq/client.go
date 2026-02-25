@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+
+	"github.com/socialchef/remy/internal/services/ai"
 )
 
 type Client struct {
@@ -34,8 +37,31 @@ type Recipe struct {
 	Equipment           []string
 }
 
+// StringOrNumber can unmarshal from JSON string or number
+type StringOrNumber string
+
+func (s *StringOrNumber) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*s = ""
+		return nil
+	}
+	// Try unmarshal as string first
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*s = StringOrNumber(str)
+		return nil
+	}
+	// Try as number
+	var num float64
+	if err := json.Unmarshal(data, &num); err != nil {
+		return err
+	}
+	*s = StringOrNumber(strconv.FormatFloat(num, 'f', -1, 64))
+	return nil
+}
+
 type Ingredient struct {
-	OriginalQuantity string  `json:"original_quantity"`
+	OriginalQuantity StringOrNumber `json:"original_quantity"`
 	OriginalUnit     string  `json:"original_unit"`
 	Quantity         float64 `json:"quantity"`
 	Unit             string  `json:"unit"`
@@ -84,37 +110,10 @@ func NewClient(apiKey string) *Client {
 	return &Client{apiKey: apiKey}
 }
 
-const recipePrompt = `<ROLE>
-You are a specialized AI assistant designed to parse recipe information from social media descriptions.
-</ROLE>
 
-<TASK>
-Extract recipe information and output JSON.
-
-<OUTPUT_FORMAT>
-{
-  "recipe": {"recipe_name": "", "description": "", "prep_time": null, "cooking_time": null, "total_time": null, "original_serving_size": null, "difficulty_rating": null, "focused_diet": "", "estimated_calories": null},
-  "ingredients": [{"original_quantity": null, "original_unit": "", "quantity": null, "unit": "", "name": ""}],
-  "instructions": [{"step_number": null, "instruction": ""}],
-  "nutrition": {"protein": null, "carbs": null, "fat": null, "fiber": null},
-  "cuisine_categories": [], "meal_types": [], "occasions": [], "dietary_restrictions": [], "equipment": []
-}
-</OUTPUT_FORMAT>
-`
-
-func getPlatformContext(platform string) string {
-	switch platform {
-	case "instagram":
-		return `<PLATFORM_CONTEXT>Instagram post with detailed captions.</PLATFORM_CONTEXT>`
-	case "tiktok":
-		return `<PLATFORM_CONTEXT>TikTok video - rely on transcript.</PLATFORM_CONTEXT>`
-	default:
-		return ""
-	}
-}
 
 func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, platform string) (*Recipe, error) {
-	systemPrompt := recipePrompt + getPlatformContext(platform)
+	systemPrompt := ai.BuildRecipePrompt(platform)
 
 	userContent := description
 	if transcript != "" {

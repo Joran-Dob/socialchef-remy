@@ -17,6 +17,7 @@ import (
 	"github.com/socialchef/remy/internal/services/openai"
 	"github.com/socialchef/remy/internal/services/scraper"
 	"github.com/socialchef/remy/internal/services/storage"
+	"github.com/socialchef/remy/internal/services/transcription"
 	"github.com/socialchef/remy/internal/telemetry"
 	"github.com/socialchef/remy/internal/worker"
 )
@@ -53,6 +54,7 @@ func main() {
 	groqClient := groq.NewClient(cfg.GroqKey)
 	instagramScraper := scraper.NewInstagramScraper(cfg.ProxyServerURL, cfg.ProxyAPIKey)
 	tiktokScraper := scraper.NewTikTokScraper(cfg.ApifyAPIKey)
+	transcriptionClient := transcription.NewClient(cfg.OpenAIKey)
 	storageClient := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 	broadcaster := worker.NewProgressBroadcaster(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 
@@ -62,6 +64,7 @@ func main() {
 		instagramScraper,
 		tiktokScraper,
 		openaiClient,
+		transcriptionClient,
 		groqClient,
 		storageClient,
 		broadcaster,

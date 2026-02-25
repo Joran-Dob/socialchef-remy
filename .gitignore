@@ -24,3 +24,5 @@ go.work.sum
 
 # Build artifacts
 bin/
+
+.sisyphus/

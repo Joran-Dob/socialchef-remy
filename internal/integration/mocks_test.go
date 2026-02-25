@@ -35,6 +35,10 @@ type DBQueries interface {
 	CreateInstruction(ctx context.Context, arg generated.CreateInstructionParams) (generated.RecipeInstruction, error)
 	CreateNutrition(ctx context.Context, arg generated.CreateNutritionParams) (generated.RecipeNutrition, error)
 	GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipeIngredient, error)
+	DeleteOldImportJobs(ctx context.Context) error
+	DeleteStaleImportJobs(ctx context.Context) error
+	CreateRecipeImage(ctx context.Context, arg generated.CreateRecipeImageParams) (generated.RecipeImage, error)
+	UpdateRecipeThumbnail(ctx context.Context, arg generated.UpdateRecipeThumbnailParams) error
 }
 
 // ============================================================================
@@ -215,6 +219,22 @@ func (m *MockQueries) CreateNutrition(ctx context.Context, arg generated.CreateN
 func (m *MockQueries) GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipeIngredient, error) {
 	id := uuid.UUID(recipeID.Bytes).String()
 	return m.ingredients[id], nil
+}
+func (m *MockQueries) DeleteOldImportJobs(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockQueries) DeleteStaleImportJobs(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockQueries) CreateRecipeImage(ctx context.Context, arg generated.CreateRecipeImageParams) (generated.RecipeImage, error) {
+	return generated.RecipeImage{ID: pgtype.UUID{Valid: true, Bytes: [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}}}, nil
+}
+
+
+func (m *MockQueries) UpdateRecipeThumbnail(ctx context.Context, arg generated.UpdateRecipeThumbnailParams) error {
+	return nil
 }
 
 // intPtr returns a pointer to an int

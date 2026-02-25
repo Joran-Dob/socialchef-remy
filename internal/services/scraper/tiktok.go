@@ -22,6 +22,7 @@ type TikTokPost struct {
 	OwnerUsername string
 	OwnerName     string
 	OwnerAvatar   string
+	OwnerID       string
 }
 
 const (
@@ -110,6 +111,7 @@ func (s *TikTokScraper) Scrape(ctx context.Context, postURL string) (*TikTokPost
 		OwnerUsername: getStringNested(item, "authorMeta", "name"),
 		OwnerName:     getStringNested(item, "authorMeta", "nickName"),
 		OwnerAvatar:   getStringNested(item, "authorMeta", "avatar"),
+		OwnerID:       getStringNested(item, "authorMeta", "id"),
 	}
 
 	// If videoUrl is not directly available, try to get it from the key-value store

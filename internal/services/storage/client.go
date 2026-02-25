@@ -74,13 +74,13 @@ func (c *Client) GetPublicURL(bucket, path string) string {
 	return fmt.Sprintf("%s/storage/v1/object/public/%s/%s", c.supabaseURL, bucket, path)
 }
 
-type existingImageResponse struct {
+type ExistingImageResponse struct {
 	ID           string `json:"id"`
 	ContentHash  string `json:"content_hash"`
 	StoragePath  string `json:"storage_path"`
 }
 
-func (c *Client) GetImageByHash(ctx context.Context, hash string) (*existingImageResponse, error) {
+func (c *Client) GetImageByHash(ctx context.Context, hash string) (*ExistingImageResponse, error) {
 	url := fmt.Sprintf("%s/rest/v1/stored_images?content_hash=eq.%s&select=*", c.supabaseURL, hash)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -96,7 +96,7 @@ func (c *Client) GetImageByHash(ctx context.Context, hash string) (*existingImag
 	}
 	defer resp.Body.Close()
 
-	var results []existingImageResponse
+	var results []ExistingImageResponse
 	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
 		return nil, err
 	}

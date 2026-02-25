@@ -27,6 +27,7 @@ type InstagramPost struct {
 	OwnerUsername string
 	OwnerName     string
 	OwnerAvatar   string
+	OwnerID       string
 }
 
 type InstagramScraper struct {
@@ -60,10 +61,10 @@ func extractShortcode(u string) (string, error) {
 type graphqlResponse struct {
 	Data struct {
 		ShortcodeMedia struct {
-			Shortcode    string `json:"shortcode"`
-			DisplayURL   string `json:"display_url"`
-			VideoURL     string `json:"video_url"`
-			ThumbnailSrc string `json:"thumbnail_src"`
+			Shortcode          string `json:"shortcode"`
+			DisplayURL         string `json:"display_url"`
+			VideoURL           string `json:"video_url"`
+			ThumbnailSrc       string `json:"thumbnail_src"`
 			EdgeMediaToCaption struct {
 				Edges []struct {
 					Node struct {
@@ -72,8 +73,10 @@ type graphqlResponse struct {
 				} `json:"edges"`
 			} `json:"edge_media_to_caption"`
 			Owner struct {
-				ID       string `json:"id"`
-				Username string `json:"username"`
+				ID         string `json:"id"`
+				Username   string `json:"username"`
+				FullName   string `json:"full_name"`
+				ProfilePic string `json:"profile_pic_url"`
 			} `json:"owner"`
 		} `json:"xdt_shortcode_media"`
 	} `json:"data"`
@@ -159,6 +162,9 @@ func (s *InstagramScraper) Scrape(ctx context.Context, postURL string) (*Instagr
 		ImageURL:      media.DisplayURL,
 		VideoURL:      media.VideoURL,
 		OwnerUsername: media.Owner.Username,
+		OwnerName:     media.Owner.FullName,
+		OwnerAvatar:   media.Owner.ProfilePic,
+		OwnerID:       media.Owner.ID,
 	}, nil
 }
 

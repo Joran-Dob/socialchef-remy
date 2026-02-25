@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+
+	"github.com/socialchef/remy/internal/services/ai"
 )
 
 type Client struct {
@@ -30,8 +33,31 @@ type Recipe struct {
 	Equipment           []string
 }
 
+// StringOrNumber can unmarshal from JSON string or number
+type StringOrNumber string
+
+func (s *StringOrNumber) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*s = ""
+		return nil
+	}
+	// Try unmarshal as string first
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*s = StringOrNumber(str)
+		return nil
+	}
+	// Try as number
+	var num float64
+	if err := json.Unmarshal(data, &num); err != nil {
+		return err
+	}
+	*s = StringOrNumber(strconv.FormatFloat(num, 'f', -1, 64))
+	return nil
+}
+
 type Ingredient struct {
-	OriginalQuantity string  `json:"original_quantity"`
+	OriginalQuantity StringOrNumber `json:"original_quantity"`
 	OriginalUnit     string  `json:"original_unit"`
 	Quantity         float64 `json:"quantity"`
 	Unit             string  `json:"unit"`
@@ -83,27 +109,7 @@ func NewClient(apiKey string) *Client {
 	return &Client{apiKey: apiKey}
 }
 
-const recipePrompt = `Extract recipe information from social media posts and output JSON.
 
-Output format:
-{
-  "recipe": {"recipe_name": "", "description": "", "prep_time": null, "cooking_time": null, "total_time": null, "original_serving_size": null, "difficulty_rating": null, "focused_diet": "", "estimated_calories": null},
-  "ingredients": [{"original_quantity": null, "original_unit": "", "quantity": null, "unit": "", "name": ""}],
-  "instructions": [{"step_number": null, "instruction": ""}],
-  "nutrition": {"protein": null, "carbs": null, "fat": null, "fiber": null},
-  "cuisine_categories": [], "meal_types": [], "occasions": [], "dietary_restrictions": [], "equipment": []
-}
-
-Rules: Use metric units (g, ml). Infer missing info. Respond with ONLY valid JSON.`
-
-func getPlatformContext(platform string) string {
-	if platform == "instagram" {
-		return " Source: Instagram (detailed captions with emojis/bullets)."
-	} else if platform == "tiktok" {
-		return " Source: TikTok (minimal captions, rely on transcript)."
-	}
-	return ""
-}
 
 func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, platform string) (*Recipe, error) {
 	return generateRecipeWithOpenAI(ctx, c.apiKey, description, transcript, platform)
@@ -114,7 +120,7 @@ func (c *Client) GenerateEmbedding(ctx context.Context, text string) ([]float32,
 }
 
 func generateRecipeWithOpenAI(ctx context.Context, apiKey, description, transcript, platform string) (*Recipe, error) {
-	systemPrompt := recipePrompt + getPlatformContext(platform)
+	systemPrompt := ai.BuildRecipePrompt(platform)
 	userContent := description
 	if transcript != "" {
 		userContent += "\n\nVideo Transcript:\n" + transcript

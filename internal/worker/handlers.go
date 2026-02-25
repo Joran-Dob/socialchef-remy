@@ -4,48 +4,102 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"io"
-	"net/http"
+	"log/slog"
 	"math/big"
+	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/socialchef/remy/internal/db/generated"
+	"github.com/socialchef/remy/internal/errors"
 	"github.com/socialchef/remy/internal/services/groq"
-	"github.com/socialchef/remy/internal/services/openai"
 	"github.com/socialchef/remy/internal/services/scraper"
 	"github.com/socialchef/remy/internal/services/storage"
+	"github.com/socialchef/remy/internal/validation"
 )
 
+type DBQueries interface {
+	CreateImportJob(ctx context.Context, arg generated.CreateImportJobParams) (generated.RecipeImportJob, error)
+	GetImportJob(ctx context.Context, id pgtype.UUID) (generated.RecipeImportJob, error)
+	GetImportJobsByUser(ctx context.Context, userID pgtype.UUID) ([]generated.RecipeImportJob, error)
+	UpdateImportJobStatus(ctx context.Context, arg generated.UpdateImportJobStatusParams) error
+	CreateRecipe(ctx context.Context, arg generated.CreateRecipeParams) (generated.Recipe, error)
+	GetRecipe(ctx context.Context, id pgtype.UUID) (generated.Recipe, error)
+	UpdateRecipe(ctx context.Context, arg generated.UpdateRecipeParams) (generated.Recipe, error)
+	CreateIngredient(ctx context.Context, arg generated.CreateIngredientParams) (generated.RecipeIngredient, error)
+	CreateInstruction(ctx context.Context, arg generated.CreateInstructionParams) (generated.RecipeInstruction, error)
+	CreateNutrition(ctx context.Context, arg generated.CreateNutritionParams) (generated.RecipeNutrition, error)
+	GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipeIngredient, error)
+	DeleteOldImportJobs(ctx context.Context) error
+	DeleteStaleImportJobs(ctx context.Context) error
+	CreateRecipeImage(ctx context.Context, arg generated.CreateRecipeImageParams) (generated.RecipeImage, error)
+	UpdateRecipeThumbnail(ctx context.Context, arg generated.UpdateRecipeThumbnailParams) error
+	GetSocialMediaOwnerByOrigin(ctx context.Context, arg generated.GetSocialMediaOwnerByOriginParams) (generated.SocialMediaOwner, error)
+	CreateSocialMediaOwner(ctx context.Context, arg generated.CreateSocialMediaOwnerParams) (generated.SocialMediaOwner, error)
+}
+
+type InstagramScraper interface {
+	Scrape(ctx context.Context, postURL string) (*scraper.InstagramPost, error)
+}
+
+type TikTokScraper interface {
+	Scrape(ctx context.Context, postURL string) (*scraper.TikTokPost, error)
+}
+
+type OpenAIClient interface {
+	GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
+}
+
+type TranscriptionClient interface {
+	TranscribeVideo(ctx context.Context, videoURL string) (string, error)
+}
+
+type GroqClient interface {
+	GenerateRecipe(ctx context.Context, caption, transcript, platform string) (*groq.Recipe, error)
+}
+
+type StorageClient interface {
+	UploadImageWithHash(ctx context.Context, bucket, path, sourceURL string, data []byte) (string, error)
+	GetImageByHash(ctx context.Context, hash string) (*storage.ExistingImageResponse, error)
+}
+
+type ProgressBroadcasterInterface interface {
+	Broadcast(userID string, update ProgressUpdate) error
+}
+
 type RecipeProcessor struct {
-	db          *generated.Queries
-	instagram   *scraper.InstagramScraper
-	tiktok      *scraper.TikTokScraper
-	openai      *openai.Client
-	groq        *groq.Client
-	storage     *storage.Client
-	broadcaster *ProgressBroadcaster
+	db            DBQueries
+	instagram     InstagramScraper
+	tiktok        TikTokScraper
+	openai        OpenAIClient
+	transcription TranscriptionClient
+	groq          GroqClient
+	storage       StorageClient
+	broadcaster   ProgressBroadcasterInterface
 }
 
 func NewRecipeProcessor(
-	db *generated.Queries,
-	instagram *scraper.InstagramScraper,
-	tiktok *scraper.TikTokScraper,
-	openaiClient *openai.Client,
-	groqClient *groq.Client,
-	storageClient *storage.Client,
-	broadcaster *ProgressBroadcaster,
+	db DBQueries,
+	instagram InstagramScraper,
+	tiktok TikTokScraper,
+	openaiClient OpenAIClient,
+	transcriptionClient TranscriptionClient,
+	groqClient GroqClient,
+	storageClient StorageClient,
+	broadcaster ProgressBroadcasterInterface,
 ) *RecipeProcessor {
 	return &RecipeProcessor{
-		db:          db,
-		instagram:   instagram,
-		tiktok:      tiktok,
-		openai:      openaiClient,
-		groq:        groqClient,
-		storage:     storageClient,
-		broadcaster: broadcaster,
+		db:            db,
+		instagram:     instagram,
+		tiktok:        tiktok,
+		openai:        openaiClient,
+		transcription: transcriptionClient,
+		groq:          groqClient,
+		storage:       storageClient,
+		broadcaster:   broadcaster,
 	}
 }
 
@@ -71,8 +125,8 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Fetching post content...")
 
-	var caption, platform, imageURL string
-
+	var caption, platform, imageURL, videoURL string
+	var ownerUsername, ownerAvatar, ownerID string
 
 	if scraper.IsInstagramURL(url) {
 		platform = "instagram"
@@ -83,6 +137,10 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		}
 		caption = post.Caption
 		imageURL = post.ImageURL
+		videoURL = post.VideoURL
+		ownerUsername = post.OwnerUsername
+		ownerAvatar = post.OwnerAvatar
+		ownerID = post.OwnerID
 
 	} else if scraper.IsTikTokURL(url) {
 		platform = "tiktok"
@@ -93,21 +151,120 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		}
 		caption = post.Caption
 		imageURL = post.ThumbnailURL
+		videoURL = post.VideoURL
+		ownerUsername = post.OwnerUsername
+		ownerAvatar = post.OwnerAvatar
+		ownerID = post.OwnerID
 
 	} else {
 		p.markFailed(ctx, jobID, userID, "Invalid URL: must be Instagram or TikTok")
 		return fmt.Errorf("invalid URL")
 	}
 
+	validationResult := validation.QuickValidate(caption, "")
+	if !validationResult.IsValid {
+		errMsg := fmt.Sprintf("Content validation failed: %s", validationResult.Reason)
+		p.markFailed(ctx, jobID, userID, errMsg)
+		return errors.NewValidationError(errMsg, "CONTENT_NOT_RECIPE", "")
+	}
+	slog.Info("Content validation passed", "confidence", string(validationResult.Confidence), "reason", validationResult.Reason)
+
+	var transcript string
+	if videoURL != "" {
+		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Transcribing video content...")
+		var err error
+		transcript, err = p.transcription.TranscribeVideo(ctx, videoURL)
+		if err != nil {
+			p.markFailed(ctx, jobID, userID, fmt.Sprintf("Transcription failed: %v", err))
+			return err
+		}
+	}
+
 	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Generating recipe with AI...")
 
-	recipe, err := p.groq.GenerateRecipe(ctx, caption, "", platform)
+	recipe, err := p.groq.GenerateRecipe(ctx, caption, transcript, platform)
 	if err != nil {
 		p.markFailed(ctx, jobID, userID, fmt.Sprintf("Recipe generation failed: %v", err))
 		return err
 	}
 
+	validationConfig := validation.RecipeOutputValidationConfig{
+		MinIngredients:      2,
+		MinInstructions:     2,
+		MaxPlaceholderRatio: 0.2,
+	}
+
+	vRecipe := validation.Recipe{
+		RecipeName:          recipe.RecipeName,
+		Description:         recipe.Description,
+		PrepTime:            recipe.PrepTime,
+		CookingTime:         recipe.CookingTime,
+		TotalTime:           recipe.TotalTime,
+		OriginalServings:    recipe.OriginalServings,
+		DifficultyRating:    recipe.DifficultyRating,
+		FocusedDiet:         recipe.FocusedDiet,
+		EstimatedCalories:   recipe.EstimatedCalories,
+		Ingredients:         convertIngredients(recipe.Ingredients),
+		Instructions:        convertInstructions(recipe.Instructions),
+		Nutrition:           convertNutrition(recipe.Nutrition),
+		CuisineCategories:   recipe.CuisineCategories,
+		MealTypes:           recipe.MealTypes,
+		Occasions:           recipe.Occasions,
+		DietaryRestrictions: recipe.DietaryRestrictions,
+		Equipment:           recipe.Equipment,
+	}
+
+	result := validation.ValidateRecipe(vRecipe, validationConfig)
+	if !result.IsValid {
+		errMsg := fmt.Sprintf("Recipe validation failed (quality score: %d): %s", result.QualityScore, strings.Join(result.Issues, ", "))
+		p.markFailed(ctx, jobID, userID, errMsg)
+		return errors.NewValidationError(errMsg, "LOW_QUALITY_RECIPE", "Try providing a more detailed video or transcript.")
+	}
+	slog.Info("Recipe validation passed", "quality_score", result.QualityScore, "has_placeholders", result.HasPlaceholders)
+
 	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Saving recipe to database...")
+
+	var ownerUUID pgtype.UUID
+	if ownerID != "" {
+		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Saving recipe owner...")
+
+		owner, err := p.db.GetSocialMediaOwnerByOrigin(ctx, generated.GetSocialMediaOwnerByOriginParams{
+			OriginID: ownerID,
+			Platform: generated.SocialMediaPlatform(platform),
+		})
+
+		if err != nil {
+			var storedImageID pgtype.Text
+
+			if ownerAvatar != "" {
+				avatarData, err := downloadImage(ctx, ownerAvatar)
+				if err == nil {
+					hash := storage.HashContent(avatarData)
+					path := fmt.Sprintf("user_avatars/%s", hash)
+					_, err := p.storage.UploadImageWithHash(ctx, "recipes", path, ownerAvatar, avatarData)
+					if err == nil {
+						if existing, err := p.storage.GetImageByHash(ctx, hash); err == nil {
+							storedImageID = pgtype.Text{String: existing.ID, Valid: true}
+						}
+					}
+				}
+			}
+
+			newOwner, err := p.db.CreateSocialMediaOwner(ctx, generated.CreateSocialMediaOwnerParams{
+				Username:                ownerUsername,
+				ProfilePicStoredImageID: storedImageID,
+				OriginID:                ownerID,
+				Platform:                generated.SocialMediaPlatform(platform),
+			})
+			if err == nil {
+				ownerUUID = newOwner.ID
+			} else {
+				slog.Error("Failed to create social media owner", "error", err)
+			}
+		} else {
+			ownerUUID = owner.ID
+		}
+	}
 
 	recipeUUID := parseUUID(uuid.New().String())
 	userUUID := parseUUID(userID)
@@ -135,7 +292,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		DifficultyRating:    difficultyRating,
 		Origin:              origin,
 		Url:                 url,
-		OwnerID:             pgtype.UUID{},
+		OwnerID:             ownerUUID,
 		ThumbnailID:         pgtype.UUID{},
 	})
 	if err != nil {
@@ -146,9 +303,9 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	for _, ing := range recipe.Ingredients {
 		_, err := p.db.CreateIngredient(ctx, generated.CreateIngredientParams{
 			RecipeID:         savedRecipe.ID,
-			Quantity:         pgtype.Text{String: ing.OriginalQuantity, Valid: ing.OriginalQuantity != ""},
+			Quantity:         pgtype.Text{String: string(ing.OriginalQuantity), Valid: ing.OriginalQuantity != ""},
 			Unit:             pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
-			OriginalQuantity: pgtype.Text{String: ing.OriginalQuantity, Valid: ing.OriginalQuantity != ""},
+			OriginalQuantity: pgtype.Text{String: string(ing.OriginalQuantity), Valid: ing.OriginalQuantity != ""},
 			OriginalUnit:     pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
 			Name:             ing.Name,
 		})
@@ -181,7 +338,6 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		}
 	}
 
-	// Handle image processing
 	if imageURL != "" {
 		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Processing recipe image...")
 		imageData, err := downloadImage(ctx, imageURL)
@@ -194,14 +350,12 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 			if err != nil {
 				slog.Error("Failed to upload image", "error", err)
 			} else {
-				// Get the stored image record to get its ID
 				existing, err := p.storage.GetImageByHash(ctx, hash)
 				if err != nil || existing == nil {
 					slog.Error("Failed to get stored image after upload", "error", err)
 				} else {
 					storedImageUUID := parseUUID(existing.ID)
 
-					// Create recipe_images record
 					recipeImage, err := p.db.CreateRecipeImage(ctx, generated.CreateRecipeImageParams{
 						RecipeID:      savedRecipe.ID,
 						StoredImageID: storedImageUUID,
@@ -210,7 +364,6 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 					if err != nil {
 						slog.Error("Failed to create recipe image record", "error", err)
 					} else {
-						// Update recipe thumbnail with recipe_images.id (not stored_images.id)
 						err = p.db.UpdateRecipeThumbnail(ctx, generated.UpdateRecipeThumbnailParams{
 							ID:          savedRecipe.ID,
 							ThumbnailID: recipeImage.ID,
@@ -223,7 +376,6 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 			}
 		}
 	}
-
 
 	p.updateProgress(ctx, jobID, userID, "COMPLETED", "Recipe saved successfully!")
 
@@ -260,14 +412,12 @@ func (p *RecipeProcessor) HandleGenerateEmbedding(ctx context.Context, t *asynq.
 func (p *RecipeProcessor) HandleCleanupJobs(ctx context.Context, t *asynq.Task) error {
 	slog.Info("Running cleanup job")
 
-	// Delete old completed/failed jobs (older than 7 days)
 	err := p.db.DeleteOldImportJobs(ctx)
 	if err != nil {
 		slog.Error("Failed to delete old import jobs", "error", err)
 		return err
 	}
 
-	// Delete stale queued/executing jobs (older than 24 hours)
 	err = p.db.DeleteStaleImportJobs(ctx)
 	if err != nil {
 		slog.Error("Failed to delete stale import jobs", "error", err)
@@ -324,6 +474,7 @@ func ptrToInt(i *int) int {
 	}
 	return *i
 }
+
 func downloadImage(ctx context.Context, url string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -343,4 +494,36 @@ func downloadImage(ctx context.Context, url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+func convertIngredients(ings []groq.Ingredient) []validation.Ingredient {
+	result := make([]validation.Ingredient, len(ings))
+	for i, ing := range ings {
+		result[i] = validation.Ingredient{
+			OriginalQuantity: string(ing.OriginalQuantity),
+			OriginalUnit:     ing.OriginalUnit,
+			Quantity:         ing.Quantity,
+			Unit:             ing.Unit,
+			Name:             ing.Name,
+		}
+	}
+	return result
+}
 
+func convertInstructions(insts []groq.Instruction) []validation.Instruction {
+	result := make([]validation.Instruction, len(insts))
+	for i, inst := range insts {
+		result[i] = validation.Instruction{
+			StepNumber:  inst.StepNumber,
+			Instruction: inst.Instruction,
+		}
+	}
+	return result
+}
+
+func convertNutrition(n groq.Nutrition) validation.Nutrition {
+	return validation.Nutrition{
+		Protein: n.Protein,
+		Carbs:   n.Carbs,
+		Fat:     n.Fat,
+		Fiber:   n.Fiber,
+	}
+}
