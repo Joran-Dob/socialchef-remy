@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/extra/redisotel/v9"
+	"github.com/redis/go-redis/v9"
 )
 
 // ParseRedisURL parses a Redis URL and returns asynq.RedisClientOpt
@@ -39,13 +41,26 @@ func ParseRedisURL(redisURL string) (asynq.RedisClientOpt, error) {
 	return opt, nil
 }
 
-// NewClient creates a new Asynq client for enqueueing tasks
+// NewClient creates a new Asynq client for enqueueing tasks with OTel instrumentation
 func NewClient(redisURL string) *asynq.Client {
 	opt, err := ParseRedisURL(redisURL)
 	if err != nil {
 		panic("failed to parse Redis URL: " + err.Error())
 	}
-	return asynq.NewClient(opt)
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr:      opt.Addr,
+		Username:  opt.Username,
+		Password:  opt.Password,
+		DB:        opt.DB,
+		TLSConfig: opt.TLSConfig,
+	})
+
+	if err := redisotel.InstrumentTracing(rdb); err != nil {
+		panic("failed to instrument Redis client: " + err.Error())
+	}
+
+	return asynq.NewClientFromRedisClient(rdb)
 }
 
 // Close closes the client connection
