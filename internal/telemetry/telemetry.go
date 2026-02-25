@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -76,10 +75,12 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 	}
 	if len(headers) > 0 {
 		traceOpts = append(traceOpts, otlptracehttp.WithHeaders(headers))
+		logOpts = append(logOpts, otlploghttp.WithHeaders(headers))
 	}
 
 	if insecure {
 		traceOpts = append(traceOpts, otlptracehttp.WithInsecure())
+		logOpts = append(logOpts, otlploghttp.WithInsecure())
 	}
 
 	traceExporter, err := otlptracehttp.New(ctx, traceOpts...)
@@ -92,9 +93,6 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 		return nil, err
 	}
 
-	// Debug: Test if log exporter can be created
-	slog.Info("Log exporter created", "endpoint", endpoint, "path", logUrlPath)
-
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(traceExporter),
 		sdktrace.WithResource(res),
@@ -106,14 +104,6 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 		sdklog.WithResource(res),
 	)
 	global.SetLoggerProvider(lp)
-
-	// Debug logging
-	slog.Info("Telemetry initialized",
-		"endpoint", endpoint,
-		"trace_path", traceUrlPath,
-		"log_path", logUrlPath,
-		"insecure", insecure,
-	)
 
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},

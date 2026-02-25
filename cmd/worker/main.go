@@ -96,7 +96,7 @@ func main() {
 	}()
 
 	slog.Info("Starting worker", "redis", cfg.RedisURL)
-	slog.Info("TEST LOG - This should appear in Better Stack", "source", "worker")
+
 	if err := srv.Run(mux); err != nil {
 		log.Fatalf("Worker failed: %v", err)
 	}

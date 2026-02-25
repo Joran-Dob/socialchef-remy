@@ -2,7 +2,7 @@ package worker
 
 import (
 	"github.com/hibiken/asynq"
-	"github.com/redis/go-redis/extra/redisotel/v9"
+	// "github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -21,9 +21,10 @@ func NewServer(redisURL string) *asynq.Server {
 		TLSConfig: opt.TLSConfig,
 	})
 
-	if err := redisotel.InstrumentTracing(rdb); err != nil {
-		panic("failed to instrument Redis client: " + err.Error())
-	}
+	// Redis tracing disabled to reduce noise
+	// if err := redisotel.InstrumentTracing(rdb); err != nil {
+	// 	panic("failed to instrument Redis client: " + err.Error())
+	// }
 
 	return asynq.NewServerFromRedisClient(
 		rdb,
