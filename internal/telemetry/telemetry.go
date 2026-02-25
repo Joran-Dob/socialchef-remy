@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -98,7 +99,7 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 	otel.SetTracerProvider(tp)
 
 	lp := sdklog.NewLoggerProvider(
-		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
+		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter, sdklog.WithExportTimeout(5*time.Second))),
 		sdklog.WithResource(res),
 	)
 	global.SetLoggerProvider(lp)
