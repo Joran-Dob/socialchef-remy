@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"github.com/socialchef/remy/internal/utils"
-)
+	"github.com/socialchef/remy/internal/httpclient"
+	)
 
 const (
 	lsdToken  = "AVqbxe3J_YA"
@@ -40,7 +41,7 @@ func NewInstagramScraper(proxyURL, proxyKey string) *InstagramScraper {
 	return &InstagramScraper{
 		proxyURL:   proxyURL,
 		proxyKey:   proxyKey,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: httpclient.NewInstrumentedClient(30 * time.Second),
 	}
 }
 
@@ -107,7 +108,7 @@ func (s *InstagramScraper) Scrape(ctx context.Context, postURL string) (*Instagr
 		}
 		body, _ := json.Marshal(reqBody)
 
-		req, err := http.NewRequestWithContext(attemptCtx, "POST", s.proxyURL, bytes.NewReader(body))
+		req, err := http.NewRequestWithContext(httpclient.WithProvider(attemptCtx, "InstagramProxy"), "POST", s.proxyURL, bytes.NewReader(body))
 		if err != nil {
 			return nil, err
 		}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"github.com/socialchef/remy/internal/httpclient"
 )
 
 type chatRequest struct {
@@ -56,14 +57,14 @@ func callOpenAIChat(ctx context.Context, apiKey, model, systemPrompt, userConten
 	}
 
 	body, _ := json.Marshal(req)
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(httpclient.WithProvider(ctx, "OpenAI"), "POST", "https://api.openai.com/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
 	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := httpclient.InstrumentedClient.Do(httpReq)
 	if err != nil {
 		return "", err
 	}
@@ -97,14 +98,14 @@ func callOpenAIEmbedding(ctx context.Context, apiKey, model, text string) ([]flo
 	}
 
 	body, _ := json.Marshal(req)
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/embeddings", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(httpclient.WithProvider(ctx, "OpenAI"), "POST", "https://api.openai.com/v1/embeddings", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := httpclient.InstrumentedClient.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}

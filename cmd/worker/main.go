@@ -75,9 +75,11 @@ func main() {
 
 	// Register handlers
 	mux := asynq.NewServeMux()
+	mux.Use(worker.OTelMiddleware)
 	mux.HandleFunc(worker.TypeProcessRecipe, processor.HandleProcessRecipe)
 	mux.HandleFunc(worker.TypeGenerateEmbedding, processor.HandleGenerateEmbedding)
 	mux.HandleFunc(worker.TypeCleanupJobs, processor.HandleCleanupJobs)
+
 
 	// Handle shutdown
 	sigChan := make(chan os.Signal, 1)

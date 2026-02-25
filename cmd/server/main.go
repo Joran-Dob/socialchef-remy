@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/riandyrn/otelchi"
 	"github.com/socialchef/remy/internal/api"
 	"github.com/socialchef/remy/internal/config"
 	"github.com/socialchef/remy/internal/db"
@@ -59,7 +60,12 @@ func main() {
 	r := chi.NewRouter()
 
 	// Middleware
-	r.Use(telemetry.Middleware())
+	r.Use(otelchi.Middleware("socialchef-server",
+		otelchi.WithChiRoutes(r),
+		otelchi.WithFilter(func(r *http.Request) bool {
+			return r.URL.Path != "/health"
+		}),
+	))
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

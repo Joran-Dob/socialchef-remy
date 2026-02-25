@@ -11,12 +11,13 @@ import (
 	"strconv"
 
 	"github.com/socialchef/remy/internal/services/ai"
+	"github.com/socialchef/remy/internal/httpclient"
 )
+
 
 type Client struct {
 	apiKey string
 }
-
 type Recipe struct {
 	RecipeName          string
 	Description         string
@@ -147,14 +148,14 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 	}{Role: "user", Content: userContent})
 
 	body, _ := json.Marshal(req)
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(httpclient.WithProvider(ctx, "Groq"), "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := httpclient.InstrumentedClient.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}

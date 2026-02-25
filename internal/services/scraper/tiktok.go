@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/socialchef/remy/internal/utils"
+	"github.com/socialchef/remy/internal/httpclient"
 )
 
 type TikTokPost struct {
@@ -38,7 +39,7 @@ type TikTokScraper struct {
 func NewTikTokScraper(apifyKey string) *TikTokScraper {
 	return &TikTokScraper{
 		apifyKey:   apifyKey,
-		httpClient: &http.Client{Timeout: 180 * time.Second},
+		httpClient: httpclient.NewInstrumentedClient(180 * time.Second),
 	}
 }
 
@@ -61,7 +62,7 @@ func (s *TikTokScraper) Scrape(ctx context.Context, postURL string) (*TikTokPost
 	config := utils.DefaultRetryConfig()
 
 	body, err := utils.WithRetry(ctx, func(attemptCtx context.Context) ([]byte, error) {
-		req, err := http.NewRequestWithContext(attemptCtx, "POST",
+		req, err := http.NewRequestWithContext(httpclient.WithProvider(attemptCtx, "Apify"), "POST",
 			fmt.Sprintf("https://api.apify.com/v2/acts/%s/run-sync", apifyActorID),
 			bytes.NewReader(inputData))
 		if err != nil {
@@ -129,7 +130,7 @@ func (s *TikTokScraper) getVideoUrlFromStore(ctx context.Context, videoID string
 
 	videoKey, err := utils.WithRetry(ctx, func(attemptCtx context.Context) (string, error) {
 		url := fmt.Sprintf("https://api.apify.com/v2/key-value-stores/%s/keys?token=%s", videoKvStoreID, s.apifyKey)
-		req, err := http.NewRequestWithContext(attemptCtx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(httpclient.WithProvider(attemptCtx, "Apify"), "GET", url, nil)
 		if err != nil {
 			return "", err
 		}
