@@ -7,8 +7,11 @@ import (
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
@@ -29,71 +32,91 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 		return nil, err
 	}
 
-	// Parse the endpoint URL
-	// For Grafana Cloud, use: https://otlp-gateway-prod-REGION.grafana.net/otlp
-	// The /v1/traces will be appended automatically
 	endpoint := otlpEndpoint
-	urlPath := "/v1/traces" // default OTLP path
 	insecure := false
+	basePath := ""
 
 	if endpoint != "" {
-		// Handle full URLs
 		if strings.HasPrefix(endpoint, "https://") {
 			endpoint = strings.TrimPrefix(endpoint, "https://")
-			insecure = false
 		} else if strings.HasPrefix(endpoint, "http://") {
 			endpoint = strings.TrimPrefix(endpoint, "http://")
-			insecure = true
+		insecure = true
 		}
 
-		// Extract path from endpoint if present
 		if idx := strings.Index(endpoint, "/"); idx > 0 {
-			path := endpoint[idx:]
+			basePath = endpoint[idx:]
 			endpoint = endpoint[:idx]
-			// For Grafana Cloud, the path is /otlp and we need /otlp/v1/traces
-			// For other backends, the path might already include /v1/traces
-			if path == "/otlp" {
-				urlPath = "/otlp/v1/traces"
-			} else if strings.HasSuffix(path, "/v1/traces") {
-				urlPath = path
-			} else if strings.HasSuffix(path, "/") {
-				urlPath = path + "v1/traces"
-			} else {
-				urlPath = path + "/v1/traces"
-			}
 		}
 	}
 
-	opts := []otlptracehttp.Option{
-		otlptracehttp.WithEndpoint(endpoint),
-		otlptracehttp.WithURLPath(urlPath),
+	traceUrlPath := "/v1/traces"
+	logUrlPath := "/v1/logs"
+
+	if basePath == "/otlp" {
+		traceUrlPath = "/otlp/v1/traces"
+		logUrlPath = "/otlp/v1/logs"
+	} else if basePath != "" {
+		basePath = strings.TrimSuffix(basePath, "/v1/traces")
+		basePath = strings.TrimSuffix(basePath, "/v1/logs")
+		basePath = strings.TrimSuffix(basePath, "/")
+		traceUrlPath = basePath + "/v1/traces"
+		logUrlPath = basePath + "/v1/logs"
 	}
+
+	traceOpts := []otlptracehttp.Option{
+		otlptracehttp.WithEndpoint(endpoint),
+		otlptracehttp.WithURLPath(traceUrlPath),
+	}
+	logOpts := []otlploghttp.Option{
+		otlploghttp.WithEndpoint(endpoint),
+		otlploghttp.WithURLPath(logUrlPath),
+	}
+
 	if len(headers) > 0 {
-		opts = append(opts, otlptracehttp.WithHeaders(headers))
+		traceOpts = append(traceOpts, otlptracehttp.WithHeaders(headers))
+		logOpts = append(logOpts, otlploghttp.WithHeaders(headers))
 	}
 
 	if insecure {
-		opts = append(opts, otlptracehttp.WithInsecure())
+		traceOpts = append(traceOpts, otlptracehttp.WithInsecure())
+		logOpts = append(logOpts, otlploghttp.WithInsecure())
 	}
-	exporter, err := otlptracehttp.New(ctx, opts...)
+
+	traceExporter, err := otlptracehttp.New(ctx, traceOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	logExporter, err := otlploghttp.New(ctx, logOpts...)
 	if err != nil {
 		return nil, err
 	}
 
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
+		sdktrace.WithBatcher(traceExporter),
 		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)
 
-	// Add baggage propagation as requested
+	lp := sdklog.NewLoggerProvider(
+		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
+		sdklog.WithResource(res),
+	)
+	global.SetLoggerProvider(lp)
+
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
 
 	return func(ctx context.Context) error {
-		return tp.Shutdown(ctx)
+		err1 := tp.Shutdown(ctx)
+		err2 := lp.Shutdown(ctx)
+		if err1 != nil {
+			return err1
+		}
+		return err2
 	}, nil
 }
 
