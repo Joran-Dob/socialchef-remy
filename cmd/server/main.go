@@ -16,6 +16,7 @@ import (
 	"github.com/socialchef/remy/internal/db/generated"
 	"github.com/socialchef/remy/internal/middleware"
 	"github.com/socialchef/remy/internal/telemetry"
+	"github.com/socialchef/remy/internal/logger"
 	"github.com/socialchef/remy/internal/worker"
 )
 
@@ -36,6 +37,10 @@ func main() {
 			defer shutdown(ctx)
 		}
 	}
+
+	// Initialize logger with OTel support
+	logger := logger.New(cfg.Env)
+	slog.SetDefault(logger) // Set as default so slog.Info() uses our handler
 
 	// Database connection
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
