@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -104,6 +105,14 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 		sdklog.WithResource(res),
 	)
 	global.SetLoggerProvider(lp)
+
+	// Debug logging
+	slog.Info("Telemetry initialized",
+		"endpoint", endpoint,
+		"trace_path", traceUrlPath,
+		"log_path", logUrlPath,
+		"insecure", insecure,
+	)
 
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
