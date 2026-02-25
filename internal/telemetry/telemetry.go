@@ -62,7 +62,7 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)
-	
+
 	// Add baggage propagation as requested
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},

@@ -5,14 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/socialchef/remy/internal/httpclient"
 	"io"
 	"net/http"
-	"github.com/socialchef/remy/internal/httpclient"
 )
 
 type chatRequest struct {
-	Model       string          `json:"model"`
-	Messages    []chatMessage   `json:"messages"`
+	Model          string          `json:"model"`
+	Messages       []chatMessage   `json:"messages"`
 	ResponseFormat *responseFormat `json:"response_format,omitempty"`
 }
 

@@ -10,10 +10,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/socialchef/remy/internal/services/ai"
 	"github.com/socialchef/remy/internal/httpclient"
+	"github.com/socialchef/remy/internal/services/ai"
 )
-
 
 type Client struct {
 	apiKey string
@@ -63,10 +62,10 @@ func (s *StringOrNumber) UnmarshalJSON(data []byte) error {
 
 type Ingredient struct {
 	OriginalQuantity StringOrNumber `json:"original_quantity"`
-	OriginalUnit     string  `json:"original_unit"`
-	Quantity         float64 `json:"quantity"`
-	Unit             string  `json:"unit"`
-	Name             string  `json:"name"`
+	OriginalUnit     string         `json:"original_unit"`
+	Quantity         float64        `json:"quantity"`
+	Unit             string         `json:"unit"`
+	Name             string         `json:"name"`
 }
 
 type Instruction struct {
@@ -111,8 +110,6 @@ func NewClient(apiKey string) *Client {
 	return &Client{apiKey: apiKey}
 }
 
-
-
 func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, platform string) (*Recipe, error) {
 	systemPrompt := ai.BuildRecipePrompt(platform)
 
@@ -122,8 +119,8 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 	}
 
 	type chatRequest struct {
-		Model       string `json:"model"`
-		Messages    []struct {
+		Model    string `json:"model"`
+		Messages []struct {
 			Role    string `json:"role"`
 			Content string `json:"content"`
 		} `json:"messages"`

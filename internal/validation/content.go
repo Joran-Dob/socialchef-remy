@@ -77,7 +77,6 @@ func QuickValidate(description, transcript string) ContentValidationResult {
 		}
 	}
 
-
 	foundKeywords := false
 	lowerContent := strings.ToLower(content)
 	for _, kw := range recipeKeywords {
@@ -153,7 +152,7 @@ Respond with ONLY a JSON object (no additional text):
 
 	if model == "" {
 		model = "llama-3.3-70b-versatile"
-}
+	}
 
 	resp, err := groqClient.Chat(ctx, model, messages, "json_object")
 	if err != nil {

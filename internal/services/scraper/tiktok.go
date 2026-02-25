@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/socialchef/remy/internal/utils"
 	"github.com/socialchef/remy/internal/httpclient"
+	"github.com/socialchef/remy/internal/utils"
 )
 
 type TikTokPost struct {

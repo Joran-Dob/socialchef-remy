@@ -1,8 +1,8 @@
 package main
 
 import (
-	_ "github.com/joho/godotenv/autoload"
 	"context"
+	_ "github.com/joho/godotenv/autoload"
 	"log"
 	"log/slog"
 	"net/http"

@@ -1,9 +1,9 @@
 package main
 
 import (
-	_ "github.com/joho/godotenv/autoload"
 	"context"
 	"github.com/hibiken/asynq"
+	_ "github.com/joho/godotenv/autoload"
 	"log"
 	"log/slog"
 	"os"
@@ -79,7 +79,6 @@ func main() {
 	mux.HandleFunc(worker.TypeProcessRecipe, processor.HandleProcessRecipe)
 	mux.HandleFunc(worker.TypeGenerateEmbedding, processor.HandleGenerateEmbedding)
 	mux.HandleFunc(worker.TypeCleanupJobs, processor.HandleCleanupJobs)
-
 
 	// Handle shutdown
 	sigChan := make(chan os.Signal, 1)

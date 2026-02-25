@@ -10,9 +10,9 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/socialchef/remy/internal/utils"
 	"github.com/socialchef/remy/internal/httpclient"
-	)
+	"github.com/socialchef/remy/internal/utils"
+)
 
 const (
 	lsdToken  = "AVqbxe3J_YA"
