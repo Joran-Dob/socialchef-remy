@@ -7,14 +7,14 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/socialchef/remy/internal/errors"
 	"github.com/socialchef/remy/internal/metrics"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"github.com/socialchef/remy/internal/errors"
 )
-
 
 // Client handles video transcription using OpenAI's API
 type Client struct {
@@ -72,6 +72,33 @@ func (c *Client) TranscribeVideo(ctx context.Context, videoURL string) (string, 
 		return "", errors.NewTranscriptionError(fmt.Sprintf("failed to fetch video: status %d", resp.StatusCode), "VIDEO_FETCH_HTTP_ERROR", nil)
 	}
 
+	// Save video to temp file
+	videoFile, err := os.CreateTemp("", "video-*.mp4")
+	if err != nil {
+		return "", errors.NewTranscriptionError("failed to create temp video file", "VIDEO_TEMP_FILE_ERROR", err)
+	}
+	defer os.Remove(videoFile.Name())
+	videoPath := videoFile.Name()
+
+	if _, err := io.Copy(videoFile, resp.Body); err != nil {
+		videoFile.Close()
+		return "", errors.NewTranscriptionError("failed to save video to temp file", "VIDEO_SAVE_ERROR", err)
+	}
+	videoFile.Close()
+
+	// Try to extract audio from video
+	audioPath, extractErr := ExtractAudio(ctx, videoPath)
+	var formFileName string
+
+	if extractErr != nil {
+		// Log warning but continue with video
+		formFileName = "video.mp4"
+	} else {
+		// Use audio file
+		defer os.Remove(audioPath)
+		formFileName = "audio.mp3"
+	}
+
 	// 2. Prepare multipart form via pipe to avoid buffering in memory
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
@@ -80,12 +107,31 @@ func (c *Client) TranscribeVideo(ctx context.Context, videoURL string) (string, 
 		defer pw.Close()
 		defer writer.Close()
 
-		part, err := writer.CreateFormFile("file", "video.mp4")
+		part, err := writer.CreateFormFile("file", formFileName)
 		if err != nil {
 			return
 		}
 
-		if _, err := io.Copy(part, resp.Body); err != nil {
+		var fileToCopy io.Reader
+		if formFileName == "audio.mp3" {
+			// Use audio file for upload
+			audioFile, err := os.Open(audioPath)
+			if err != nil {
+				return
+			}
+			defer audioFile.Close()
+			fileToCopy = audioFile
+		} else {
+			// Use original video file
+			videoFile, err := os.Open(videoPath)
+			if err != nil {
+				return
+			}
+			defer videoFile.Close()
+			fileToCopy = videoFile
+		}
+
+		if _, err := io.Copy(part, fileToCopy); err != nil {
 			return
 		}
 
@@ -96,7 +142,6 @@ func (c *Client) TranscribeVideo(ctx context.Context, videoURL string) (string, 
 
 	// 3. Send to OpenAI
 	openAIReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/audio/transcriptions", pr)
-
 	if err != nil {
 		return "", errors.NewTranscriptionError("failed to create OpenAI request", "OPENAI_REQUEST_ERROR", err)
 	}

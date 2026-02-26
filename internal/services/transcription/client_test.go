@@ -102,3 +102,8 @@ func TestTranscribeVideo_OpenAIError(t *testing.T) {
 		t.Errorf("Expected error message to contain 'OpenAI API error (status 500)', got %v", err)
 	}
 }
+
+// Note: TestTranscribeVideo tests the fallback path since mock servers don't provide real video.
+// When FFmpeg extraction fails (which it will with "dummy-video-data"), the test falls back to sending the video directly.
+// This is correct behavior - the tests verify the fallback path works as expected.
+// Real video files with actual audio would trigger the successful extraction path.

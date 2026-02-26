@@ -18,7 +18,7 @@ FROM alpine:3.19
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata ffmpeg
 
 COPY --from=builder /server /app/server
 COPY --from=builder /worker /app/worker
