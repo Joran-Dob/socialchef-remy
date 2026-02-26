@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -125,6 +126,10 @@ func InitTelemetry(ctx context.Context, serviceName, serviceVersion, env, otlpEn
 		metric.WithReader(metric.NewPeriodicReader(metricExporter, metric.WithInterval(60*time.Second))),
 	)
 	otel.SetMeterProvider(mp)
+
+	if err := runtime.Start(runtime.WithMeterProvider(mp)); err != nil {
+		return nil, err
+	}
 
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
