@@ -1,0 +1,76 @@
+{
+  "dashboard": "Business Metrics",
+  "description": "Core business logic performance and external integration health",
+  "metrics": [
+    {
+      "name": "recipe.imports.total",
+      "type": "counter",
+      "description": "Total number of recipe imports",
+      "recommended_panels": [
+        {
+          "title": "Import Rate",
+          "type": "graph",
+          "query": "sum(rate(recipe_imports_total_total[5m])) by (status)",
+          "unit": "imports/s"
+        }
+      ]
+    },
+    {
+      "name": "recipe.import.duration",
+      "type": "histogram",
+      "description": "Duration of recipe import process",
+      "recommended_panels": [
+        {
+          "title": "95th Percentile Import Duration",
+          "type": "graph",
+          "query": "histogram_quantile(0.95, sum(rate(recipe_import_duration_bucket[5m])) by (le))",
+          "unit": "s"
+        }
+      ]
+    },
+    {
+      "name": "external.api.calls.total",
+      "type": "counter",
+      "description": "Total number of external API calls",
+      "recommended_panels": [
+        {
+          "title": "External API Call Rate",
+          "type": "graph",
+          "query": "sum(rate(external_api_calls_total_total[5m])) by (provider, status)",
+          "unit": "calls/s"
+        }
+      ]
+    },
+    {
+      "name": "external.api.duration",
+      "type": "histogram",
+      "description": "Duration of external API calls",
+      "recommended_panels": [
+        {
+          "title": "95th Percentile External API Latency",
+          "type": "graph",
+          "query": "histogram_quantile(0.95, sum(rate(external_api_duration_bucket[5m])) by (le, provider))",
+          "unit": "s"
+        }
+      ]
+    },
+    {
+      "name": "ai.generation.duration",
+      "type": "histogram",
+      "description": "Duration of AI recipe generation",
+      "recommended_panels": [
+        {
+          "title": "95th Percentile AI Generation Latency",
+          "type": "graph",
+          "query": "histogram_quantile(0.95, sum(rate(ai_generation_duration_bucket[5m])) by (le, provider))",
+          "unit": "s"
+        }
+      ]
+    }
+  ],
+  "labels": [
+    "source",
+    "provider",
+    "status"
+  ]
+}

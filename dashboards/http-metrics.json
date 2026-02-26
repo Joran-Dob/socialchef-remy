@@ -1,0 +1,62 @@
+{
+  "dashboard": "HTTP Metrics",
+  "description": "Standard HTTP server performance metrics provided by otelchi/metric middleware",
+  "metrics": [
+    {
+      "name": "http.server.request.duration",
+      "type": "histogram",
+      "description": "Duration of HTTP server requests",
+      "recommended_panels": [
+        {
+          "title": "95th Percentile Latency",
+          "type": "graph",
+          "query": "histogram_quantile(0.95, sum(rate(http_server_request_duration_bucket[5m])) by (le, http_route))",
+          "unit": "s"
+        },
+        {
+          "title": "Median Latency",
+          "type": "graph",
+          "query": "histogram_quantile(0.50, sum(rate(http_server_request_duration_bucket[5m])) by (le, http_route))",
+          "unit": "s"
+        },
+        {
+          "title": "Total Requests",
+          "type": "graph",
+          "query": "sum(rate(http_server_request_duration_count[5m])) by (http_route, http_method, http_status_code)",
+          "unit": "req/s"
+        }
+      ]
+    },
+    {
+      "name": "http.server.request.in_flight",
+      "type": "gauge",
+      "description": "Number of active requests being processed",
+      "recommended_panels": [
+        {
+          "title": "Active Requests",
+          "type": "gauge",
+          "query": "http_server_request_in_flight",
+          "unit": "requests"
+        }
+      ]
+    },
+    {
+      "name": "http.server.response.size",
+      "type": "histogram",
+      "description": "Size of HTTP server responses",
+      "recommended_panels": [
+        {
+          "title": "95th Percentile Response Size",
+          "type": "graph",
+          "query": "histogram_quantile(0.95, sum(rate(http_server_response_size_bucket[5m])) by (le, http_route))",
+          "unit": "bytes"
+        }
+      ]
+    }
+  ],
+  "labels": [
+    "http.method",
+    "http.route",
+    "http.status_code"
+  ]
+}

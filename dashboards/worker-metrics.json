@@ -1,0 +1,48 @@
+{
+  "dashboard": "Worker Metrics",
+  "description": "Performance and status of background job processing",
+  "metrics": [
+    {
+      "name": "worker.jobs.total",
+      "type": "counter",
+      "description": "Total number of worker jobs processed",
+      "recommended_panels": [
+        {
+          "title": "Job Rate",
+          "type": "graph",
+          "query": "sum(rate(worker_jobs_total_total[5m])) by (job_type, status)",
+          "unit": "jobs/s"
+        },
+        {
+          "title": "Job Failures",
+          "type": "graph",
+          "query": "sum(rate(worker_jobs_total_total{status=\"failure\"}[5m]))",
+          "unit": "jobs/s"
+        }
+      ]
+    },
+    {
+      "name": "worker.job.duration",
+      "type": "histogram",
+      "description": "Duration of worker jobs",
+      "recommended_panels": [
+        {
+          "title": "95th Percentile Job Duration",
+          "type": "graph",
+          "query": "histogram_quantile(0.95, sum(rate(worker_job_duration_bucket[5m])) by (le, job_type))",
+          "unit": "s"
+        },
+        {
+          "title": "Median Job Duration",
+          "type": "graph",
+          "query": "histogram_quantile(0.50, sum(rate(worker_job_duration_bucket[5m])) by (le, job_type))",
+          "unit": "s"
+        }
+      ]
+    }
+  ],
+  "labels": [
+    "job.type",
+    "status"
+  ]
+}

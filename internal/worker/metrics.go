@@ -32,10 +32,7 @@ func NewWorkerMetrics() (*WorkerMetrics, error) {
 		metric.WithDescription("Duration of worker jobs"),
 		metric.WithUnit("s"),
 		metric.WithExplicitBucketBoundaries(1, 5, 10, 30, 60, 120),
-	if err != nil {
-		return nil, err
-	}
-
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -23,6 +23,9 @@ This directory contains Grafana dashboard JSON files that can be imported into y
 3.  **Database Overview** (`database-overview.json`):
     - Query Duration (p95) by operation
     - Query Rate by operation
+4.  **Reference Metrics** (`http-metrics.json`, `worker-metrics.json`, `business-metrics.json`):
+    - Documentation and reference PromQL queries for Better Stack or custom Prometheus dashboards.
+    - Based on explicit OTel metrics rather than span metrics.
 
 ## How to Import
 
