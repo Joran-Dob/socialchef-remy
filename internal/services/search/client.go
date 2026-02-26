@@ -22,10 +22,12 @@ type OpenAIClient interface {
 
 // SearchResult represents a recipe search result
 type SearchResult struct {
-	ID          string  `json:"id"`
-	RecipeName  string  `json:"recipe_name"`
-	Description string  `json:"description,omitempty"`
-	Similarity  float64 `json:"similarity,omitempty"`
+	ID                string   `json:"id"`
+	RecipeName        string   `json:"recipe_name"`
+	Description       string   `json:"description,omitempty"`
+	Similarity        float64  `json:"similarity,omitempty"`
+	CuisineCategories []string `json:"cuisine_categories,omitempty"`
+	MealTypes         []string `json:"meal_types,omitempty"`
 }
 
 // Client provides search functionality
@@ -63,10 +65,12 @@ func (c *Client) SearchSemantic(ctx context.Context, query string, limit int32) 
 	searchResults := make([]SearchResult, len(results))
 	for i, r := range results {
 		searchResults[i] = SearchResult{
-			ID:          pgUUIDToString(r.ID),
-			RecipeName:  r.RecipeName,
-			Description: r.Description.String,
-			Similarity:  r.Similarity,
+			ID:                pgUUIDToString(r.ID),
+			RecipeName:        r.RecipeName,
+			Description:       r.Description.String,
+			Similarity:        r.Similarity,
+			CuisineCategories: []string{},
+			MealTypes:         []string{},
 		}
 	}
 
@@ -87,9 +91,11 @@ func (c *Client) SearchByName(ctx context.Context, query string, limit int32) ([
 	searchResults := make([]SearchResult, len(results))
 	for i, r := range results {
 		searchResults[i] = SearchResult{
-			ID:          pgUUIDToString(r.ID),
-			RecipeName:  r.RecipeName,
-			Description: r.Description.String,
+			ID:                pgUUIDToString(r.ID),
+			RecipeName:        r.RecipeName,
+			Description:       r.Description.String,
+			CuisineCategories: []string{},
+			MealTypes:         []string{},
 		}
 	}
 

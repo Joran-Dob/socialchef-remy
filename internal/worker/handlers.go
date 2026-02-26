@@ -42,6 +42,17 @@ type DBQueries interface {
 	UpdateRecipeEmbedding(ctx context.Context, arg generated.UpdateRecipeEmbeddingParams) error
 	GetSocialMediaOwnerByOrigin(ctx context.Context, arg generated.GetSocialMediaOwnerByOriginParams) (generated.SocialMediaOwner, error)
 	CreateSocialMediaOwner(ctx context.Context, arg generated.CreateSocialMediaOwnerParams) (generated.SocialMediaOwner, error)
+	// Category methods
+	GetOrCreateCuisineCategory(ctx context.Context, name string) (pgtype.UUID, error)
+	AddRecipeCuisineCategory(ctx context.Context, arg generated.AddRecipeCuisineCategoryParams) error
+	GetOrCreateMealType(ctx context.Context, name string) (pgtype.UUID, error)
+	AddRecipeMealType(ctx context.Context, arg generated.AddRecipeMealTypeParams) error
+	GetOrCreateOccasion(ctx context.Context, name string) (pgtype.UUID, error)
+	AddRecipeOccasion(ctx context.Context, arg generated.AddRecipeOccasionParams) error
+	GetOrCreateDietaryRestriction(ctx context.Context, name string) (pgtype.UUID, error)
+	AddRecipeDietaryRestriction(ctx context.Context, arg generated.AddRecipeDietaryRestrictionParams) error
+	GetOrCreateEquipment(ctx context.Context, name string) (pgtype.UUID, error)
+	AddRecipeEquipment(ctx context.Context, arg generated.AddRecipeEquipmentParams) error
 }
 
 type InstagramScraper interface {
@@ -323,6 +334,57 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		status = "failure"
 		p.markFailed(ctx, jobID, userID, fmt.Sprintf("Failed to save recipe: %v", err))
 		return err
+	}
+
+	// Save categories
+	for _, cat := range recipe.CuisineCategories {
+		catID, err := p.db.GetOrCreateCuisineCategory(ctx, cat)
+		if err == nil {
+			p.db.AddRecipeCuisineCategory(ctx, generated.AddRecipeCuisineCategoryParams{
+				RecipeID:          savedRecipe.ID,
+				CuisineCategoryID: catID,
+			})
+		}
+	}
+
+	for _, mt := range recipe.MealTypes {
+		mtID, err := p.db.GetOrCreateMealType(ctx, mt)
+		if err == nil {
+			p.db.AddRecipeMealType(ctx, generated.AddRecipeMealTypeParams{
+				RecipeID:   savedRecipe.ID,
+				MealTypeID: mtID,
+			})
+		}
+	}
+
+	for _, occ := range recipe.Occasions {
+		occID, err := p.db.GetOrCreateOccasion(ctx, occ)
+		if err == nil {
+			p.db.AddRecipeOccasion(ctx, generated.AddRecipeOccasionParams{
+				RecipeID:   savedRecipe.ID,
+				OccasionID: occID,
+			})
+		}
+	}
+
+	for _, dr := range recipe.DietaryRestrictions {
+		drID, err := p.db.GetOrCreateDietaryRestriction(ctx, dr)
+		if err == nil {
+			p.db.AddRecipeDietaryRestriction(ctx, generated.AddRecipeDietaryRestrictionParams{
+				RecipeID:             savedRecipe.ID,
+				DietaryRestrictionID: drID,
+			})
+		}
+	}
+
+	for _, eq := range recipe.Equipment {
+		eqID, err := p.db.GetOrCreateEquipment(ctx, eq)
+		if err == nil {
+			p.db.AddRecipeEquipment(ctx, generated.AddRecipeEquipmentParams{
+				RecipeID:    savedRecipe.ID,
+				EquipmentID: eqID,
+			})
+		}
 	}
 
 	for _, ing := range recipe.Ingredients {

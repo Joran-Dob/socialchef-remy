@@ -1,9 +1,9 @@
 {
-  "active_plan": "/Users/jorandob/Documents/Projects/SocialChef/socialchef-remy/.sisyphus/plans/embedding-search-go-only.md",
-  "started_at": "2026-02-26T13:06:07.574Z",
+  "active_plan": "/Users/jorandob/Documents/Projects/SocialChef/socialchef-remy/.sisyphus/plans/sync-schema-from-supabase.md",
+  "started_at": "2026-02-26T15:38:30.866Z",
   "session_ids": [
     "ses_365f2f0c9ffegPdYjvvE25joaU"
   ],
-  "plan_name": "embedding-search-go-only",
+  "plan_name": "sync-schema-from-supabase",
   "agent": "atlas"
 }

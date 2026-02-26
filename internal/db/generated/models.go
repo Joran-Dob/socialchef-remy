@@ -138,6 +138,36 @@ func (ns NullSocialMediaPlatform) Value() (driver.Value, error) {
 	return string(ns.SocialMediaPlatform), nil
 }
 
+type CuisineCategory struct {
+	ID        pgtype.UUID
+	Name      string
+	CreatedAt pgtype.Timestamptz
+}
+
+type DietaryRestriction struct {
+	ID        pgtype.UUID
+	Name      string
+	CreatedAt pgtype.Timestamptz
+}
+
+type Equipment struct {
+	ID        pgtype.UUID
+	Name      string
+	CreatedAt pgtype.Timestamptz
+}
+
+type MealType struct {
+	ID        pgtype.UUID
+	Name      string
+	CreatedAt pgtype.Timestamptz
+}
+
+type Occasion struct {
+	ID        pgtype.UUID
+	Name      string
+	CreatedAt pgtype.Timestamptz
+}
+
 type Profile struct {
 	ID              pgtype.UUID
 	Email           pgtype.Text
@@ -166,8 +196,27 @@ type Recipe struct {
 	OwnerID             pgtype.UUID
 	ThumbnailID         pgtype.UUID
 	Embedding           *pgvector_go.Vector
+	SearchVector        interface{}
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
+}
+
+type RecipeCuisineCategory struct {
+	RecipeID          pgtype.UUID
+	CuisineCategoryID pgtype.UUID
+	CreatedAt         pgtype.Timestamptz
+}
+
+type RecipeDietaryRestriction struct {
+	RecipeID             pgtype.UUID
+	DietaryRestrictionID pgtype.UUID
+	CreatedAt            pgtype.Timestamptz
+}
+
+type RecipeEquipment struct {
+	RecipeID    pgtype.UUID
+	EquipmentID pgtype.UUID
+	CreatedAt   pgtype.Timestamptz
 }
 
 type RecipeImage struct {
@@ -213,6 +262,12 @@ type RecipeInstruction struct {
 	CreatedAt   pgtype.Timestamptz
 }
 
+type RecipeMealType struct {
+	RecipeID   pgtype.UUID
+	MealTypeID pgtype.UUID
+	CreatedAt  pgtype.Timestamptz
+}
+
 type RecipeNutrition struct {
 	ID        pgtype.UUID
 	RecipeID  pgtype.UUID
@@ -222,6 +277,12 @@ type RecipeNutrition struct {
 	Fiber     pgtype.Numeric
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
+}
+
+type RecipeOccasion struct {
+	RecipeID   pgtype.UUID
+	OccasionID pgtype.UUID
+	CreatedAt  pgtype.Timestamptz
 }
 
 type SocialMediaOwner struct {

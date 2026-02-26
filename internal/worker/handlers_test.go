@@ -114,6 +114,57 @@ func (m *MockDB) UpdateRecipeEmbedding(ctx context.Context, arg generated.Update
 	return args.Error(0)
 }
 
+// Category methods
+func (m *MockDB) GetOrCreateCuisineCategory(ctx context.Context, name string) (pgtype.UUID, error) {
+	args := m.Called(ctx, name)
+	return args.Get(0).(pgtype.UUID), args.Error(1)
+}
+
+func (m *MockDB) AddRecipeCuisineCategory(ctx context.Context, arg generated.AddRecipeCuisineCategoryParams) error {
+	args := m.Called(ctx, arg)
+	return args.Error(0)
+}
+
+func (m *MockDB) GetOrCreateMealType(ctx context.Context, name string) (pgtype.UUID, error) {
+	args := m.Called(ctx, name)
+	return args.Get(0).(pgtype.UUID), args.Error(1)
+}
+
+func (m *MockDB) AddRecipeMealType(ctx context.Context, arg generated.AddRecipeMealTypeParams) error {
+	args := m.Called(ctx, arg)
+	return args.Error(0)
+}
+
+func (m *MockDB) GetOrCreateOccasion(ctx context.Context, name string) (pgtype.UUID, error) {
+	args := m.Called(ctx, name)
+	return args.Get(0).(pgtype.UUID), args.Error(1)
+}
+
+func (m *MockDB) AddRecipeOccasion(ctx context.Context, arg generated.AddRecipeOccasionParams) error {
+	args := m.Called(ctx, arg)
+	return args.Error(0)
+}
+
+func (m *MockDB) GetOrCreateDietaryRestriction(ctx context.Context, name string) (pgtype.UUID, error) {
+	args := m.Called(ctx, name)
+	return args.Get(0).(pgtype.UUID), args.Error(1)
+}
+
+func (m *MockDB) AddRecipeDietaryRestriction(ctx context.Context, arg generated.AddRecipeDietaryRestrictionParams) error {
+	args := m.Called(ctx, arg)
+	return args.Error(0)
+}
+
+func (m *MockDB) GetOrCreateEquipment(ctx context.Context, name string) (pgtype.UUID, error) {
+	args := m.Called(ctx, name)
+	return args.Get(0).(pgtype.UUID), args.Error(1)
+}
+
+func (m *MockDB) AddRecipeEquipment(ctx context.Context, arg generated.AddRecipeEquipmentParams) error {
+	args := m.Called(ctx, arg)
+	return args.Error(0)
+}
+
 
 type MockInstagramScraper struct {
 	mock.Mock
