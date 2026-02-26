@@ -463,6 +463,20 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 			}
 		}
 	}
+	// Enqueue embedding generation task
+	if p.asynqClient != nil {
+		embedTask, err := NewGenerateEmbeddingTask(GenerateEmbeddingPayload{
+			RecipeID: pgUUIDToString(savedRecipe.ID),
+		})
+		if err == nil {
+			_, err = p.asynqClient.Enqueue(embedTask)
+			if err != nil {
+				slog.Error("Failed to enqueue embedding task", "error", err)
+			} else {
+				slog.Info("Enqueued embedding task", "recipe_id", pgUUIDToString(savedRecipe.ID))
+			}
+		}
+	}
 
 	p.updateProgress(ctx, jobID, userID, "COMPLETED", "Recipe saved successfully!")
 
@@ -643,6 +657,13 @@ func convertNutrition(n groq.Nutrition) validation.Nutrition {
 	}
 }
 
+func pgUUIDToString(u pgtype.UUID) string {
+	if !u.Valid {
+		return ""
+	}
+	return fmt.Sprintf("%x-%x-%x-%x-%x",
+		u.Bytes[0:4], u.Bytes[4:6], u.Bytes[6:8], u.Bytes[8:10], u.Bytes[10:16])
+}
 func ptrVector(v pgvector.Vector) *pgvector.Vector {
 	return &v
 }
