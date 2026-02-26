@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/pgvector/pgvector-go"
+	pgvector_go "github.com/pgvector/pgvector-go"
 )
 
 const createRecipe = `-- name: CreateRecipe :one
@@ -231,7 +231,7 @@ UPDATE recipes SET embedding = $2, updated_at = NOW() WHERE id = $1
 
 type UpdateRecipeEmbeddingParams struct {
 	ID        pgtype.UUID
-	Embedding pgvector.Vector
+	Embedding *pgvector_go.Vector
 }
 
 func (q *Queries) UpdateRecipeEmbedding(ctx context.Context, arg UpdateRecipeEmbeddingParams) error {

@@ -442,7 +442,7 @@ func (p *RecipeProcessor) HandleGenerateEmbedding(ctx context.Context, t *asynq.
 
 	err = p.db.UpdateRecipeEmbedding(ctx, generated.UpdateRecipeEmbeddingParams{
 		ID:        recipe.ID,
-		Embedding: pgvector.NewVector(embedding),
+		Embedding: ptrVector(pgvector.NewVector(embedding)),
 	})
 	if err != nil {
 		status = "failure"
@@ -579,4 +579,8 @@ func convertNutrition(n groq.Nutrition) validation.Nutrition {
 		Fat:     n.Fat,
 		Fiber:   n.Fiber,
 	}
+}
+
+func ptrVector(v pgvector.Vector) *pgvector.Vector {
+	return &v
 }

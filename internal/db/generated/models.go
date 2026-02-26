@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/pgvector/pgvector-go"
+	pgvector_go "github.com/pgvector/pgvector-go"
 )
 
 type MeasurementUnit string
@@ -165,7 +165,7 @@ type Recipe struct {
 	CreatedBy           pgtype.UUID
 	OwnerID             pgtype.UUID
 	ThumbnailID         pgtype.UUID
-	Embedding           pgvector.Vector
+	Embedding           *pgvector_go.Vector
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
 }

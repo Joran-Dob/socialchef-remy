@@ -9,5 +9,8 @@ sql:
         out: "internal/db/generated"
         sql_package: "pgx/v5"
         overrides:
-          - db_type: "pgcatalog.vector"
-            go_type: "github.com/pgvector/pgvector-go.Vector"
+          - column: "recipes.embedding"
+            go_type:
+              import: "github.com/pgvector/pgvector-go"
+              type: "Vector"
+              pointer: true
