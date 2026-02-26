@@ -1,9 +1,11 @@
 {
   "active_plan": "/Users/jorandob/Documents/Projects/SocialChef/socialchef-remy/.sisyphus/plans/sync-schema-from-supabase.md",
   "started_at": "2026-02-26T15:38:30.866Z",
+  "completed_at": "2026-02-26T16:15:00.000Z",
   "session_ids": [
     "ses_365f2f0c9ffegPdYjvvE25joaU"
   ],
   "plan_name": "sync-schema-from-supabase",
-  "agent": "atlas"
+  "agent": "atlas",
+  "status": "complete"
 }

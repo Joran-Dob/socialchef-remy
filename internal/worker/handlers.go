@@ -390,10 +390,10 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	for _, ing := range recipe.Ingredients {
 		_, err := p.db.CreateIngredient(ctx, generated.CreateIngredientParams{
 			RecipeID:         savedRecipe.ID,
-			Quantity:         pgtype.Text{String: string(ing.OriginalQuantity), Valid: ing.OriginalQuantity != ""},
+			Quantity:         pgtype.Text{String: formatQuantity(ing.Quantity), Valid: ing.Quantity > 0},
 			Unit:             pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
 			OriginalQuantity: pgtype.Text{String: string(ing.OriginalQuantity), Valid: ing.OriginalQuantity != ""},
-			OriginalUnit:     pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
+			OriginalUnit:     pgtype.Text{String: ing.OriginalUnit, Valid: ing.OriginalUnit != ""},
 			Name:             ing.Name,
 		})
 		if err != nil {
@@ -666,4 +666,15 @@ func pgUUIDToString(u pgtype.UUID) string {
 }
 func ptrVector(v pgvector.Vector) *pgvector.Vector {
 	return &v
+}
+
+func formatQuantity(q float64) string {
+	if q == 0 {
+		return ""
+	}
+	// Format with appropriate precision - whole numbers as integers, otherwise 2 decimals
+	if q == float64(int(q)) {
+		return fmt.Sprintf("%d", int(q))
+	}
+	return fmt.Sprintf("%.2f", q)
 }
