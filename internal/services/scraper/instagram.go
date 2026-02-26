@@ -10,6 +10,9 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/socialchef/remy/internal/metrics"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"github.com/socialchef/remy/internal/httpclient"
 	"github.com/socialchef/remy/internal/utils"
 )
@@ -84,6 +87,14 @@ type graphqlResponse struct {
 }
 
 func (s *InstagramScraper) Scrape(ctx context.Context, postURL string) (*InstagramPost, error) {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		attrs := []attribute.KeyValue{attribute.String("provider", "instagram-proxy")}
+		metrics.ExternalAPIDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}()
+
 	shortcode, err := extractShortcode(postURL)
 	if err != nil {
 		return nil, err

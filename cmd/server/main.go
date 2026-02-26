@@ -10,14 +10,17 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/riandyrn/otelchi"
+	otelchimetric "github.com/riandyrn/otelchi/metric"
 	"github.com/socialchef/remy/internal/api"
 	"github.com/socialchef/remy/internal/config"
 	"github.com/socialchef/remy/internal/db"
 	"github.com/socialchef/remy/internal/db/generated"
+	"github.com/socialchef/remy/internal/logger"
+	"github.com/socialchef/remy/internal/metrics"
 	"github.com/socialchef/remy/internal/middleware"
 	"github.com/socialchef/remy/internal/telemetry"
-	"github.com/socialchef/remy/internal/logger"
 	"github.com/socialchef/remy/internal/worker"
+	"go.opentelemetry.io/otel"
 )
 
 func main() {
@@ -36,6 +39,11 @@ func main() {
 		} else {
 			defer shutdown(ctx)
 		}
+	}
+
+	// Initialize business metrics
+	if err := metrics.Init(); err != nil {
+		slog.Warn("Failed to init business metrics", "error", err)
 	}
 
 	// Initialize logger with OTel support
@@ -71,6 +79,13 @@ func main() {
 			return r.URL.Path != "/health"
 		}),
 	))
+
+	// HTTP metrics
+	metricCfg := otelchimetric.NewBaseConfig("socialchef-server", otelchimetric.WithMeterProvider(otel.GetMeterProvider()))
+	r.Use(otelchimetric.NewRequestDurationMillis(metricCfg))
+	r.Use(otelchimetric.NewRequestInFlight(metricCfg))
+	r.Use(otelchimetric.NewResponseSizeBytes(metricCfg))
+
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/socialchef/remy/internal/metrics"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"github.com/socialchef/remy/internal/errors"
 )
 
@@ -38,6 +41,15 @@ type transcriptionResponse struct {
 
 // TranscribeVideo fetches a video from a URL and transcribes its audio using OpenAI
 func (c *Client) TranscribeVideo(ctx context.Context, videoURL string) (string, error) {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		attrs := []attribute.KeyValue{attribute.String("provider", "openai")}
+		metrics.AIGenerationDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPIDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}()
+
 	// 1. Fetch video from URL
 	req, err := http.NewRequestWithContext(ctx, "GET", videoURL, nil)
 	if err != nil {

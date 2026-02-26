@@ -11,6 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/socialchef/remy/internal/metrics"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"github.com/socialchef/remy/internal/httpclient"
 	"github.com/socialchef/remy/internal/utils"
 )
@@ -49,6 +52,14 @@ func IsTikTokURL(u string) bool {
 }
 
 func (s *TikTokScraper) Scrape(ctx context.Context, postURL string) (*TikTokPost, error) {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		attrs := []attribute.KeyValue{attribute.String("provider", "apify")}
+		metrics.ExternalAPIDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}()
+
 	input := map[string]interface{}{
 		"postURLs":                []string{postURL},
 		"resultsPerPage":          1,

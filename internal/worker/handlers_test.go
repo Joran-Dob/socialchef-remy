@@ -216,8 +216,9 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, mockTikTok, mockOpenAI, mockTranscription, mockGroq, mockStorage, mockBroadcaster,
+		mockDB, mockInsta, mockTikTok, mockOpenAI, mockTranscription, mockGroq, mockStorage, mockBroadcaster, nil,
 	)
+
 
 	// Expectations
 	mockDB.On("UpdateImportJobStatus", ctx, mock.MatchedBy(func(arg generated.UpdateImportJobStatusParams) bool {
@@ -304,8 +305,9 @@ func TestHandleProcessRecipe_ContentValidationFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, nil, nil, nil, mockBroadcaster,
+		mockDB, mockInsta, nil, nil, nil, nil, nil, mockBroadcaster, nil,
 	)
+
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
 	mockInsta.On("Scrape", ctx, url).Return(&scraper.InstagramPost{
@@ -343,8 +345,9 @@ func TestHandleProcessRecipe_TranscriptionFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, mockTranscription, nil, nil, mockBroadcaster,
+		mockDB, mockInsta, nil, nil, mockTranscription, nil, nil, mockBroadcaster, nil,
 	)
+
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
 	mockInsta.On("Scrape", ctx, url).Return(&scraper.InstagramPost{
@@ -385,8 +388,9 @@ func TestHandleProcessRecipe_OutputValidationFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, nil, mockGroq, nil, mockBroadcaster,
+		mockDB, mockInsta, nil, nil, nil, mockGroq, nil, mockBroadcaster, nil,
 	)
+
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
 	mockInsta.On("Scrape", ctx, url).Return(&scraper.InstagramPost{

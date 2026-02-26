@@ -10,8 +10,14 @@ import (
 	"net/http"
 	"strconv"
 
+	"time"
+
 	"github.com/socialchef/remy/internal/httpclient"
+	"github.com/socialchef/remy/internal/metrics"
 	"github.com/socialchef/remy/internal/services/ai"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
 )
 
 type Client struct {
@@ -111,6 +117,15 @@ func NewClient(apiKey string) *Client {
 }
 
 func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, platform string) (*Recipe, error) {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		attrs := []attribute.KeyValue{attribute.String("provider", "groq")}
+		metrics.AIGenerationDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPIDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}()
+
 	systemPrompt := ai.BuildRecipePrompt(platform)
 
 	userContent := description

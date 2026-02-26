@@ -5,8 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/socialchef/remy/internal/httpclient"
+	"github.com/socialchef/remy/internal/metrics"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"io"
+
 	"net/http"
 )
 
@@ -45,6 +51,14 @@ type embeddingResponse struct {
 }
 
 func callOpenAIChat(ctx context.Context, apiKey, model, systemPrompt, userContent string, jsonMode bool) (string, error) {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		attrs := []attribute.KeyValue{attribute.String("provider", "openai")}
+		metrics.ExternalAPIDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}()
+
 	req := chatRequest{
 		Model: model,
 		Messages: []chatMessage{
@@ -92,6 +106,14 @@ func callOpenAIChat(ctx context.Context, apiKey, model, systemPrompt, userConten
 }
 
 func callOpenAIEmbedding(ctx context.Context, apiKey, model, text string) ([]float32, error) {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		attrs := []attribute.KeyValue{attribute.String("provider", "openai")}
+		metrics.ExternalAPIDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}()
+
 	req := embeddingRequest{
 		Model: model,
 		Input: text,

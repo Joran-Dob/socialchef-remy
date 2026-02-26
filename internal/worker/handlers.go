@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -20,6 +21,10 @@ import (
 	"github.com/socialchef/remy/internal/services/storage"
 	"github.com/socialchef/remy/internal/validation"
 )
+
+
+
+
 
 type DBQueries interface {
 	CreateImportJob(ctx context.Context, arg generated.CreateImportJobParams) (generated.RecipeImportJob, error)
@@ -79,6 +84,7 @@ type RecipeProcessor struct {
 	groq          GroqClient
 	storage       StorageClient
 	broadcaster   ProgressBroadcasterInterface
+	metrics       *WorkerMetrics
 }
 
 func NewRecipeProcessor(
@@ -90,6 +96,7 @@ func NewRecipeProcessor(
 	groqClient GroqClient,
 	storageClient StorageClient,
 	broadcaster ProgressBroadcasterInterface,
+	metrics *WorkerMetrics,
 ) *RecipeProcessor {
 	return &RecipeProcessor{
 		db:            db,
@@ -100,8 +107,10 @@ func NewRecipeProcessor(
 		groq:          groqClient,
 		storage:       storageClient,
 		broadcaster:   broadcaster,
+		metrics:       metrics,
 	}
 }
+
 
 func parseUUID(s string) pgtype.UUID {
 	var u pgtype.UUID
@@ -112,8 +121,20 @@ func parseUUID(s string) pgtype.UUID {
 }
 
 func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task) error {
+	start := time.Now()
+	var status = "success"
+	defer func() {
+		duration := time.Since(start).Seconds()
+		p.metrics.RecordJob(ctx, "process_recipe", status, duration)
+	}()
+
+
+
+
+
 	var payload ProcessRecipePayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		status = "failure"
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
@@ -125,6 +146,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Fetching post content...")
 
+
 	var caption, platform, imageURL, videoURL string
 	var ownerUsername, ownerAvatar, ownerID string
 
@@ -132,6 +154,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		platform = "instagram"
 		post, err := p.instagram.Scrape(ctx, url)
 		if err != nil {
+			status = "failure"
 			p.markFailed(ctx, jobID, userID, fmt.Sprintf("Instagram scrape failed: %v", err))
 			return err
 		}
@@ -146,6 +169,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		platform = "tiktok"
 		post, err := p.tiktok.Scrape(ctx, url)
 		if err != nil {
+			status = "failure"
 			p.markFailed(ctx, jobID, userID, fmt.Sprintf("TikTok scrape failed: %v", err))
 			return err
 		}
@@ -157,12 +181,14 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		ownerID = post.OwnerID
 
 	} else {
+		status = "failure"
 		p.markFailed(ctx, jobID, userID, "Invalid URL: must be Instagram or TikTok")
 		return fmt.Errorf("invalid URL")
 	}
 
 	validationResult := validation.QuickValidate(caption, "")
 	if !validationResult.IsValid {
+		status = "failure"
 		errMsg := fmt.Sprintf("Content validation failed: %s", validationResult.Reason)
 		p.markFailed(ctx, jobID, userID, errMsg)
 		return errors.NewValidationError(errMsg, "CONTENT_NOT_RECIPE", "")
@@ -175,6 +201,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		var err error
 		transcript, err = p.transcription.TranscribeVideo(ctx, videoURL)
 		if err != nil {
+			status = "failure"
 			p.markFailed(ctx, jobID, userID, fmt.Sprintf("Transcription failed: %v", err))
 			return err
 		}
@@ -184,6 +211,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 	recipe, err := p.groq.GenerateRecipe(ctx, caption, transcript, platform)
 	if err != nil {
+		status = "failure"
 		p.markFailed(ctx, jobID, userID, fmt.Sprintf("Recipe generation failed: %v", err))
 		return err
 	}
@@ -216,6 +244,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 	result := validation.ValidateRecipe(vRecipe, validationConfig)
 	if !result.IsValid {
+		status = "failure"
 		errMsg := fmt.Sprintf("Recipe validation failed (quality score: %d): %s", result.QualityScore, strings.Join(result.Issues, ", "))
 		p.markFailed(ctx, jobID, userID, errMsg)
 		return errors.NewValidationError(errMsg, "LOW_QUALITY_RECIPE", "Try providing a more detailed video or transcript.")
@@ -296,6 +325,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		ThumbnailID:         pgtype.UUID{},
 	})
 	if err != nil {
+		status = "failure"
 		p.markFailed(ctx, jobID, userID, fmt.Sprintf("Failed to save recipe: %v", err))
 		return err
 	}
@@ -383,14 +413,23 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 }
 
 func (p *RecipeProcessor) HandleGenerateEmbedding(ctx context.Context, t *asynq.Task) error {
+	start := time.Now()
+	var status = "success"
+	defer func() {
+		duration := time.Since(start).Seconds()
+		p.metrics.RecordJob(ctx, "generate_embedding", status, duration)
+	}()
+
 	var payload GenerateEmbeddingPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		status = "failure"
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
 	recipeUUID := parseUUID(payload.RecipeID)
 	recipe, err := p.db.GetRecipe(ctx, recipeUUID)
 	if err != nil {
+		status = "failure"
 		return fmt.Errorf("recipe not found: %w", err)
 	}
 
@@ -402,6 +441,7 @@ func (p *RecipeProcessor) HandleGenerateEmbedding(ctx context.Context, t *asynq.
 
 	_, err = p.openai.GenerateEmbedding(ctx, text)
 	if err != nil {
+		status = "failure"
 		return fmt.Errorf("failed to generate embedding: %w", err)
 	}
 
@@ -410,16 +450,25 @@ func (p *RecipeProcessor) HandleGenerateEmbedding(ctx context.Context, t *asynq.
 }
 
 func (p *RecipeProcessor) HandleCleanupJobs(ctx context.Context, t *asynq.Task) error {
+	start := time.Now()
+	var status = "success"
+	defer func() {
+		duration := time.Since(start).Seconds()
+		p.metrics.RecordJob(ctx, "cleanup_jobs", status, duration)
+	}()
+
 	slog.Info("Running cleanup job")
 
 	err := p.db.DeleteOldImportJobs(ctx)
 	if err != nil {
+		status = "failure"
 		slog.Error("Failed to delete old import jobs", "error", err)
 		return err
 	}
 
 	err = p.db.DeleteStaleImportJobs(ctx)
 	if err != nil {
+		status = "failure"
 		slog.Error("Failed to delete stale import jobs", "error", err)
 		return err
 	}
@@ -451,6 +500,7 @@ func (p *RecipeProcessor) updateProgress(ctx context.Context, jobID, userID, sta
 
 func (p *RecipeProcessor) markFailed(ctx context.Context, jobID, userID, errorMsg string) {
 	slog.Error("Job failed", "job_id", jobID, "error", errorMsg)
+
 
 	p.db.UpdateImportJobStatus(ctx, generated.UpdateImportJobStatusParams{
 		JobID:        jobID,

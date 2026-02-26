@@ -6,6 +6,11 @@ import (
 	"errors"
 	"strconv"
 
+	"time"
+
+	"github.com/socialchef/remy/internal/metrics"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"github.com/socialchef/remy/internal/services/ai"
 )
 
@@ -120,6 +125,12 @@ func (c *Client) GenerateEmbedding(ctx context.Context, text string) ([]float32,
 }
 
 func generateRecipeWithOpenAI(ctx context.Context, apiKey, description, transcript, platform string) (*Recipe, error) {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		metrics.AIGenerationDuration.Record(ctx, duration, metric.WithAttributes(attribute.String("provider", "openai")))
+	}()
+
 	systemPrompt := ai.BuildRecipePrompt(platform)
 	userContent := description
 	if transcript != "" {

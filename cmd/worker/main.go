@@ -18,6 +18,7 @@ import (
 	"github.com/socialchef/remy/internal/services/scraper"
 	"github.com/socialchef/remy/internal/services/storage"
 	"github.com/socialchef/remy/internal/services/transcription"
+	"github.com/socialchef/remy/internal/metrics"
 	"github.com/socialchef/remy/internal/telemetry"
 	"github.com/socialchef/remy/internal/logger"
 	"github.com/socialchef/remy/internal/worker"
@@ -39,6 +40,11 @@ func main() {
 		} else {
 			defer shutdown(ctx)
 		}
+	}
+
+	// Initialize business metrics
+	if err := metrics.Init(); err != nil {
+		slog.Warn("Failed to init business metrics", "error", err)
 	}
 
 	// Initialize logger with OTel support
@@ -63,6 +69,11 @@ func main() {
 	storageClient := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 	broadcaster := worker.NewProgressBroadcaster(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 
+	workerMetrics, err := worker.NewWorkerMetrics()
+	if err != nil {
+		slog.Warn("Failed to init worker metrics", "error", err)
+	}
+
 	// Recipe processor
 	processor := worker.NewRecipeProcessor(
 		queries,
@@ -73,7 +84,9 @@ func main() {
 		groqClient,
 		storageClient,
 		broadcaster,
+		workerMetrics,
 	)
+
 
 	// Asynq server
 	srv := worker.NewServer(cfg.RedisURL)
