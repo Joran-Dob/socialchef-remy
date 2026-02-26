@@ -45,9 +45,15 @@ func (c *Client) TranscribeVideo(ctx context.Context, videoURL string) (string, 
 	defer func() {
 		duration := time.Since(startTime).Seconds()
 		attrs := []attribute.KeyValue{attribute.String("provider", "openai")}
-		metrics.AIGenerationDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
-		metrics.ExternalAPIDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
-		metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
+		if metrics.AIGenerationDuration != nil {
+			metrics.AIGenerationDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		}
+		if metrics.ExternalAPIDuration != nil {
+			metrics.ExternalAPIDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		}
+		if metrics.ExternalAPICallsTotal != nil {
+			metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
+		}
 	}()
 
 	// 1. Fetch video from URL
