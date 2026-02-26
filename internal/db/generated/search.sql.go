@@ -9,10 +9,97 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
+const getRecipesWithoutEmbeddings = `-- name: GetRecipesWithoutEmbeddings :many
+SELECT id, recipe_name, description 
+FROM recipes 
+WHERE embedding IS NULL 
+LIMIT $1
+`
+
+type GetRecipesWithoutEmbeddingsRow struct {
+	ID          pgtype.UUID
+	RecipeName  string
+	Description pgtype.Text
+}
+
+func (q *Queries) GetRecipesWithoutEmbeddings(ctx context.Context, limit int32) ([]GetRecipesWithoutEmbeddingsRow, error) {
+	rows, err := q.db.Query(ctx, getRecipesWithoutEmbeddings, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetRecipesWithoutEmbeddingsRow
+	for rows.Next() {
+		var i GetRecipesWithoutEmbeddingsRow
+		if err := rows.Scan(&i.ID, &i.RecipeName, &i.Description); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchRecipesByEmbedding = `-- name: SearchRecipesByEmbedding :many
+
+SELECT 
+    id,
+    recipe_name,
+    description,
+    CAST(1 - (embedding <=> $2::vector) AS float8) as similarity
+FROM recipes
+WHERE embedding IS NOT NULL
+ORDER BY embedding <=> $2::vector
+LIMIT $1
+`
+
+type SearchRecipesByEmbeddingParams struct {
+	Limit   int32
+	Column2 pgvector.Vector
+}
+
+type SearchRecipesByEmbeddingRow struct {
+	ID          pgtype.UUID
+	RecipeName  string
+	Description pgtype.Text
+	Similarity  float64
+}
+
+// Note: SearchRecipesHybrid uses database function that sqlc can't introspect.
+// Call it directly from Go using raw SQL or create a simpler wrapper.
+// For now, use SearchRecipesByEmbedding for vector search.
+func (q *Queries) SearchRecipesByEmbedding(ctx context.Context, arg SearchRecipesByEmbeddingParams) ([]SearchRecipesByEmbeddingRow, error) {
+	rows, err := q.db.Query(ctx, searchRecipesByEmbedding, arg.Limit, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchRecipesByEmbeddingRow
+	for rows.Next() {
+		var i SearchRecipesByEmbeddingRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RecipeName,
+			&i.Description,
+			&i.Similarity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchRecipesByName = `-- name: SearchRecipesByName :many
-SELECT r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time, r.total_time, r.original_serving_size, r.difficulty_rating, r.origin, r.url, r.created_by, r.owner_id, r.thumbnail_id, r.created_at, r.updated_at
+SELECT r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time, r.total_time, r.original_serving_size, r.difficulty_rating, r.origin, r.url, r.created_by, r.owner_id, r.thumbnail_id, r.embedding, r.created_at, r.updated_at
 FROM recipes r
 WHERE r.recipe_name ILIKE '%' || $1 || '%'
 ORDER BY r.created_at DESC
@@ -47,9 +134,51 @@ func (q *Queries) SearchRecipesByName(ctx context.Context, arg SearchRecipesByNa
 			&i.CreatedBy,
 			&i.OwnerID,
 			&i.ThumbnailID,
+			&i.Embedding,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchRecipesHybrid = `-- name: SearchRecipesHybrid :many
+SELECT  FROM search_recipes($1, $2, $3, $4, $5)
+`
+
+type SearchRecipesHybridParams struct {
+	SearchRecipes   interface{}
+	SearchRecipes_2 interface{}
+	SearchRecipes_3 interface{}
+	SearchRecipes_4 interface{}
+	SearchRecipes_5 interface{}
+}
+
+type SearchRecipesHybridRow struct {
+}
+
+func (q *Queries) SearchRecipesHybrid(ctx context.Context, arg SearchRecipesHybridParams) ([]SearchRecipesHybridRow, error) {
+	rows, err := q.db.Query(ctx, searchRecipesHybrid,
+		arg.SearchRecipes,
+		arg.SearchRecipes_2,
+		arg.SearchRecipes_3,
+		arg.SearchRecipes_4,
+		arg.SearchRecipes_5,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchRecipesHybridRow
+	for rows.Next() {
+		var i SearchRecipesHybridRow
+		if err := rows.Scan(); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

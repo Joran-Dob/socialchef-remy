@@ -19,7 +19,7 @@ func withUserID(ctx context.Context, userID string) context.Context {
 
 func TestHandleImportRecipe_Unauthorized(t *testing.T) {
 	cfg := &config.Config{}
-	srv := NewServer(cfg, nil, nil)
+	srv := NewServer(cfg, nil, nil, nil)
 
 	body := ImportRecipeRequest{URL: "https://instagram.com/p/test"}
 	jsonBody, _ := json.Marshal(body)
@@ -37,7 +37,7 @@ func TestHandleImportRecipe_Unauthorized(t *testing.T) {
 
 func TestHandleJobStatus_MissingJobID(t *testing.T) {
 	cfg := &config.Config{}
-	srv := NewServer(cfg, nil, nil)
+	srv := NewServer(cfg, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/recipe-status", nil)
 	req = req.WithContext(withUserID(req.Context(), uuid.New().String()))
@@ -52,7 +52,7 @@ func TestHandleJobStatus_MissingJobID(t *testing.T) {
 
 func TestHandleUserImportStatus_Unauthorized(t *testing.T) {
 	cfg := &config.Config{}
-	srv := NewServer(cfg, nil, nil)
+	srv := NewServer(cfg, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/user-import-status", nil)
 	rr := httptest.NewRecorder()
@@ -66,7 +66,7 @@ func TestHandleUserImportStatus_Unauthorized(t *testing.T) {
 
 func TestHandleGenerateEmbedding_MissingRecipeID(t *testing.T) {
 	cfg := &config.Config{}
-	srv := NewServer(cfg, nil, nil)
+	srv := NewServer(cfg, nil, nil, nil)
 
 	body := GenerateEmbeddingRequest{}
 	jsonBody, _ := json.Marshal(body)

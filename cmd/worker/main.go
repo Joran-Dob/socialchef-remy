@@ -74,6 +74,9 @@ func main() {
 		slog.Warn("Failed to init worker metrics", "error", err)
 	}
 
+	asynqClient := worker.NewClient(cfg.RedisURL)
+	defer asynqClient.Close()
+
 	// Recipe processor
 	processor := worker.NewRecipeProcessor(
 		queries,
@@ -85,6 +88,7 @@ func main() {
 		storageClient,
 		broadcaster,
 		workerMetrics,
+		asynqClient,
 	)
 
 

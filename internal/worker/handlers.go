@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 	"github.com/socialchef/remy/internal/db/generated"
 	"github.com/socialchef/remy/internal/errors"
 	"github.com/socialchef/remy/internal/services/groq"
@@ -21,10 +22,6 @@ import (
 	"github.com/socialchef/remy/internal/services/storage"
 	"github.com/socialchef/remy/internal/validation"
 )
-
-
-
-
 
 type DBQueries interface {
 	CreateImportJob(ctx context.Context, arg generated.CreateImportJobParams) (generated.RecipeImportJob, error)
@@ -42,6 +39,7 @@ type DBQueries interface {
 	DeleteStaleImportJobs(ctx context.Context) error
 	CreateRecipeImage(ctx context.Context, arg generated.CreateRecipeImageParams) (generated.RecipeImage, error)
 	UpdateRecipeThumbnail(ctx context.Context, arg generated.UpdateRecipeThumbnailParams) error
+	UpdateRecipeEmbedding(ctx context.Context, arg generated.UpdateRecipeEmbeddingParams) error
 	GetSocialMediaOwnerByOrigin(ctx context.Context, arg generated.GetSocialMediaOwnerByOriginParams) (generated.SocialMediaOwner, error)
 	CreateSocialMediaOwner(ctx context.Context, arg generated.CreateSocialMediaOwnerParams) (generated.SocialMediaOwner, error)
 }
@@ -85,6 +83,7 @@ type RecipeProcessor struct {
 	storage       StorageClient
 	broadcaster   ProgressBroadcasterInterface
 	metrics       *WorkerMetrics
+	asynqClient   *asynq.Client
 }
 
 func NewRecipeProcessor(
@@ -97,6 +96,7 @@ func NewRecipeProcessor(
 	storageClient StorageClient,
 	broadcaster ProgressBroadcasterInterface,
 	metrics *WorkerMetrics,
+	asynqClient *asynq.Client,
 ) *RecipeProcessor {
 	return &RecipeProcessor{
 		db:            db,
@@ -108,9 +108,9 @@ func NewRecipeProcessor(
 		storage:       storageClient,
 		broadcaster:   broadcaster,
 		metrics:       metrics,
+		asynqClient:   asynqClient,
 	}
 }
-
 
 func parseUUID(s string) pgtype.UUID {
 	var u pgtype.UUID
@@ -128,10 +128,6 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		p.metrics.RecordJob(ctx, "process_recipe", status, duration)
 	}()
 
-
-
-
-
 	var payload ProcessRecipePayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		status = "failure"
@@ -145,7 +141,6 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	slog.Info("Processing recipe", "job_id", jobID, "url", url)
 
 	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Fetching post content...")
-
 
 	var caption, platform, imageURL, videoURL string
 	var ownerUsername, ownerAvatar, ownerID string
@@ -439,13 +434,22 @@ func (p *RecipeProcessor) HandleGenerateEmbedding(ctx context.Context, t *asynq.
 		text += " " + ing.Name
 	}
 
-	_, err = p.openai.GenerateEmbedding(ctx, text)
+	embedding, err := p.openai.GenerateEmbedding(ctx, text)
 	if err != nil {
 		status = "failure"
 		return fmt.Errorf("failed to generate embedding: %w", err)
 	}
 
-	slog.Info("Embedding generated", "recipe_id", payload.RecipeID)
+	err = p.db.UpdateRecipeEmbedding(ctx, generated.UpdateRecipeEmbeddingParams{
+		ID:        recipe.ID,
+		Embedding: pgvector.NewVector(embedding),
+	})
+	if err != nil {
+		status = "failure"
+		return fmt.Errorf("failed to save embedding: %w", err)
+	}
+
+	slog.Info("Embedding generated and saved", "recipe_id", payload.RecipeID)
 	return nil
 }
 
@@ -500,7 +504,6 @@ func (p *RecipeProcessor) updateProgress(ctx context.Context, jobID, userID, sta
 
 func (p *RecipeProcessor) markFailed(ctx context.Context, jobID, userID, errorMsg string) {
 	slog.Error("Job failed", "job_id", jobID, "error", errorMsg)
-
 
 	p.db.UpdateImportJobStatus(ctx, generated.UpdateImportJobStatusParams{
 		JobID:        jobID,

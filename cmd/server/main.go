@@ -18,6 +18,8 @@ import (
 	"github.com/socialchef/remy/internal/logger"
 	"github.com/socialchef/remy/internal/metrics"
 	"github.com/socialchef/remy/internal/middleware"
+	"github.com/socialchef/remy/internal/services/openai"
+	"github.com/socialchef/remy/internal/services/search"
 	"github.com/socialchef/remy/internal/telemetry"
 	"github.com/socialchef/remy/internal/worker"
 	"go.opentelemetry.io/otel"
@@ -66,8 +68,13 @@ func main() {
 	// Initialize broadcaster for progress updates
 	_ = worker.NewProgressBroadcaster(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 
+	// Initialize OpenAI client for search
+	openaiClient := openai.NewClient(cfg.OpenAIKey)
+	// Initialize search client
+	searchClient := search.NewClient(queries, openaiClient)
+
 	// API handlers
-	apiServer := api.NewServer(cfg, queries, asynqClient)
+	apiServer := api.NewServer(cfg, queries, asynqClient, searchClient)
 
 	// Router
 	r := chi.NewRouter()

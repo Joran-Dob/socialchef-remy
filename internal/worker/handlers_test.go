@@ -109,6 +109,11 @@ func (m *MockDB) CreateSocialMediaOwner(ctx context.Context, arg generated.Creat
 	args := m.Called(ctx, arg)
 	return args.Get(0).(generated.SocialMediaOwner), args.Error(1)
 }
+func (m *MockDB) UpdateRecipeEmbedding(ctx context.Context, arg generated.UpdateRecipeEmbeddingParams) error {
+	args := m.Called(ctx, arg)
+	return args.Error(0)
+}
+
 
 type MockInstagramScraper struct {
 	mock.Mock
@@ -216,7 +221,7 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, mockTikTok, mockOpenAI, mockTranscription, mockGroq, mockStorage, mockBroadcaster, nil,
+		mockDB, mockInsta, mockTikTok, mockOpenAI, mockTranscription, mockGroq, mockStorage, mockBroadcaster, nil, nil,
 	)
 
 
@@ -305,7 +310,7 @@ func TestHandleProcessRecipe_ContentValidationFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, nil, nil, nil, mockBroadcaster, nil,
+		mockDB, mockInsta, nil, nil, nil, nil, nil, mockBroadcaster, nil, nil,
 	)
 
 
@@ -345,7 +350,7 @@ func TestHandleProcessRecipe_TranscriptionFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, mockTranscription, nil, nil, mockBroadcaster, nil,
+		mockDB, mockInsta, nil, nil, mockTranscription, nil, nil, mockBroadcaster, nil, nil,
 	)
 
 
@@ -388,7 +393,7 @@ func TestHandleProcessRecipe_OutputValidationFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, nil, mockGroq, nil, mockBroadcaster, nil,
+		mockDB, mockInsta, nil, nil, nil, mockGroq, nil, mockBroadcaster, nil, nil,
 	)
 
 

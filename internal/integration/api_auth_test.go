@@ -58,7 +58,7 @@ func createInvalidSignatureToken(supabaseURL, userID string) string {
 
 func TestHandleImportRecipe_MissingAuth(t *testing.T) {
 	cfg := &config.Config{}
-	server := api.NewServer(cfg, nil, nil)
+	server := api.NewServer(cfg, nil, nil, nil)
 
 	body := api.ImportRecipeRequest{URL: "https://instagram.com/p/test"}
 	jsonBody, _ := json.Marshal(body)
@@ -76,7 +76,7 @@ func TestHandleImportRecipe_MissingAuth(t *testing.T) {
 
 func TestHandleImportRecipe_InvalidBody(t *testing.T) {
 	cfg := &config.Config{}
-	server := api.NewServer(cfg, nil, nil)
+	server := api.NewServer(cfg, nil, nil, nil)
 
 	tests := []struct {
 		name       string
@@ -118,7 +118,7 @@ func TestHandleImportRecipe_InvalidBody(t *testing.T) {
 
 func TestHandleImportRecipe_EmptyURL(t *testing.T) {
 	cfg := &config.Config{}
-	server := api.NewServer(cfg, nil, nil)
+	server := api.NewServer(cfg, nil, nil, nil)
 
 	body := api.ImportRecipeRequest{URL: ""}
 	jsonBody, _ := json.Marshal(body)
@@ -141,7 +141,7 @@ func TestHandleImportRecipe_EmptyURL(t *testing.T) {
 
 func TestHandleJobStatus_MissingJobID(t *testing.T) {
 	cfg := &config.Config{}
-	server := api.NewServer(cfg, nil, nil)
+	server := api.NewServer(cfg, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/recipe-status", nil)
 	req = req.WithContext(withUserID(req.Context(), uuid.New().String()))
@@ -156,7 +156,7 @@ func TestHandleJobStatus_MissingJobID(t *testing.T) {
 
 func TestHandleJobStatus_NoAuth(t *testing.T) {
 	cfg := &config.Config{}
-	server := api.NewServer(cfg, nil, nil)
+	server := api.NewServer(cfg, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/recipe-status?job_id="+uuid.New().String(), nil)
 	rr := httptest.NewRecorder()
@@ -174,7 +174,7 @@ func TestHandleJobStatus_NoAuth(t *testing.T) {
 
 func TestHandleUserImportStatus_WithoutAuth(t *testing.T) {
 	cfg := &config.Config{}
-	server := api.NewServer(cfg, nil, nil)
+	server := api.NewServer(cfg, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/user-import-status", nil)
 	rr := httptest.NewRecorder()
@@ -233,7 +233,7 @@ func TestHandleUserImportStatus_WithAuth(t *testing.T) {
 
 func TestHandleGenerateEmbedding_MissingRecipeID(t *testing.T) {
 	cfg := &config.Config{}
-	server := api.NewServer(cfg, nil, nil)
+	server := api.NewServer(cfg, nil, nil, nil)
 
 	body := api.GenerateEmbeddingRequest{}
 	jsonBody, _ := json.Marshal(body)
@@ -251,7 +251,7 @@ func TestHandleGenerateEmbedding_MissingRecipeID(t *testing.T) {
 
 func TestHandleGenerateEmbedding_InvalidBody(t *testing.T) {
 	cfg := &config.Config{}
-	server := api.NewServer(cfg, nil, nil)
+	server := api.NewServer(cfg, nil, nil, nil)
 
 	tests := []struct {
 		name       string

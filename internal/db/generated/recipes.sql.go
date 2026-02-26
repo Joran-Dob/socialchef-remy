@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 const createRecipe = `-- name: CreateRecipe :one
@@ -16,7 +17,7 @@ INSERT INTO recipes (
     id, created_by, recipe_name, description, prep_time, cooking_time, original_serving_size, difficulty_rating, origin, url, owner_id, thumbnail_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-) RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at
+) RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, embedding, created_at, updated_at
 `
 
 type CreateRecipeParams struct {
@@ -64,6 +65,7 @@ func (q *Queries) CreateRecipe(ctx context.Context, arg CreateRecipeParams) (Rec
 		&i.CreatedBy,
 		&i.OwnerID,
 		&i.ThumbnailID,
+		&i.Embedding,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -85,7 +87,7 @@ func (q *Queries) DeleteRecipe(ctx context.Context, arg DeleteRecipeParams) erro
 }
 
 const getRecipe = `-- name: GetRecipe :one
-SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at FROM recipes WHERE id = $1
+SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, embedding, created_at, updated_at FROM recipes WHERE id = $1
 `
 
 func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error) {
@@ -105,6 +107,7 @@ func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error)
 		&i.CreatedBy,
 		&i.OwnerID,
 		&i.ThumbnailID,
+		&i.Embedding,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -112,7 +115,7 @@ func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error)
 }
 
 const getRecipesByUser = `-- name: GetRecipesByUser :many
-SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at FROM recipes WHERE created_by = $1 ORDER BY created_at DESC
+SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, embedding, created_at, updated_at FROM recipes WHERE created_by = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) GetRecipesByUser(ctx context.Context, createdBy pgtype.UUID) ([]Recipe, error) {
@@ -138,6 +141,7 @@ func (q *Queries) GetRecipesByUser(ctx context.Context, createdBy pgtype.UUID) (
 			&i.CreatedBy,
 			&i.OwnerID,
 			&i.ThumbnailID,
+			&i.Embedding,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -166,7 +170,7 @@ SET
     thumbnail_id = $11,
     updated_at = NOW()
 WHERE id = $1 AND created_by = $12
-RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, created_at, updated_at
+RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, origin, url, created_by, owner_id, thumbnail_id, embedding, created_at, updated_at
 `
 
 type UpdateRecipeParams struct {
@@ -214,10 +218,25 @@ func (q *Queries) UpdateRecipe(ctx context.Context, arg UpdateRecipeParams) (Rec
 		&i.CreatedBy,
 		&i.OwnerID,
 		&i.ThumbnailID,
+		&i.Embedding,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateRecipeEmbedding = `-- name: UpdateRecipeEmbedding :exec
+UPDATE recipes SET embedding = $2, updated_at = NOW() WHERE id = $1
+`
+
+type UpdateRecipeEmbeddingParams struct {
+	ID        pgtype.UUID
+	Embedding pgvector.Vector
+}
+
+func (q *Queries) UpdateRecipeEmbedding(ctx context.Context, arg UpdateRecipeEmbeddingParams) error {
+	_, err := q.db.Exec(ctx, updateRecipeEmbedding, arg.ID, arg.Embedding)
+	return err
 }
 
 const updateRecipeThumbnail = `-- name: UpdateRecipeThumbnail :exec
