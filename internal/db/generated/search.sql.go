@@ -99,7 +99,7 @@ func (q *Queries) SearchRecipesByEmbedding(ctx context.Context, arg SearchRecipe
 }
 
 const searchRecipesByName = `-- name: SearchRecipesByName :many
-SELECT r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time, r.total_time, r.original_serving_size, r.difficulty_rating, r.origin, r.url, r.created_by, r.owner_id, r.thumbnail_id, r.embedding, r.search_vector, r.created_at, r.updated_at
+SELECT r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time, r.total_time, r.original_serving_size, r.difficulty_rating, r.focused_diet, r.estimated_calories, r.origin, r.url, r.created_by, r.owner_id, r.thumbnail_id, r.embedding, r.search_vector, r.created_at, r.updated_at
 FROM recipes r
 WHERE r.recipe_name ILIKE '%' || $1 || '%'
 ORDER BY r.created_at DESC
@@ -129,6 +129,8 @@ func (q *Queries) SearchRecipesByName(ctx context.Context, arg SearchRecipesByNa
 			&i.TotalTime,
 			&i.OriginalServingSize,
 			&i.DifficultyRating,
+			&i.FocusedDiet,
+			&i.EstimatedCalories,
 			&i.Origin,
 			&i.Url,
 			&i.CreatedBy,

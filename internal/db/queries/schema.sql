@@ -34,6 +34,8 @@ CREATE TABLE recipes (
     total_time INTEGER,
     original_serving_size INTEGER,
     difficulty_rating SMALLINT CHECK (difficulty_rating BETWEEN 1 AND 5),
+    focused_diet TEXT,
+    estimated_calories INTEGER,
     origin recipe_origin NOT NULL,
     url TEXT NOT NULL,
     created_by UUID NOT NULL REFERENCES auth.users(id),

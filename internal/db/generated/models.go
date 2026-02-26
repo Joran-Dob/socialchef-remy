@@ -190,6 +190,8 @@ type Recipe struct {
 	TotalTime           pgtype.Int4
 	OriginalServingSize pgtype.Int4
 	DifficultyRating    pgtype.Int2
+	FocusedDiet         pgtype.Text
+	EstimatedCalories   pgtype.Int4
 	Origin              RecipeOrigin
 	Url                 string
 	CreatedBy           pgtype.UUID

@@ -6,9 +6,9 @@ SELECT * FROM recipes WHERE created_by = $1 ORDER BY created_at DESC;
 
 -- name: CreateRecipe :one
 INSERT INTO recipes (
-    id, created_by, recipe_name, description, prep_time, cooking_time, original_serving_size, difficulty_rating, origin, url, owner_id, thumbnail_id
+    id, created_by, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, owner_id, thumbnail_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
 ) RETURNING *;
 
 -- name: UpdateRecipe :one
