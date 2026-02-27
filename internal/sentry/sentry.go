@@ -1,6 +1,7 @@
 package sentry
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -14,7 +15,6 @@ func Init(dsn, env, serviceName, serviceVersion string) error {
 		return nil
 	}
 
-	// Configure Sentry client options
 	options := sentry.ClientOptions{
 		Dsn:              dsn,
 		Environment:      env,
@@ -24,7 +24,6 @@ func Init(dsn, env, serviceName, serviceVersion string) error {
 		TracesSampleRate: 0.0, // Disable Sentry tracing, use OpenTelemetry instead
 	}
 
-	// Initialize Sentry
 	if err := sentry.Init(options); err != nil {
 		return fmt.Errorf("failed to initialize Sentry: %w", err)
 	}
@@ -47,4 +46,46 @@ func Recover() {
 // CaptureMessage sends a message to Sentry.
 func CaptureMessage(msg string) {
 	sentry.CaptureMessage(msg)
+}
+
+// CaptureException sends an error to Sentry.
+func CaptureException(err error) {
+	sentry.CaptureException(err)
+}
+
+// CaptureError sends an error to Sentry with additional context.
+func CaptureError(err error, tags map[string]string) {
+	if err == nil {
+		return
+	}
+
+	sentry.WithScope(func(scope *sentry.Scope) {
+		for k, v := range tags {
+			scope.SetTag(k, v)
+		}
+		sentry.CaptureException(err)
+	})
+}
+
+// CaptureWithContext captures an error with context information.
+func CaptureWithContext(ctx context.Context, err error) {
+	if err == nil {
+		return
+	}
+	
+	hub := sentry.GetHubFromContext(ctx)
+	if hub != nil {
+		hub.CaptureException(err)
+	} else {
+		sentry.CaptureException(err)
+	}
+}
+
+// AddBreadcrumb adds a breadcrumb to the current scope.
+func AddBreadcrumb(category, message string, data map[string]interface{}) {
+	sentry.AddBreadcrumb(&sentry.Breadcrumb{
+		Category: category,
+		Message:  message,
+		Data:     data,
+	})
 }

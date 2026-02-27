@@ -109,6 +109,7 @@ import (
 
 	// Register handlers
 	mux := asynq.NewServeMux()
+	mux.Use(worker.SentryMiddleware)
 	mux.Use(worker.OTelMiddleware)
 	mux.HandleFunc(worker.TypeProcessRecipe, processor.HandleProcessRecipe)
 	mux.HandleFunc(worker.TypeGenerateEmbedding, processor.HandleGenerateEmbedding)

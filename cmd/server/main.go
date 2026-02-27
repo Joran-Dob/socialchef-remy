@@ -91,6 +91,9 @@ func main() {
 	r := chi.NewRouter()
 
 	// Middleware
+	r.Use(sentry.HTTPMiddleware)
+
+	// Middleware
 	r.Use(otelchi.Middleware("socialchef-server",
 		otelchi.WithChiRoutes(r),
 		otelchi.WithFilter(func(r *http.Request) bool {
