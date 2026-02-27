@@ -5,6 +5,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	"log"
 	"log/slog"
+	"time"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -20,12 +21,15 @@ import (
 	"github.com/socialchef/remy/internal/middleware"
 	"github.com/socialchef/remy/internal/services/openai"
 	"github.com/socialchef/remy/internal/services/search"
+	"github.com/socialchef/remy/internal/sentry"
 	"github.com/socialchef/remy/internal/telemetry"
 	"github.com/socialchef/remy/internal/worker"
 	"go.opentelemetry.io/otel"
 )
 
 func main() {
+	defer sentry.Recover()
+
 	ctx := context.Background()
 
 	cfg, err := config.Load()
@@ -41,6 +45,12 @@ func main() {
 		} else {
 			defer shutdown(ctx)
 		}
+	}
+
+	// Initialize Sentry
+	sentry.Init(cfg.SentryDSN, cfg.Env, cfg.ServiceName, cfg.ServiceVersion)
+	if cfg.SentryDSN != "" {
+		defer sentry.Flush(2 * time.Second)
 	}
 
 	// Initialize business metrics

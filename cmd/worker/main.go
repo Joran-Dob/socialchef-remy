@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/socialchef/remy/internal/config"
 	"github.com/socialchef/remy/internal/db"
@@ -22,9 +23,13 @@ import (
 	"github.com/socialchef/remy/internal/telemetry"
 	"github.com/socialchef/remy/internal/logger"
 	"github.com/socialchef/remy/internal/worker"
+	"github.com/socialchef/remy/internal/sentry"
 )
+	func main() {
+	defer func() {
+		sentry.Recover()
+	}()
 
-func main() {
 	ctx := context.Background()
 
 	cfg, err := config.Load()
@@ -42,6 +47,12 @@ func main() {
 		}
 	}
 
+	// Initialize Sentry
+	if err := sentry.Init(cfg.SentryDSN, cfg.Env, cfg.ServiceName+"-worker", cfg.ServiceVersion); err != nil {
+		slog.Warn("Failed to init Sentry", "error", err)
+	} else {
+		defer sentry.Flush(2 * time.Second)
+	}
 	// Initialize business metrics
 	if err := metrics.Init(); err != nil {
 		slog.Warn("Failed to init business metrics", "error", err)
