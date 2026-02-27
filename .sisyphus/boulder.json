@@ -1,11 +1,9 @@
 {
-  "active_plan": "/Users/jorandob/Documents/Projects/SocialChef/socialchef-remy/.sisyphus/plans/sync-schema-from-supabase.md",
-  "started_at": "2026-02-26T15:38:30.866Z",
-  "completed_at": "2026-02-26T16:15:00.000Z",
+  "active_plan": "/Users/jorandob/Documents/Projects/SocialChef/socialchef-remy/.sisyphus/plans/sentry-integration.md",
+  "started_at": "2026-02-27T09:34:28.414Z",
   "session_ids": [
-    "ses_365f2f0c9ffegPdYjvvE25joaU"
+    "ses_3619dada3ffeT92r5gUfJKHQvm"
   ],
-  "plan_name": "sync-schema-from-supabase",
-  "agent": "atlas",
-  "status": "complete"
+  "plan_name": "sentry-integration",
+  "agent": "atlas"
 }

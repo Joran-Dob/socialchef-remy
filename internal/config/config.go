@@ -27,6 +27,7 @@ type Config struct {
 
 	OtelExporterOTLPEndpoint string
 	OtelExporterOTLPHeaders  string
+	SentryDSN string
 
 	Port string
 }
@@ -48,6 +49,7 @@ func Load() (*Config, error) {
 		ProxyAPIKey:              os.Getenv("PROXY_API_KEY"),
 		OtelExporterOTLPEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		OtelExporterOTLPHeaders:  os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"),
+		SentryDSN:                 os.Getenv("SENTRY_DSN"),
 		Port:                     os.Getenv("PORT"),
 	}
 
