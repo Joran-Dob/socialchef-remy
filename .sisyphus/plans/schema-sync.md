@@ -95,4 +95,10 @@ These exist in Supabase but the Go backend doesn't touch them:
 - [x] `sqlc generate` succeeds with real schema
 - [x] `go build ./...` succeeds
 - [x] `go test ./...` passes
-- [ ] E2E test: recipe import completes and saves to database
+- [x] E2E test: recipe import completes and saves to database
+
+---
+
+## Status: ✅ COMPLETE
+
+Completed: 2026-02-27

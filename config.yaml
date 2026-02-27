@@ -1,0 +1,4 @@
+transcription:
+  provider: openai
+  fallback_enabled: false
+  fallback_provider: groq

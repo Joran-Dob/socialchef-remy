@@ -460,13 +460,13 @@ Add logic to remove old failed/completed jobs from `recipe_import_jobs` table.
 
 ## Success Criteria
 
-- [ ] Instagram recipe imports include images
-- [ ] TikTok recipe imports include images  
-- [ ] Failed scrapes retry automatically
-- [ ] No hanging requests (all have timeouts)
-- [ ] Embeddings are persisted to database
-- [ ] `.env` file loads automatically in development
-- [ ] All new code has test coverage
+- [x] Instagram recipe imports include images
+- [x] TikTok recipe imports include images  
+- [x] Failed scrapes retry automatically
+- [x] No hanging requests (all have timeouts)
+- [x] Embeddings are persisted to database
+- [x] `.env` file loads automatically in development
+- [x] All new code has test coverage
 
 ---
 
@@ -486,3 +486,9 @@ Add logic to remove old failed/completed jobs from `recipe_import_jobs` table.
 
 *Plan created: 2026-02-24*
 *Next step: Review plan and begin implementation phase*
+
+---
+
+## Status: ✅ COMPLETE
+
+Completed: 2026-02-27

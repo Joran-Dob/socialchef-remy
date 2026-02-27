@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"os"
 )
 
@@ -27,9 +28,17 @@ type Config struct {
 
 	OtelExporterOTLPEndpoint string
 	OtelExporterOTLPHeaders  string
-	SentryDSN string
+	SentryDSN                string
 
 	Port string
+
+	Transcription TranscriptionConfig
+}
+
+type TranscriptionConfig struct {
+	Provider         string `yaml:"provider"`
+	FallbackEnabled  bool   `yaml:"fallback_enabled"`
+	FallbackProvider string `yaml:"fallback_provider"`
 }
 
 func Load() (*Config, error) {
@@ -49,10 +58,16 @@ func Load() (*Config, error) {
 		ProxyAPIKey:              os.Getenv("PROXY_API_KEY"),
 		OtelExporterOTLPEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		OtelExporterOTLPHeaders:  os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"),
-		SentryDSN:                 os.Getenv("SENTRY_DSN"),
+		SentryDSN:                os.Getenv("SENTRY_DSN"),
 		Port:                     os.Getenv("PORT"),
 	}
 
+	// Load from YAML file if available
+	if err := cfg.LoadFromYAML("config.yaml"); err != nil {
+		return nil, fmt.Errorf("failed to load YAML config: %w", err)
+	}
+
+	// Set defaults
 	if cfg.Env == "" {
 		cfg.Env = "development"
 	}
@@ -62,10 +77,12 @@ func Load() (*Config, error) {
 	if cfg.ServiceVersion == "" {
 		cfg.ServiceVersion = "1.0.0"
 	}
-
 	if cfg.Port == "" {
 		cfg.Port = "8080"
 	}
+
+	// Set transcription defaults
+	cfg.SetTranscriptionDefaults()
 
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -80,6 +97,53 @@ func MustLoad() *Config {
 		panic(fmt.Sprintf("failed to load config: %v", err))
 	}
 	return cfg
+}
+
+func (c *Config) LoadFromYAML(path string) error {
+	if path == "" {
+		return nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // File not found is not an error
+		}
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var yamlConfig struct {
+		Transcription TranscriptionConfig `yaml:"transcription"`
+	}
+
+	if err := yaml.Unmarshal(data, &yamlConfig); err != nil {
+		return fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	// Apply transcription config with defaults
+	if yamlConfig.Transcription.Provider != "" {
+		c.Transcription.Provider = yamlConfig.Transcription.Provider
+	}
+	if yamlConfig.Transcription.FallbackEnabled {
+		c.Transcription.FallbackEnabled = yamlConfig.Transcription.FallbackEnabled
+	}
+	if yamlConfig.Transcription.FallbackProvider != "" {
+		c.Transcription.FallbackProvider = yamlConfig.Transcription.FallbackProvider
+	}
+
+	return nil
+}
+
+func (c *Config) SetTranscriptionDefaults() {
+	if c.Transcription.Provider == "" {
+		c.Transcription.Provider = "groq"
+	}
+	if !c.Transcription.FallbackEnabled {
+		c.Transcription.FallbackEnabled = true
+	}
+	if c.Transcription.FallbackProvider == "" {
+		c.Transcription.FallbackProvider = "openai"
+	}
 }
 
 func (c *Config) validate() error {

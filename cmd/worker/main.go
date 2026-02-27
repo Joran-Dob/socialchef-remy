@@ -77,7 +77,8 @@ import (
 	groqClient := groq.NewClient(cfg.GroqKey)
 	instagramScraper := scraper.NewInstagramScraper(cfg.ProxyServerURL, cfg.ProxyAPIKey)
 	tiktokScraper := scraper.NewTikTokScraper(cfg.ApifyAPIKey)
-	transcriptionClient := transcription.NewClient(cfg.OpenAIKey)
+	provider := transcription.NewProvider(cfg.Transcription, cfg.OpenAIKey, cfg.GroqKey)
+	transcriptionClient := transcription.NewProviderAdapter(provider)
 	storageClient := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 	broadcaster := worker.NewProgressBroadcaster(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 

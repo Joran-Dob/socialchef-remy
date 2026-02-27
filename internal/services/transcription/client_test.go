@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -107,3 +108,115 @@ func TestTranscribeVideo_OpenAIError(t *testing.T) {
 // When FFmpeg extraction fails (which it will with "dummy-video-data"), the test falls back to sending the video directly.
 // This is correct behavior - the tests verify the fallback path works as expected.
 // Real video files with actual audio would trigger the successful extraction path.
+
+func TestOpenAIProvider(t *testing.T) {
+	expectedTranscript := "This is a test transcript."
+	
+	// Mock OpenAI server
+	openAIServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify request
+		if r.Method != "POST" {
+			t.Errorf("Expected POST request, got %s", r.Method)
+		}
+		if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			t.Errorf("Expected multipart/form-data content type, got %s", r.Header.Get("Content-Type"))
+		}
+		if r.Header.Get("Authorization") != "Bearer test-api-key" {
+			t.Errorf("Expected test-api-key, got %s", r.Header.Get("Authorization"))
+		}
+
+		// Verify multipart form
+		err := r.ParseMultipartForm(10 << 20)
+		if err != nil {
+			t.Errorf("Failed to parse multipart form: %v", err)
+		}
+		if r.FormValue("model") != "gpt-4o-mini-transcribe" {
+			t.Errorf("Expected model gpt-4o-mini-transcribe, got %s", r.FormValue("model"))
+		}
+
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			t.Errorf("Failed to get form file: %v", err)
+		}
+		defer file.Close()
+
+		// Write response
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"text": "%s"}`, expectedTranscript)
+	}))
+	defer openAIServer.Close()
+
+	// Create provider
+	provider := NewOpenAIProvider("test-api-key")
+	provider.baseURL = openAIServer.URL
+
+	// Create temporary audio file
+	audioFile, err := os.CreateTemp("", "audio-*.mp3")
+	if err != nil {
+		t.Fatalf("Failed to create temp audio file: %v", err)
+	}
+	defer os.Remove(audioFile.Name())
+	audioPath := audioFile.Name()
+
+	// Write dummy audio content
+	if _, err := audioFile.Write([]byte("dummy-audio-data")); err != nil {
+		t.Fatalf("Failed to write audio file: %v", err)
+	}
+	audioFile.Close()
+
+	// Test transcription
+	transcript, err := provider.Transcribe(context.Background(), audioPath)
+	if err != nil {
+		t.Fatalf("Transcribe failed: %v", err)
+	}
+
+	if transcript != expectedTranscript {
+		t.Errorf("Expected transcript %s, got %s", expectedTranscript, transcript)
+	}
+}
+
+func TestOpenAIProvider_FileError(t *testing.T) {
+	provider := NewOpenAIProvider("test-api-key")
+
+	// Use an invalid audio file path
+	_, err := provider.Transcribe(context.Background(), "/nonexistent/path/audio.mp3")
+	if err == nil {
+		t.Error("Expected error for invalid audio file, got nil")
+	}
+}
+
+func TestOpenAIProvider_OpenAIError(t *testing.T) {
+	// Mock OpenAI server returning 500
+	openAIServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("OpenAI internal error"))
+	}))
+	defer openAIServer.Close()
+
+	// Create provider
+	provider := NewOpenAIProvider("test-api-key")
+	provider.baseURL = openAIServer.URL
+
+	// Create temporary audio file
+	audioFile, err := os.CreateTemp("", "audio-*.mp3")
+	if err != nil {
+		t.Fatalf("Failed to create temp audio file: %v", err)
+	}
+	defer os.Remove(audioFile.Name())
+	audioPath := audioFile.Name()
+
+	// Write dummy audio content
+	if _, err := audioFile.Write([]byte("dummy-audio-data")); err != nil {
+		t.Fatalf("Failed to write audio file: %v", err)
+	}
+	audioFile.Close()
+
+	// Test transcription - should return error
+	_, err = provider.Transcribe(context.Background(), audioPath)
+	if err == nil {
+		t.Error("Expected error for OpenAI 500 response, got nil")
+	}
+	if !strings.Contains(err.Error(), "OpenAI API error (status 500)") {
+		t.Errorf("Expected error message to contain 'OpenAI API error (status 500)', got %v", err)
+	}
+}
