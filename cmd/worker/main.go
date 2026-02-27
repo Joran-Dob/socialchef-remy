@@ -52,6 +52,7 @@ import (
 		slog.Warn("Failed to init Sentry", "error", err)
 	} else {
 		defer sentry.Flush(2 * time.Second)
+		sentry.CaptureMessage("Hello Better Stack, this is a test message from Go worker!")
 	}
 	// Initialize business metrics
 	if err := metrics.Init(); err != nil {

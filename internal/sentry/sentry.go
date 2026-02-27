@@ -44,3 +44,7 @@ func Recover() {
 	sentry.Recover()
 }
 
+// CaptureMessage sends a message to Sentry.
+func CaptureMessage(msg string) {
+	sentry.CaptureMessage(msg)
+}

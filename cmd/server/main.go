@@ -51,6 +51,7 @@ func main() {
 	sentry.Init(cfg.SentryDSN, cfg.Env, cfg.ServiceName, cfg.ServiceVersion)
 	if cfg.SentryDSN != "" {
 		defer sentry.Flush(2 * time.Second)
+		sentry.CaptureMessage("Hello Better Stack, this is a test message from Go server!")
 	}
 
 	// Initialize business metrics
