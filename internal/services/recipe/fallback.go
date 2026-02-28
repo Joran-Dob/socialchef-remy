@@ -12,22 +12,22 @@ import (
 
 // FallbackProvider implements RecipeProvider with fallback logic
 type FallbackProvider struct {
-	primary   RecipeProvider
-	secondary RecipeProvider
+	Primary   RecipeProvider
+	Secondary RecipeProvider
 }
 
 // NewFallbackProvider creates a new fallback provider
 func NewFallbackProvider(primary, secondary RecipeProvider) *FallbackProvider {
 	return &FallbackProvider{
-		primary:   primary,
-		secondary: secondary,
+		Primary:   primary,
+		Secondary: secondary,
 	}
 }
 
 // GenerateRecipe tries the primary provider first, falls back to secondary on retryable errors
 func (f *FallbackProvider) GenerateRecipe(ctx context.Context, description, transcript, platform string) (*Recipe, error) {
 	// Try primary provider first
-	result, err := f.primary.GenerateRecipe(ctx, description, transcript, platform)
+	result, err := f.Primary.GenerateRecipe(ctx, description, transcript, platform)
 
 	if err == nil {
 		// Primary succeeded, return result
@@ -52,7 +52,7 @@ func (f *FallbackProvider) GenerateRecipe(ctx context.Context, description, tran
 		))
 
 		// Try secondary provider
-		result, fallbackErr := f.secondary.GenerateRecipe(ctx, description, transcript, platform)
+		result, fallbackErr := f.Secondary.GenerateRecipe(ctx, description, transcript, platform)
 		if fallbackErr == nil {
 			slog.Info("Fallback provider succeeded",
 				"primary_error_type", providerErr.Type,
