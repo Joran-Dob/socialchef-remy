@@ -14,18 +14,19 @@ import (
 	"github.com/socialchef/remy/internal/config"
 	"github.com/socialchef/remy/internal/db"
 	"github.com/socialchef/remy/internal/db/generated"
-	"github.com/socialchef/remy/internal/services/groq"
+	"github.com/socialchef/remy/internal/logger"
+	"github.com/socialchef/remy/internal/metrics"
+	"github.com/socialchef/remy/internal/sentry"
 	"github.com/socialchef/remy/internal/services/openai"
+	"github.com/socialchef/remy/internal/services/recipe"
 	"github.com/socialchef/remy/internal/services/scraper"
 	"github.com/socialchef/remy/internal/services/storage"
 	"github.com/socialchef/remy/internal/services/transcription"
-	"github.com/socialchef/remy/internal/metrics"
 	"github.com/socialchef/remy/internal/telemetry"
-	"github.com/socialchef/remy/internal/logger"
 	"github.com/socialchef/remy/internal/worker"
-	"github.com/socialchef/remy/internal/sentry"
 )
-	func main() {
+
+func main() {
 	defer func() {
 		sentry.Recover()
 	}()
@@ -74,7 +75,12 @@ import (
 
 	// Initialize services
 	openaiClient := openai.NewClient(cfg.OpenAIKey)
-	groqClient := groq.NewClient(cfg.GroqKey)
+
+	// Create recipe provider using factory with config
+	recipeProvider := recipe.NewProvider(cfg.RecipeGeneration, cfg.GroqKey, cfg.CerebrasKey, cfg.OpenAIKey)
+	// Wrap in adapter for backward compatibility
+	groqClient := recipe.NewGroqClientAdapter(recipeProvider)
+
 	instagramScraper := scraper.NewInstagramScraper(cfg.ProxyServerURL, cfg.ProxyAPIKey)
 	tiktokScraper := scraper.NewTikTokScraper(cfg.ApifyAPIKey)
 	provider := transcription.NewProvider(cfg.Transcription, cfg.OpenAIKey, cfg.GroqKey)
@@ -103,7 +109,6 @@ import (
 		workerMetrics,
 		asynqClient,
 	)
-
 
 	// Asynq server
 	srv := worker.NewServer(cfg.RedisURL)
