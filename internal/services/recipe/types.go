@@ -71,3 +71,16 @@ type Nutrition struct {
 	Fat     float64 `json:"fat"`
 	Fiber   float64 `json:"fiber"`
 }
+
+// recipeResponseInner is the internal response structure for recipe data
+type recipeResponseInner struct {
+	RecipeName        string `json:"recipe_name"`
+	Description       string `json:"description"`
+	PrepTime          *int   `json:"prep_time"`
+	CookingTime       *int   `json:"cooking_time"`
+	TotalTime         *int   `json:"total_time"`
+	OriginalServings  *int   `json:"original_serving_size"`
+	DifficultyRating  *int   `json:"difficulty_rating"`
+	FocusedDiet       string `json:"focused_diet"`
+	EstimatedCalories *int   `json:"estimated_calories"`
+}
