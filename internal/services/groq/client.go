@@ -8,82 +8,25 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
-
 	"time"
 
 	"github.com/socialchef/remy/internal/httpclient"
 	"github.com/socialchef/remy/internal/metrics"
 	"github.com/socialchef/remy/internal/services/ai"
+	"github.com/socialchef/remy/internal/services/recipe"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
 )
+
+// Type aliases for backward compatibility
+type Recipe = recipe.Recipe
+type Ingredient = recipe.Ingredient
+type Instruction = recipe.Instruction
+type Nutrition = recipe.Nutrition
+type StringOrNumber = recipe.StringOrNumber
 
 type Client struct {
 	apiKey string
-}
-type Recipe struct {
-	RecipeName          string
-	Description         string
-	PrepTime            *int
-	CookingTime         *int
-	TotalTime           *int
-	OriginalServings    *int
-	DifficultyRating    *int
-	FocusedDiet         string
-	EstimatedCalories   *int
-	Ingredients         []Ingredient
-	Instructions        []Instruction
-	Nutrition           Nutrition
-	CuisineCategories   []string
-	MealTypes           []string
-	Occasions           []string
-	DietaryRestrictions []string
-	Equipment           []string
-}
-
-// StringOrNumber can unmarshal from JSON string or number
-type StringOrNumber string
-
-func (s *StringOrNumber) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		*s = ""
-		return nil
-	}
-	// Try unmarshal as string first
-	var str string
-	if err := json.Unmarshal(data, &str); err == nil {
-		*s = StringOrNumber(str)
-		return nil
-	}
-	// Try as number
-	var num float64
-	if err := json.Unmarshal(data, &num); err != nil {
-		return err
-	}
-	*s = StringOrNumber(strconv.FormatFloat(num, 'f', -1, 64))
-	return nil
-}
-
-type Ingredient struct {
-	OriginalQuantity StringOrNumber `json:"original_quantity"`
-	OriginalUnit     string         `json:"original_unit"`
-	Quantity         float64        `json:"quantity"`
-	Unit             string         `json:"unit"`
-	Name             string         `json:"name"`
-}
-
-type Instruction struct {
-	StepNumber  int    `json:"step_number"`
-	Instruction string `json:"instruction"`
-}
-
-type Nutrition struct {
-	Protein float64 `json:"protein"`
-	Carbs   float64 `json:"carbs"`
-	Fat     float64 `json:"fat"`
-	Fiber   float64 `json:"fiber"`
 }
 
 type recipeResponse struct {
