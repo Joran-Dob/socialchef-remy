@@ -19,8 +19,9 @@ type Config struct {
 
 	RedisURL string
 
-	OpenAIKey string
-	GroqKey   string
+	OpenAIKey   string
+	GroqKey     string
+	CerebrasKey string
 
 	ApifyAPIKey    string
 	ProxyServerURL string
@@ -32,10 +33,17 @@ type Config struct {
 
 	Port string
 
-	Transcription TranscriptionConfig
+	Transcription    TranscriptionConfig
+	RecipeGeneration RecipeGenerationConfig
 }
 
 type TranscriptionConfig struct {
+	Provider         string `yaml:"provider"`
+	FallbackEnabled  bool   `yaml:"fallback_enabled"`
+	FallbackProvider string `yaml:"fallback_provider"`
+}
+
+type RecipeGenerationConfig struct {
 	Provider         string `yaml:"provider"`
 	FallbackEnabled  bool   `yaml:"fallback_enabled"`
 	FallbackProvider string `yaml:"fallback_provider"`
@@ -53,6 +61,7 @@ func Load() (*Config, error) {
 		RedisURL:                 os.Getenv("REDIS_URL"),
 		OpenAIKey:                os.Getenv("OPENAI_API_KEY"),
 		GroqKey:                  os.Getenv("GROQ_API_KEY"),
+		CerebrasKey:              os.Getenv("CEREBRAS_API_KEY"),
 		ApifyAPIKey:              os.Getenv("APIFY_API_KEY"),
 		ProxyServerURL:           os.Getenv("PROXY_SERVER_URL"),
 		ProxyAPIKey:              os.Getenv("PROXY_API_KEY"),
@@ -84,6 +93,9 @@ func Load() (*Config, error) {
 	// Set transcription defaults
 	cfg.SetTranscriptionDefaults()
 
+	// Set recipe generation defaults
+	cfg.SetRecipeGenerationDefaults()
+
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
@@ -113,7 +125,8 @@ func (c *Config) LoadFromYAML(path string) error {
 	}
 
 	var yamlConfig struct {
-		Transcription TranscriptionConfig `yaml:"transcription"`
+		Transcription    TranscriptionConfig    `yaml:"transcription"`
+		RecipeGeneration RecipeGenerationConfig `yaml:"recipe_generation"`
 	}
 
 	if err := yaml.Unmarshal(data, &yamlConfig); err != nil {
@@ -131,6 +144,17 @@ func (c *Config) LoadFromYAML(path string) error {
 		c.Transcription.FallbackProvider = yamlConfig.Transcription.FallbackProvider
 	}
 
+	// Apply recipe generation config with defaults
+	if yamlConfig.RecipeGeneration.Provider != "" {
+		c.RecipeGeneration.Provider = yamlConfig.RecipeGeneration.Provider
+	}
+	if yamlConfig.RecipeGeneration.FallbackEnabled {
+		c.RecipeGeneration.FallbackEnabled = yamlConfig.RecipeGeneration.FallbackEnabled
+	}
+	if yamlConfig.RecipeGeneration.FallbackProvider != "" {
+		c.RecipeGeneration.FallbackProvider = yamlConfig.RecipeGeneration.FallbackProvider
+	}
+
 	return nil
 }
 
@@ -143,6 +167,18 @@ func (c *Config) SetTranscriptionDefaults() {
 	}
 	if c.Transcription.FallbackProvider == "" {
 		c.Transcription.FallbackProvider = "openai"
+	}
+}
+
+func (c *Config) SetRecipeGenerationDefaults() {
+	if c.RecipeGeneration.Provider == "" {
+		c.RecipeGeneration.Provider = "groq"
+	}
+	if !c.RecipeGeneration.FallbackEnabled {
+		c.RecipeGeneration.FallbackEnabled = true
+	}
+	if c.RecipeGeneration.FallbackProvider == "" {
+		c.RecipeGeneration.FallbackProvider = "cerebras"
 	}
 }
 
