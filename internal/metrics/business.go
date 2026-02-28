@@ -18,6 +18,9 @@ var (
 
 	// AI metrics
 	AIGenerationDuration metric.Float64Histogram
+
+	// Provider fallback metrics
+	ProviderFallbackTotal metric.Int64Counter
 )
 
 func Init() error {
@@ -69,6 +72,16 @@ func Init() error {
 		metric.WithDescription("Duration of AI recipe generation"),
 		metric.WithUnit("s"),
 		metric.WithExplicitBucketBoundaries(0.1, 0.5, 1, 2, 5, 10, 30, 60),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Provider fallback metrics
+	ProviderFallbackTotal, err = meter.Int64Counter(
+		"provider.fallback.total",
+		metric.WithDescription("Total number of provider fallback events"),
+		metric.WithUnit("1"),
 	)
 	if err != nil {
 		return err
