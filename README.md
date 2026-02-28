@@ -9,17 +9,39 @@ The processing pipeline follows these steps:
 1.  **Scrape**: Extracts raw post data (caption, images, video URL) from the social media source.
 2.  **Content Validate**: Runs a quick heuristic check to verify if the content is likely a recipe before further processing.
 3.  **Transcribe**: If a video is available, the audio is transcribed using OpenAI to capture spoken instructions and ingredients.
-4.  **Generate**: Uses Groq (AI) to synthesize the caption and transcript into a structured recipe format.
+4.  **Generate**: Uses AI (Groq, Cerebras, or OpenAI) to synthesize the caption and transcript into a structured recipe format.
 5.  **Output Validate**: Performs a quality check on the generated recipe to ensure accuracy and completeness.
 6.  **Save**: Persists the validated recipe and associated media to the database and storage.
 
 ## Features
 
 - **Video Transcription**: Leverages OpenAI `gpt-4o-mini-transcribe` to extract recipe details from video audio.
+- **Multi-Provider AI**: Supports Groq, Cerebras, and OpenAI for recipe generation with automatic fallback.
 - **Content Validation**: Multi-stage validation (heuristic length/keyword check + optional AI classification) to reject non-recipe posts.
 - **Output Quality Check**: Automated scoring based on placeholder detection and minimum content requirements.
 - **Structured Error Handling**: Categorized error types with specific codes for robust debugging and recovery.
 - **Automatic Retry**: Built-in exponential backoff for transient failures during scraping or AI processing.
+
+## Recipe Generation
+
+Recipe generation supports multiple AI providers with automatic fallback:
+
+### Providers
+- **Groq** (default): Uses `llama-3.3-70b-versatile` model
+- **Cerebras**: Uses `gpt-oss-120b` model
+- **OpenAI**: Uses `gpt-4o` model
+
+### Configuration
+Configure in `config.yaml`:
+```yaml
+recipe_generation:
+  provider: cerebras           # groq | cerebras | openai
+  fallback_enabled: true
+  fallback_provider: groq      # secondary provider if primary fails
+```
+
+### Fallback Behavior
+When `fallback_enabled` is true, if the primary provider fails with a retryable error (rate limit, server error, credit exhaustion), the system automatically tries the fallback provider.
 
 ## Error Handling
 
@@ -41,6 +63,7 @@ Remy uses structured errors with categories and specific codes for better error 
 - `LOW_QUALITY_RECIPE`: Generated recipe failed quality checks (e.g., too many placeholders).
 - `VIDEO_FETCH_ERROR`: Failed to download video content for transcription.
 - `OPENAI_API_ERROR`: Issue communicating with the transcription service.
+- `PROVIDER_FALLBACK_FAILED`: Both primary and fallback providers failed.
 
 ## Validation
 
@@ -73,6 +96,7 @@ Transient operations use an automatic retry mechanism with exponential backoff.
 | `REDIS_URL` | Yes | Redis connection for the task queue. |
 | `OPENAI_API_KEY` | Yes | For transcription and embedding services. |
 | `GROQ_API_KEY` | Yes | For AI recipe generation. |
+| `CEREBRAS_API_KEY` | Yes | For Cerebras AI recipe generation (alternative to Groq). |
 | `APIFY_API_KEY` | Yes | For TikTok scraping services. |
 | `PROXY_SERVER_URL` | Yes | For Instagram scraping proxy. |
 | `PROXY_API_KEY` | Yes | For Instagram scraping proxy authentication. |
