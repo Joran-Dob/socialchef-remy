@@ -59,10 +59,13 @@ When presented with a recipe description, extract the following information into
 
 const inferenceSection = `<INFERENCE>
 If any information is not explicitly stated, use your best judgment to infer it:
+
 - For the recipe name and description:
-  * Focus on the main ingredients and the final dish, not the cooking method
-  * If the given name is vague or focuses on a cooking method, create a more descriptive name
-  * Provide a brief, enticing summary of the dish for the description
+  * GENERATE a descriptive recipe name based on what the dish is (do NOT copy the source title verbatim)
+  * Focus on the main ingredients and the final dish, not just the cooking method or marketing words
+  * If the given name is vague, focuses on a cooking method, or is clickbait, create a more descriptive name
+  * The generated name MUST be in the original language of the recipe content
+  * Provide a brief, enticing summary of the dish for the description (in the original language)
 - For ingredients:
   * Always adjust quantities to represent 1 serving
   * If the original serving size is not provided, estimate it based on the recipe context
@@ -258,7 +261,7 @@ CRITICAL: You MUST preserve the original language of the recipe content througho
    - If the post description is in one language but the video transcript is in another, prioritize the language used for the actual recipe instructions and ingredients
 
 2. Language Preservation Rules:
-   - recipe_name: MUST be in the original language (do NOT translate)
+   - recipe_name: GENERATE a descriptive title based on what the recipe makes, IN THE ORIGINAL LANGUAGE (do NOT copy the source title verbatim, do NOT translate)
    - description: MUST be in the original language (do NOT translate)
    - ingredients[].name: MUST be in the original language (do NOT translate)
    - instructions[].instruction: MUST be in the original language (do NOT translate)
@@ -269,14 +272,22 @@ CRITICAL: You MUST preserve the original language of the recipe content througho
    - equipment: MAY be in English as these are standard equipment names
    - language: MUST contain the ISO 639-1 language code of the detected language (e.g., "en", "es", "fr", "de", "it", "pt", "ja", "zh", "ko", "ar", "hi", etc.)
 
-3. Examples:
-   - Spanish recipe: recipe_name="Paella Valenciana", description="Una deliciosa paella tradicional...", language="es"
-   - French recipe: recipe_name="Coq au Vin", description="Un plat classique français...", language="fr"
-   - German recipe: recipe_name="Sauerbraten", description="Ein traditioneller deutscher Sauerbraten...", language="de"
+3. Recipe Title Generation:
+   - Create a clear, descriptive title that reflects what the dish is
+   - Focus on the main ingredients and cooking style, not marketing words
+   - Examples of good titles: "Classic Italian Carbonara", "Spicy Thai Basil Chicken", "Homemade French Croissants"
+   - Examples of bad titles: "Best Recipe Ever!!!", "You Won't Believe This!", "My Grandma's Secret"
+   - Keep the title in the same language as the recipe content
+   - If the original title is vague or clickbait, generate a better descriptive title
+
+4. Examples:
+   - Spanish recipe: recipe_name="Paella de Mariscos con Azafrán", description="Una deliciosa paella tradicional...", language="es"
+   - French recipe: recipe_name="Coq au Vin à l'Ancienne", description="Un plat classique français...", language="fr"
+   - German recipe: recipe_name="Traditioneller Bayerischer Sauerbraten", description="Ein traditioneller deutscher Sauerbraten...", language="de"
    - Mixed language content: If post caption is English but video instructions are in Spanish, use Spanish and set language="es"
 
-4. Special Cases:
-   - If the recipe uses dialect or regional variations, preserve them as-is
+5. Special Cases:
+   - If the recipe uses dialect or regional variations, preserve them as-is in description, ingredients, and instructions
    - If ingredient names are in a local language, keep them in that language (e.g., "mozzarella", "parmesan", "harissa", "miso")
    - Do NOT transliterate scripts (e.g., keep Cyrillic, Arabic, Chinese characters as-is)
    - Do NOT convert measurements to different number systems (keep Arabic numerals, etc.)

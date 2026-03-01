@@ -33,6 +33,9 @@ func TestBuildRecipePrompt(t *testing.T) {
 				"milliliters",
 				"language",
 				"ISO 639-1",
+				"GENERATE a descriptive title",
+				"Recipe Title Generation",
+				"do NOT copy the source title verbatim",
 			},
 		},
 		{
