@@ -10,11 +10,11 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/socialchef/remy/internal/httpclient"
 	"github.com/socialchef/remy/internal/metrics"
+	"github.com/socialchef/remy/internal/utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"github.com/socialchef/remy/internal/httpclient"
-	"github.com/socialchef/remy/internal/utils"
 )
 
 const (

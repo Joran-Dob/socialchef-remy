@@ -40,6 +40,26 @@ func DefaultRetryConfig() RetryConfig {
 	}
 }
 
+// FastRetryConfig returns a RetryConfig optimized for fast retries (5-30s).
+// Use this for Instagram fetch failures where quick retry is preferred.
+func FastRetryConfig() RetryConfig {
+	return RetryConfig{
+		MaxAttempts:   5,
+		InitialDelay:  5 * time.Second,
+		MaxDelay:      30 * time.Second,
+		BackoffFactor: 2.0,
+		Timeout:       30 * time.Second,
+		RetryableErrors: []string{
+			"timeout",
+			"connection reset",
+			"rate limit",
+			"connection refused",
+			"socket hang up",
+			"5", // covers 5xx status codes usually mentioned in error messages
+		},
+	}
+}
+
 // IsRetryableError checks if the given error is retryable based on defined patterns.
 func IsRetryableError(err error, patterns []string) bool {
 	if err == nil {

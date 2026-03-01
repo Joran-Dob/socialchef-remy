@@ -1,9 +1,9 @@
 transcription:
   provider: openai
   fallback_enabled: true
-  fallback_provider: openai
+  fallback_provider: groq
 
 recipe_generation:
   provider: groq
   fallback_enabled: true
-  fallback_provider: groq
+  fallback_provider: cerebras

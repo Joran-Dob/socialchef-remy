@@ -294,7 +294,7 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 		VideoURL: "https://example.com/video.mp4",
 	}, nil)
 
-	mockTranscription.On("TranscribeVideo", ctx, "https://example.com/video.mp4").Return("Mix flour and sugar, then add eggs.", nil)
+	mockTranscription.On("TranscribeVideo", mock.Anything, "https://example.com/video.mp4").Return("Mix flour and sugar, then add eggs.", nil)
 
 	expectedRecipe := &groq.Recipe{
 		RecipeName:  "Chocolate Cake",
@@ -411,7 +411,7 @@ func TestHandleProcessRecipe_TranscriptionFails(t *testing.T) {
 		VideoURL: "https://example.com/video.mp4",
 	}, nil)
 
-	mockTranscription.On("TranscribeVideo", ctx, "https://example.com/video.mp4").Return("", fmt.Errorf("api error"))
+	mockTranscription.On("TranscribeVideo", mock.Anything, "https://example.com/video.mp4").Return("", fmt.Errorf("api error"))
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.MatchedBy(func(arg generated.UpdateImportJobStatusParams) bool {
 		return arg.Status == "FAILED"

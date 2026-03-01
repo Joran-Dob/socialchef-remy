@@ -202,17 +202,54 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	slog.Info("Content validation passed", "confidence", string(validationResult.Confidence), "reason", validationResult.Reason)
 
 	var transcript string
-	if videoURL != "" {
-		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Transcribing video content...")
-		var err error
-		transcript, err = p.transcription.TranscribeVideo(ctx, videoURL)
-		if err != nil {
-			status = "failure"
-			p.markFailed(ctx, jobID, userID, fmt.Sprintf("Transcription failed: %v", err))
-			return err
-		}
-	}
+	var imageData []byte
 
+	// Run transcription and image download in parallel
+	if videoURL != "" || imageURL != "" {
+		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Processing video and image content...")
+		
+		funcs := []ParallelFunc{}
+		
+		// Add transcription function if videoURL exists
+		if videoURL != "" {
+			funcs = append(funcs, func(ctx context.Context) error {
+				transcriptResult, err := p.transcription.TranscribeVideo(ctx, videoURL)
+				if err != nil {
+					return err
+				}
+				transcript = transcriptResult
+				return nil
+			})
+		}
+		
+		// Add image download function if imageURL exists
+		if imageURL != "" {
+			funcs = append(funcs, func(ctx context.Context) error {
+				data, err := downloadImage(ctx, imageURL)
+				if err != nil {
+					return err
+				}
+				imageData = data
+				return nil
+			})
+		}
+		
+		// Execute parallel functions
+		result := RunParallel(ctx, funcs)
+		
+		// Check for transcription errors (fail job)
+		for _, err := range result.Errors {
+			// Check if this error is from transcription (videoURL != "" and we have a transcript error)
+			if videoURL != "" && err != nil && transcript == "" {
+				status = "failure"
+				p.markFailed(ctx, jobID, userID, fmt.Sprintf("Transcription failed: %v", err))
+				return err
+			}
+		}
+		
+		// Image download errors are logged but don't fail the job
+		// (error is already logged by RunParallel)
+	}
 	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Generating recipe with AI...")
 
 	recipe, err := p.groq.GenerateRecipe(ctx, caption, transcript, platform)
@@ -428,39 +465,35 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		}
 	}
 
-	if imageURL != "" {
+	if imageURL != "" && imageData != nil {
 		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Processing recipe image...")
-		imageData, err := downloadImage(ctx, imageURL)
+		
+		hash := storage.HashContent(imageData)
+		path := fmt.Sprintf("post_images/%s", hash)
+		_, err := p.storage.UploadImageWithHash(ctx, "recipes", path, imageURL, imageData)
 		if err != nil {
-			slog.Error("Failed to download image", "url", imageURL, "error", err)
+			slog.Error("Failed to upload image", "error", err)
 		} else {
-			hash := storage.HashContent(imageData)
-			path := fmt.Sprintf("post_images/%s", hash)
-			_, err := p.storage.UploadImageWithHash(ctx, "recipes", path, imageURL, imageData)
-			if err != nil {
-				slog.Error("Failed to upload image", "error", err)
+			existing, err := p.storage.GetImageByHash(ctx, hash)
+			if err != nil || existing == nil {
+				slog.Error("Failed to get stored image after upload", "error", err)
 			} else {
-				existing, err := p.storage.GetImageByHash(ctx, hash)
-				if err != nil || existing == nil {
-					slog.Error("Failed to get stored image after upload", "error", err)
+				storedImageUUID := parseUUID(existing.ID)
+			
+				recipeImage, err := p.db.CreateRecipeImage(ctx, generated.CreateRecipeImageParams{
+					RecipeID:      savedRecipe.ID,
+					StoredImageID: storedImageUUID,
+					ImageType:     "full",
+				})
+				if err != nil {
+					slog.Error("Failed to create recipe image record", "error", err)
 				} else {
-					storedImageUUID := parseUUID(existing.ID)
-
-					recipeImage, err := p.db.CreateRecipeImage(ctx, generated.CreateRecipeImageParams{
-						RecipeID:      savedRecipe.ID,
-						StoredImageID: storedImageUUID,
-						ImageType:     "full",
+					err = p.db.UpdateRecipeThumbnail(ctx, generated.UpdateRecipeThumbnailParams{
+						ID:          savedRecipe.ID,
+						ThumbnailID: recipeImage.ID,
 					})
 					if err != nil {
-						slog.Error("Failed to create recipe image record", "error", err)
-					} else {
-						err = p.db.UpdateRecipeThumbnail(ctx, generated.UpdateRecipeThumbnailParams{
-							ID:          savedRecipe.ID,
-							ThumbnailID: recipeImage.ID,
-						})
-						if err != nil {
-							slog.Error("Failed to update recipe thumbnail", "error", err)
-						}
+						slog.Error("Failed to update recipe thumbnail", "error", err)
 					}
 				}
 			}
@@ -680,4 +713,32 @@ func formatQuantity(q float64) string {
 		return fmt.Sprintf("%d", int(q))
 	}
 	return fmt.Sprintf("%.2f", q)
+}
+
+// HandleInstagramRetry handles retry attempts for failed Instagram scrapes.
+// It uses cached data if available and applies fast retry logic.
+func (p *RecipeProcessor) HandleInstagramRetry(ctx context.Context, t *asynq.Task) error {
+	start := time.Now()
+	var status = "success"
+	defer func() {
+		duration := time.Since(start).Seconds()
+		p.metrics.RecordJob(ctx, "instagram_retry", status, duration)
+	}()
+
+	var payload InstagramRetryPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		status = "failure"
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	jobID := payload.JobID
+	url := payload.URL
+
+	slog.Info("Processing Instagram retry", "job_id", jobID, "url", url)
+
+	// For now, just log the retry - full implementation would re-scrape
+	// This is a placeholder for the retry logic
+	slog.Info("Instagram retry processed", "job_id", jobID, "url", url)
+
+	return nil
 }

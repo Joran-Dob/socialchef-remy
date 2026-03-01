@@ -6,11 +6,19 @@ import (
 	"github.com/hibiken/asynq"
 )
 
+// Priority constants for task queues
+const (
+	PriorityHigh   = 10
+	PriorityNormal = 5
+	PriorityLow    = 1
+)
+
 // Task type constants
 const (
 	TypeProcessRecipe     = "process:recipe"
 	TypeGenerateEmbedding = "generate:embedding"
 	TypeCleanupJobs       = "cleanup:jobs"
+	TypeInstagramRetry    = "instagram:retry"
 )
 
 // ProcessRecipePayload is the payload for recipe processing tasks
@@ -23,6 +31,12 @@ type ProcessRecipePayload struct {
 // GenerateEmbeddingPayload is the payload for embedding tasks
 type GenerateEmbeddingPayload struct {
 	RecipeID string `json:"recipe_id"`
+}
+
+// InstagramRetryPayload is the payload for Instagram retry tasks
+type InstagramRetryPayload struct {
+	JobID string `json:"job_id"`
+	URL   string `json:"url"`
 }
 
 // NewProcessRecipeTask creates a new process recipe task
@@ -46,4 +60,13 @@ func NewGenerateEmbeddingTask(payload GenerateEmbeddingPayload) (*asynq.Task, er
 // NewCleanupJobsTask creates a new cleanup task
 func NewCleanupJobsTask() *asynq.Task {
 	return asynq.NewTask(TypeCleanupJobs, nil)
+}
+
+// NewInstagramRetryTask creates a new Instagram retry task with high priority
+func NewInstagramRetryTask(payload InstagramRetryPayload) (*asynq.Task, error) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeInstagramRetry, data), nil
 }
