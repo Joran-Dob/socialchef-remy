@@ -55,7 +55,9 @@ func FastRetryConfig() RetryConfig {
 			"rate limit",
 			"connection refused",
 			"socket hang up",
-			"5", // covers 5xx status codes usually mentioned in error messages
+			"5",                 // covers 5xx status codes
+			"invalid character", // Instagram returns HTML instead of JSON (captcha/error page)
+			"<",                 // HTML response indicator
 		},
 	}
 }
@@ -116,8 +118,6 @@ func WithRetry[T any](ctx context.Context, operation RetryableFunc[T], config Re
 			jitter := time.Duration(rand.Int63n(jitterRange))
 			delay += jitter
 		}
-		jitter := time.Duration(rand.Int63n(int64(delay) / 10))
-		delay += jitter
 
 		// Wait for the delay or context cancellation
 		select {
