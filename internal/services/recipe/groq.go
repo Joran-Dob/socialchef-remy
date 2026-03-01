@@ -110,17 +110,7 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 
 	content := chatResp.Choices[0].Message.Content
 
-	var raw struct {
-		Recipe              recipeResponseInner `json:"recipe"`
-		Ingredients         []Ingredient        `json:"ingredients"`
-		Instructions        []Instruction       `json:"instructions"`
-		Nutrition           Nutrition           `json:"nutrition"`
-		CuisineCategories   []string            `json:"cuisine_categories"`
-		MealTypes           []string            `json:"meal_types"`
-		Occasions           []string            `json:"occasions"`
-		DietaryRestrictions []string            `json:"dietary_restrictions"`
-		Equipment           []string            `json:"equipment"`
-	}
+	var raw recipeResponseOuter
 	if err := json.Unmarshal([]byte(content), &raw); err != nil {
 		return nil, err
 	}
@@ -143,5 +133,6 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 		Occasions:           raw.Occasions,
 		DietaryRestrictions: raw.DietaryRestrictions,
 		Equipment:           raw.Equipment,
+		Language:            raw.Language,
 	}, nil
 }

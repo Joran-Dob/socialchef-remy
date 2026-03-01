@@ -283,6 +283,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		Occasions:           recipe.Occasions,
 		DietaryRestrictions: recipe.DietaryRestrictions,
 		Equipment:           recipe.Equipment,
+		Language:            recipe.Language,
 	}
 
 	result := validation.ValidateRecipe(vRecipe, validationConfig)
@@ -353,7 +354,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		origin = generated.RecipeOriginTiktok
 	}
 
-	savedRecipe, err := p.db.CreateRecipe(ctx, generated.CreateRecipeParams{
+		savedRecipe, err := p.db.CreateRecipe(ctx, generated.CreateRecipeParams{
 		ID:                  recipeUUID,
 		CreatedBy:           userUUID,
 		RecipeName:          recipe.RecipeName,
@@ -369,6 +370,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		Url:                 url,
 		OwnerID:             ownerUUID,
 		ThumbnailID:         pgtype.UUID{},
+		Language:            pgtype.Text{String: recipe.Language, Valid: recipe.Language != ""},
 	})
 	if err != nil {
 		status = "failure"

@@ -38,6 +38,7 @@ CREATE TABLE recipes (
     estimated_calories INTEGER,
     origin recipe_origin NOT NULL,
     url TEXT NOT NULL,
+    language TEXT DEFAULT 'en',
     created_by UUID NOT NULL REFERENCES auth.users(id),
     owner_id UUID REFERENCES social_media_owners(id),
     thumbnail_id UUID REFERENCES recipe_images(id),

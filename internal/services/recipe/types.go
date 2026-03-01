@@ -24,6 +24,7 @@ type Recipe struct {
 	Occasions           []string
 	DietaryRestrictions []string
 	Equipment           []string
+	Language            string
 }
 
 // StringOrNumber can unmarshal from JSON string or number
@@ -83,4 +84,18 @@ type recipeResponseInner struct {
 	DifficultyRating  *int   `json:"difficulty_rating"`
 	FocusedDiet       string `json:"focused_diet"`
 	EstimatedCalories *int   `json:"estimated_calories"`
+}
+
+// recipeResponseOuter is the outer response structure from AI
+type recipeResponseOuter struct {
+	Recipe              recipeResponseInner `json:"recipe"`
+	Ingredients         []Ingredient        `json:"ingredients"`
+	Instructions        []Instruction       `json:"instructions"`
+	Nutrition           Nutrition           `json:"nutrition"`
+	CuisineCategories   []string            `json:"cuisine_categories"`
+	MealTypes           []string            `json:"meal_types"`
+	Occasions           []string            `json:"occasions"`
+	DietaryRestrictions []string            `json:"dietary_restrictions"`
+	Equipment           []string            `json:"equipment"`
+	Language            string              `json:"language"`
 }

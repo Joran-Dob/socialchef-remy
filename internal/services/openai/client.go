@@ -36,6 +36,7 @@ type Recipe struct {
 	Occasions           []string
 	DietaryRestrictions []string
 	Equipment           []string
+	Language            string
 }
 
 // StringOrNumber can unmarshal from JSON string or number
@@ -91,6 +92,7 @@ type recipeResponse struct {
 	Occasions           []string            `json:"occasions"`
 	DietaryRestrictions []string            `json:"dietary_restrictions"`
 	Equipment           []string            `json:"equipment"`
+	Language            string              `json:"language"`
 }
 
 type RecipeResponseInner struct {
@@ -168,6 +170,7 @@ func generateRecipeWithOpenAI(ctx context.Context, apiKey, description, transcri
 		Occasions:           raw.Occasions,
 		DietaryRestrictions: raw.DietaryRestrictions,
 		Equipment:           raw.Equipment,
+		Language:            raw.Language,
 	}, nil
 }
 

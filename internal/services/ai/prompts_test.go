@@ -22,6 +22,7 @@ func TestBuildRecipePrompt(t *testing.T) {
 				"<REFERENCE_LISTS>",
 				"<INGREDIENT_ANALYSIS>",
 				"<CRITICAL_METRIC_REQUIREMENT>",
+				"<LANGUAGE_HANDLING>",
 				"<INSTRUCTIONS>",
 				"original_quantity",
 				"original_unit",
@@ -30,6 +31,8 @@ func TestBuildRecipePrompt(t *testing.T) {
 				"METRIC",
 				"grams",
 				"milliliters",
+				"language",
+				"ISO 639-1",
 			},
 		},
 		{

@@ -194,6 +194,7 @@ type Recipe struct {
 	EstimatedCalories   pgtype.Int4
 	Origin              RecipeOrigin
 	Url                 string
+	Language            pgtype.Text
 	CreatedBy           pgtype.UUID
 	OwnerID             pgtype.UUID
 	ThumbnailID         pgtype.UUID

@@ -14,10 +14,10 @@ import (
 
 const createRecipe = `-- name: CreateRecipe :one
 INSERT INTO recipes (
-    id, created_by, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, owner_id, thumbnail_id
+    id, created_by, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, owner_id, thumbnail_id, language
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
-) RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, created_by, owner_id, thumbnail_id, embedding, search_vector, created_at, updated_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+) RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, language, created_by, owner_id, thumbnail_id, embedding, search_vector, created_at, updated_at
 `
 
 type CreateRecipeParams struct {
@@ -36,6 +36,7 @@ type CreateRecipeParams struct {
 	Url                 string
 	OwnerID             pgtype.UUID
 	ThumbnailID         pgtype.UUID
+	Language            pgtype.Text
 }
 
 func (q *Queries) CreateRecipe(ctx context.Context, arg CreateRecipeParams) (Recipe, error) {
@@ -55,6 +56,7 @@ func (q *Queries) CreateRecipe(ctx context.Context, arg CreateRecipeParams) (Rec
 		arg.Url,
 		arg.OwnerID,
 		arg.ThumbnailID,
+		arg.Language,
 	)
 	var i Recipe
 	err := row.Scan(
@@ -70,6 +72,7 @@ func (q *Queries) CreateRecipe(ctx context.Context, arg CreateRecipeParams) (Rec
 		&i.EstimatedCalories,
 		&i.Origin,
 		&i.Url,
+		&i.Language,
 		&i.CreatedBy,
 		&i.OwnerID,
 		&i.ThumbnailID,
@@ -96,7 +99,7 @@ func (q *Queries) DeleteRecipe(ctx context.Context, arg DeleteRecipeParams) erro
 }
 
 const getRecipe = `-- name: GetRecipe :one
-SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, created_by, owner_id, thumbnail_id, embedding, search_vector, created_at, updated_at FROM recipes WHERE id = $1
+SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, language, created_by, owner_id, thumbnail_id, embedding, search_vector, created_at, updated_at FROM recipes WHERE id = $1
 `
 
 func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error) {
@@ -115,6 +118,7 @@ func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error)
 		&i.EstimatedCalories,
 		&i.Origin,
 		&i.Url,
+		&i.Language,
 		&i.CreatedBy,
 		&i.OwnerID,
 		&i.ThumbnailID,
@@ -127,7 +131,7 @@ func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error)
 }
 
 const getRecipesByUser = `-- name: GetRecipesByUser :many
-SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, created_by, owner_id, thumbnail_id, embedding, search_vector, created_at, updated_at FROM recipes WHERE created_by = $1 ORDER BY created_at DESC
+SELECT id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, language, created_by, owner_id, thumbnail_id, embedding, search_vector, created_at, updated_at FROM recipes WHERE created_by = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) GetRecipesByUser(ctx context.Context, createdBy pgtype.UUID) ([]Recipe, error) {
@@ -152,6 +156,7 @@ func (q *Queries) GetRecipesByUser(ctx context.Context, createdBy pgtype.UUID) (
 			&i.EstimatedCalories,
 			&i.Origin,
 			&i.Url,
+			&i.Language,
 			&i.CreatedBy,
 			&i.OwnerID,
 			&i.ThumbnailID,
@@ -185,7 +190,7 @@ SET
     thumbnail_id = $11,
     updated_at = NOW()
 WHERE id = $1 AND created_by = $12
-RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, created_by, owner_id, thumbnail_id, embedding, search_vector, created_at, updated_at
+RETURNING id, recipe_name, description, prep_time, cooking_time, total_time, original_serving_size, difficulty_rating, focused_diet, estimated_calories, origin, url, language, created_by, owner_id, thumbnail_id, embedding, search_vector, created_at, updated_at
 `
 
 type UpdateRecipeParams struct {
@@ -232,6 +237,7 @@ func (q *Queries) UpdateRecipe(ctx context.Context, arg UpdateRecipeParams) (Rec
 		&i.EstimatedCalories,
 		&i.Origin,
 		&i.Url,
+		&i.Language,
 		&i.CreatedBy,
 		&i.OwnerID,
 		&i.ThumbnailID,

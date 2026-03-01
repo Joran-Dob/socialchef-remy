@@ -27,6 +27,7 @@ type Recipe struct {
 	Occasions           []string
 	DietaryRestrictions []string
 	Equipment           []string
+	Language            string
 }
 
 type Ingredient struct {

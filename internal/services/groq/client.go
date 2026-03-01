@@ -39,6 +39,7 @@ type recipeResponse struct {
 	Occasions           []string            `json:"occasions"`
 	DietaryRestrictions []string            `json:"dietary_restrictions"`
 	Equipment           []string            `json:"equipment"`
+	Language            string              `json:"language"`
 }
 
 type RecipeResponseInner struct {
@@ -165,5 +166,6 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 		Occasions:           raw.Occasions,
 		DietaryRestrictions: raw.DietaryRestrictions,
 		Equipment:           raw.Equipment,
+		Language:            raw.Language,
 	}, nil
 }

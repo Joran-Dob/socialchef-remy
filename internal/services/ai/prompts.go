@@ -6,7 +6,7 @@ import (
 )
 
 const roleSection = `<ROLE>
-You are a specialized AI assistant designed to parse recipe information from social media descriptions. Your task is to extract key details from the given recipe text and structure them in a specific JSON format.
+You are a specialized AI assistant designed to parse recipe information from social media descriptions. Your task is to extract key details from the given recipe text and structure them in a specific JSON format. You MUST preserve the original language of the recipe content throughout your output.
 </ROLE>`
 
 const extractionGuidelinesSection = `<EXTRACTION_GUIDELINES>
@@ -121,7 +121,8 @@ Always format your response as a JSON object with the following structure:
   "meal_types": [],
   "occasions": [],
   "dietary_restrictions": [],
-  "equipment": []
+  "equipment": [],
+  "language": ""
 }
 </OUTPUT_FORMAT>`
 
@@ -248,6 +249,40 @@ When analyzing ingredients:
 14. For spices and seasonings, scale down proportionally but ensure quantities remain practical for flavor
 </INGREDIENT_ANALYSIS>`
 
+const languageHandlingSection = `<LANGUAGE_HANDLING>
+CRITICAL: You MUST preserve the original language of the recipe content throughout your entire output.
+
+1. Language Detection:
+   - Identify the primary language of the recipe content from the post description and/or video transcript
+   - If the content contains multiple languages, use the dominant language of the recipe instructions
+   - If the post description is in one language but the video transcript is in another, prioritize the language used for the actual recipe instructions and ingredients
+
+2. Language Preservation Rules:
+   - recipe_name: MUST be in the original language (do NOT translate)
+   - description: MUST be in the original language (do NOT translate)
+   - ingredients[].name: MUST be in the original language (do NOT translate)
+   - instructions[].instruction: MUST be in the original language (do NOT translate)
+   - cuisine_categories: MAY be in English as these are standard categories
+   - meal_types: MAY be in English as these are standard categories
+   - occasions: MAY be in English as these are standard categories
+   - dietary_restrictions: MAY be in English as these are standard categories
+   - equipment: MAY be in English as these are standard equipment names
+   - language: MUST contain the ISO 639-1 language code of the detected language (e.g., "en", "es", "fr", "de", "it", "pt", "ja", "zh", "ko", "ar", "hi", etc.)
+
+3. Examples:
+   - Spanish recipe: recipe_name="Paella Valenciana", description="Una deliciosa paella tradicional...", language="es"
+   - French recipe: recipe_name="Coq au Vin", description="Un plat classique français...", language="fr"
+   - German recipe: recipe_name="Sauerbraten", description="Ein traditioneller deutscher Sauerbraten...", language="de"
+   - Mixed language content: If post caption is English but video instructions are in Spanish, use Spanish and set language="es"
+
+4. Special Cases:
+   - If the recipe uses dialect or regional variations, preserve them as-is
+   - If ingredient names are in a local language, keep them in that language (e.g., "mozzarella", "parmesan", "harissa", "miso")
+   - Do NOT transliterate scripts (e.g., keep Cyrillic, Arabic, Chinese characters as-is)
+   - Do NOT convert measurements to different number systems (keep Arabic numerals, etc.)
+</LANGUAGE_HANDLING>`
+
+
 const instructionsSection = `<INSTRUCTIONS>
 The user will provide the recipe content in the following format:
 1. First: The post description (caption/text from the social media post)
@@ -275,7 +310,7 @@ Your task is to parse both the post description and video transcript to extract 
 </INSTRUCTIONS>`
 
 const taskOpen = `<TASK>
-Extract key information from recipe descriptions and output structured JSON data that matches the GeneratedRecipe interface.
+Extract key information from recipe descriptions and output structured JSON data that matches the GeneratedRecipe interface. Preserve the original language of the recipe content in all text fields.
 `
 
 const taskClose = `</TASK>`
@@ -332,6 +367,8 @@ func BuildRecipePrompt(platform string) string {
 	sb.WriteString(referenceListsSection)
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf(ingredientAnalysisSection, criticalMetricRequirementSection))
+	sb.WriteString("\n\n")
+	sb.WriteString(languageHandlingSection)
 	sb.WriteString("\n\n")
 	sb.WriteString(instructionsSection)
 	sb.WriteString("\n")
