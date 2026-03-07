@@ -13,15 +13,16 @@ import (
 
 const createIngredient = `-- name: CreateIngredient :one
 INSERT INTO recipe_ingredients (
-    recipe_id, quantity, unit, original_quantity, original_unit, name
+    recipe_id, quantity, total_quantity, unit, original_quantity, original_unit, name
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7
 ) RETURNING id, recipe_id, quantity, total_quantity, unit, original_quantity, original_unit, name, created_at
 `
 
 type CreateIngredientParams struct {
 	RecipeID         pgtype.UUID
 	Quantity         pgtype.Text
+	TotalQuantity    pgtype.Text
 	Unit             pgtype.Text
 	OriginalQuantity pgtype.Text
 	OriginalUnit     pgtype.Text
@@ -32,6 +33,7 @@ func (q *Queries) CreateIngredient(ctx context.Context, arg CreateIngredientPara
 	row := q.db.QueryRow(ctx, createIngredient,
 		arg.RecipeID,
 		arg.Quantity,
+		arg.TotalQuantity,
 		arg.Unit,
 		arg.OriginalQuantity,
 		arg.OriginalUnit,

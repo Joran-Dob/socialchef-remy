@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -458,9 +459,26 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	}
 
 	for _, ing := range recipe.Ingredients {
+		// AI now returns total quantities
+		totalQty := string(ing.Quantity)
+
+		// Calculate per-serving quantity
+		var perServingQty string
+		if recipe.OriginalServings != nil && *recipe.OriginalServings > 0 {
+			if totalNum, err := strconv.ParseFloat(totalQty, 64); err == nil {
+				perServingNum := totalNum / float64(*recipe.OriginalServings)
+				perServingQty = strconv.FormatFloat(perServingNum, 'f', -1, 64)
+			} else {
+				perServingQty = totalQty // fallback if parsing fails
+			}
+		} else {
+			perServingQty = totalQty // fallback if no serving size
+		}
+
 		_, err := p.db.CreateIngredient(ctx, generated.CreateIngredientParams{
 			RecipeID:         savedRecipe.ID,
-			Quantity:         pgtype.Text{String: formatQuantity(string(ing.Quantity)), Valid: ing.Quantity != ""},
+			Quantity:         pgtype.Text{String: perServingQty, Valid: true},      // per-serving for Flutter
+			TotalQuantity:    pgtype.Text{String: totalQty, Valid: true},           // total from AI
 			Unit:             pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
 			OriginalQuantity: pgtype.Text{String: string(ing.OriginalQuantity), Valid: ing.OriginalQuantity != ""},
 			OriginalUnit:     pgtype.Text{String: ing.OriginalUnit, Valid: ing.OriginalUnit != ""},
