@@ -472,10 +472,21 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	}
 
 	for i, inst := range recipe.Instructions {
+		// Convert timer data to JSONB
+		var timerData []byte
+		if len(inst.TimerData) > 0 {
+			var err error
+			timerData, err = json.Marshal(inst.TimerData)
+			if err != nil {
+				slog.Error("Failed to marshal timer data", "error", err)
+			}
+		}
+
 		_, err := p.db.CreateInstruction(ctx, generated.CreateInstructionParams{
 			RecipeID:    savedRecipe.ID,
 			StepNumber:  int32(i + 1),
 			Instruction: inst.Instruction,
+			TimerData:   timerData,
 		})
 		if err != nil {
 			slog.Error("Failed to save instruction", "error", err)
