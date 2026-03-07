@@ -27,7 +27,12 @@ type CreateInstructionParams struct {
 }
 
 func (q *Queries) CreateInstruction(ctx context.Context, arg CreateInstructionParams) (RecipeInstruction, error) {
-	row := q.db.QueryRow(ctx, createInstruction, arg.RecipeID, arg.StepNumber, arg.Instruction, arg.TimerData)
+	row := q.db.QueryRow(ctx, createInstruction,
+		arg.RecipeID,
+		arg.StepNumber,
+		arg.Instruction,
+		arg.TimerData,
+	)
 	var i RecipeInstruction
 	err := row.Scan(
 		&i.ID,

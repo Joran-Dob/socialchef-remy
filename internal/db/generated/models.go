@@ -57,9 +57,9 @@ func (ns NullMeasurementUnit) Value() (driver.Value, error) {
 type RecipeOrigin string
 
 const (
-	RecipeOriginInstagram  RecipeOrigin = "instagram"
-	RecipeOriginTiktok     RecipeOrigin = "tiktok"
-	RecipeOriginFirecrawl  RecipeOrigin = "firecrawl"
+	RecipeOriginInstagram RecipeOrigin = "instagram"
+	RecipeOriginTiktok    RecipeOrigin = "tiktok"
+	RecipeOriginFirecrawl RecipeOrigin = "firecrawl"
 )
 
 func (e *RecipeOrigin) Scan(src interface{}) error {
@@ -251,6 +251,7 @@ type RecipeIngredient struct {
 	ID               pgtype.UUID
 	RecipeID         pgtype.UUID
 	Quantity         pgtype.Text
+	TotalQuantity    pgtype.Text
 	Unit             pgtype.Text
 	OriginalQuantity pgtype.Text
 	OriginalUnit     pgtype.Text
@@ -265,6 +266,12 @@ type RecipeInstruction struct {
 	Instruction string
 	TimerData   []byte
 	CreatedAt   pgtype.Timestamptz
+}
+
+type RecipeMealType struct {
+	RecipeID   pgtype.UUID
+	MealTypeID pgtype.UUID
+	CreatedAt  pgtype.Timestamptz
 }
 
 type RecipeNutrition struct {

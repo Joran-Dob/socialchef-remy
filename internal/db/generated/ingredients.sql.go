@@ -16,7 +16,7 @@ INSERT INTO recipe_ingredients (
     recipe_id, quantity, unit, original_quantity, original_unit, name
 ) VALUES (
     $1, $2, $3, $4, $5, $6
-) RETURNING id, recipe_id, quantity, unit, original_quantity, original_unit, name, created_at
+) RETURNING id, recipe_id, quantity, total_quantity, unit, original_quantity, original_unit, name, created_at
 `
 
 type CreateIngredientParams struct {
@@ -42,6 +42,7 @@ func (q *Queries) CreateIngredient(ctx context.Context, arg CreateIngredientPara
 		&i.ID,
 		&i.RecipeID,
 		&i.Quantity,
+		&i.TotalQuantity,
 		&i.Unit,
 		&i.OriginalQuantity,
 		&i.OriginalUnit,
@@ -70,7 +71,7 @@ func (q *Queries) DeleteIngredientsByRecipe(ctx context.Context, recipeID pgtype
 }
 
 const getIngredientsByRecipe = `-- name: GetIngredientsByRecipe :many
-SELECT id, recipe_id, quantity, unit, original_quantity, original_unit, name, created_at FROM recipe_ingredients WHERE recipe_id = $1
+SELECT id, recipe_id, quantity, total_quantity, unit, original_quantity, original_unit, name, created_at FROM recipe_ingredients WHERE recipe_id = $1
 `
 
 func (q *Queries) GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]RecipeIngredient, error) {
@@ -86,6 +87,7 @@ func (q *Queries) GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UU
 			&i.ID,
 			&i.RecipeID,
 			&i.Quantity,
+			&i.TotalQuantity,
 			&i.Unit,
 			&i.OriginalQuantity,
 			&i.OriginalUnit,

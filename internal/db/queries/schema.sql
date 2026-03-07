@@ -52,6 +52,7 @@ CREATE TABLE recipe_ingredients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
     quantity TEXT,
+    total_quantity TEXT,
     unit TEXT,
     original_quantity TEXT,
     original_unit TEXT,
