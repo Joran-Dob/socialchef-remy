@@ -111,7 +111,15 @@ Always format your response as a JSON object with the following structure:
   "instructions": [
     {
       "step_number": null,
-      "instruction": ""
+      "instruction": "",
+      "timer_data": [
+        {
+          "duration_seconds": null,
+          "label": "",
+          "type": "",
+          "category": ""
+        }
+      ]
     }
   ],
   "nutrition": {
@@ -317,12 +325,24 @@ Your task is to parse both the post description and video transcript to extract 
 10. Equipment includes all necessary tools for preparing the recipe
 11. All temperatures in instructions should be in Celsius (°C)
 12. Each instruction in the instructions array should:
-   - Have a clear step number and detailed instruction text
-   - Include visual cues and timing indicators where relevant
-   - Explain complex techniques when needed
-   - Provide safety warnings when appropriate
-   - Include helpful tips for best results
-   - Be detailed enough for a beginner to follow
+    - Have a clear step number and detailed instruction text
+    - Include visual cues and timing indicators where relevant
+    - Explain complex techniques when needed
+    - Provide safety warnings when appropriate
+    - Include helpful tips for best results
+    - Be detailed enough for a beginner to follow
+13. Extract cooking timers from each instruction and include them in the timer_data array:
+    - Look for time mentions like "simmer for 10 minutes", "bake for 30 minutes", "rest for 5 minutes"
+    - Create a timer object for each time-based instruction with these fields:
+      * duration_seconds: The duration in seconds (e.g., 10 minutes = 600, 1 hour = 3600)
+      * label: A descriptive label for what the timer is for (e.g., "Simmer sauce", "Bake in oven", "Let dough rest")
+      * type: The type of timer - use "cooking" for active cooking, "prep" for preparation, "resting" for resting/cooling
+      * category: Use "active" when attention is needed (e.g., stirring, monitoring), "passive" when unattended (e.g., baking, resting)
+    - Examples:
+      * "Simmer for 10 minutes until thickened" → {"duration_seconds": 600, "label": "Simmer until thickened", "type": "cooking", "category": "active"}
+      * "Bake for 30 minutes at 180°C" → {"duration_seconds": 1800, "label": "Bake in oven", "type": "cooking", "category": "passive"}
+      * "Let rest for 5 minutes before serving" → {"duration_seconds": 300, "label": "Rest before serving", "type": "resting", "category": "passive"}
+    - If no timer is mentioned in an instruction, use an empty array [] or omit the field
 </INSTRUCTIONS>`
 
 const taskOpen = `<TASK>
