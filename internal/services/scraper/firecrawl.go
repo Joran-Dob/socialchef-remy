@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/mendableai/firecrawl-go/v2"
@@ -134,22 +135,26 @@ func (s *FirecrawlScraper) Scrape(ctx context.Context, postURL string) (*Firecra
 	}
 
 	// Extract metadata if available
-	ownerUsername := "Unknown"
-	ownerName := "Unknown"
+	// Extract domain from URL (remove www. prefix)
+	domain := parsedURL.Host
+	domain = strings.TrimPrefix(domain, "www.")
+
+	ownerUsername := domain
+	ownerName := domain
+	ownerAvatar := ""
 	id := ""
 	imageURL := ""
+
 	if result.Metadata != nil {
+		// Use page title for owner name if available
 		if result.Metadata.Title != nil && *result.Metadata.Title != "" {
-			ownerUsername = *result.Metadata.Title
 			ownerName = *result.Metadata.Title
-		}
-		if result.Metadata.Title != nil && *result.Metadata.Title != "" {
 			id = *result.Metadata.Title
-			// Use title as a fallback for owner name
-			if ownerName == "Unknown" {
-				ownerName = *result.Metadata.Title
-			}
 		}
+
+		// Note: Firecrawl SDK doesn't expose favicon metadata directly
+		// OwnerAvatar remains empty string as fallback
+
 		// Extract image URL from metadata: try OGImage first
 		if result.Metadata.OGImage != nil && len(*result.Metadata.OGImage) > 0 {
 			imageURL = (*result.Metadata.OGImage)[0]
@@ -164,7 +169,7 @@ func (s *FirecrawlScraper) Scrape(ctx context.Context, postURL string) (*Firecra
 		ThumbnailURL:  "",
 		OwnerUsername: ownerUsername,
 		OwnerName:     ownerName,
-		OwnerAvatar:   "",
+		OwnerAvatar:   ownerAvatar,
 		OwnerID:       "",
 	}
 
