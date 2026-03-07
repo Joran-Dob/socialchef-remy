@@ -137,6 +137,7 @@ func (s *FirecrawlScraper) Scrape(ctx context.Context, postURL string) (*Firecra
 	ownerUsername := "Unknown"
 	ownerName := "Unknown"
 	id := ""
+	imageURL := ""
 	if result.Metadata != nil {
 		if result.Metadata.Title != nil && *result.Metadata.Title != "" {
 			ownerUsername = *result.Metadata.Title
@@ -149,12 +150,16 @@ func (s *FirecrawlScraper) Scrape(ctx context.Context, postURL string) (*Firecra
 				ownerName = *result.Metadata.Title
 			}
 		}
+		// Extract image URL from metadata: try OGImage first
+		if result.Metadata.OGImage != nil && len(*result.Metadata.OGImage) > 0 {
+			imageURL = (*result.Metadata.OGImage)[0]
+		}
 	}
 
 	post := &FirecrawlPost{
 		ID:            id,
 		Caption:       result.Markdown,
-		ImageURL:      "",
+		ImageURL:      imageURL,
 		VideoURL:      "",
 		ThumbnailURL:  "",
 		OwnerUsername: ownerUsername,
