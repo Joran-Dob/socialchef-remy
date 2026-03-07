@@ -1,0 +1,25 @@
+meta {
+  name: Import Recipe
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/recipe
+  body: json
+  auth: inherit
+}
+
+body {
+  {
+    "url": "https://www.instagram.com/p/example123/"
+  }
+}
+
+script:post-response {
+  test("Status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+  
+  bru.setVar("lastJobId", res.body.job_id);
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Get User Import Status
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/user-import-status
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  test("Status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

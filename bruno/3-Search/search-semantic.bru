@@ -1,0 +1,32 @@
+meta {
+  name: Semantic Search
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/search-semantic
+  body: json
+  auth: inherit
+}
+
+body {
+  {
+    "query": "italian dinner ideas"
+  }
+}
+
+docs {
+  # Semantic Search (Vector Only)
+
+  **NOT EXPOSED IN ROUTER** - Handlers exist in internal/api/search_handlers.go
+  but routes are not registered in cmd/server/main.go
+
+  This endpoint performs semantic/vector-based search using embeddings.
+}
+
+script:post-response {
+  test("Status is 200 or 404", function() {
+    expect(res.status).to.be.oneOf([200, 404]);
+  });
+}

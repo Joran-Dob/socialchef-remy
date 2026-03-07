@@ -1,0 +1,17 @@
+meta {
+  name: Get Recipe Status
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/recipe-status?job_id={{lastJobId}}
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  test("Status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

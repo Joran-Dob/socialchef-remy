@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "SocialChef Remy API",
+  "type": "collection",
+  "scripts": {
+    "moduleWhitelist": ["crypto"],
+    "filesystemAccess": { "allow": false }
+  }
+}

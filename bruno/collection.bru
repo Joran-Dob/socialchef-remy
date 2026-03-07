@@ -1,0 +1,78 @@
+meta {
+  name: SocialChef Remy API
+}
+
+script:pre-request {
+  // Get token and expiry from runtime variables
+  const token = bru.getVar("jwtToken");
+  const expiry = bru.getVar("tokenExpiry");
+  const now = Date.now();
+  
+  // Check if we have a valid cached token
+  if (token && expiry && now < expiry) {
+    console.log("Using cached JWT token");
+    req.setHeader("Authorization", "Bearer " + token);
+    return;
+  }
+  
+  // Need to generate a new JWT
+  console.log("Generating new JWT token...");
+  
+  const crypto = require('crypto');
+  
+  // Get secrets from environment
+  const jwtSecret = bru.getProcessEnv("SUPABASE_JWT_SECRET");
+  const supabaseUrl = bru.getProcessEnv("SUPABASE_URL");
+  const testUserId = bru.getEnvVar("testUserId");
+  
+  if (!jwtSecret || !supabaseUrl) {
+    console.error("Missing required environment variables: SUPABASE_JWT_SECRET or SUPABASE_URL");
+    console.error("Please create .env.bruno file from .env.bruno.example");
+    return;
+  }
+  
+  // JWT Header
+  const header = {
+    "alg": "HS256",
+    "typ": "JWT"
+  };
+  
+  // JWT Payload - 1 hour expiry
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  const payload = {
+    "sub": testUserId || "test-user-uuid-1234-5678-9012-345678901234",
+    "iss": supabaseUrl + "/auth/v1",
+    "exp": exp
+  };
+  
+  // Encode header and payload
+  const encodedHeader = Buffer.from(JSON.stringify(header)).toString('base64url');
+  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  
+  // Create signature
+  const signature = crypto
+    .createHmac('sha256', jwtSecret)
+    .update(encodedHeader + "." + encodedPayload)
+    .digest('base64url');
+  
+  // Combine to form JWT
+  const jwt = encodedHeader + "." + encodedPayload + "." + signature;
+  
+  // Store for caching
+  bru.setVar("jwtToken", jwt);
+  bru.setVar("tokenExpiry", (exp * 1000) - 60000); // Expire 1 min early for safety
+  
+  console.log("JWT token generated successfully, expires at:", new Date(exp * 1000).toISOString());
+  
+  // Set header for current request
+  req.setHeader("Authorization", "Bearer " + jwt);
+}
+
+script:post-response {
+  // Handle 401 Unauthorized - clear token so next request generates fresh one
+  if (res.status === 401) {
+    console.log("Received 401 Unauthorized, clearing cached token...");
+    bru.deleteVar("jwtToken");
+    bru.deleteVar("tokenExpiry");
+  }
+}

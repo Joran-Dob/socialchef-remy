@@ -1,0 +1,33 @@
+meta {
+  name: Hybrid Search
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/search
+  body: json
+  auth: inherit
+}
+
+body {
+  {
+    "query": "pasta carbonara"
+  }
+}
+
+docs {
+  # Hybrid Search (Semantic + Text)
+
+  **NOT EXPOSED IN ROUTER** - Handlers exist in internal/api/search_handlers.go
+  but routes are not registered in cmd/server/main.go
+
+  This endpoint performs hybrid search combining semantic (vector) and
+  text-based search for recipes.
+}
+
+script:post-response {
+  test("Status is 200 or 404", function() {
+    expect(res.status).to.be.oneOf([200, 404]);
+  });
+}

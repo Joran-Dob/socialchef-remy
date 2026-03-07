@@ -1,0 +1,30 @@
+meta {
+  name: Generate Embedding
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/generate-embedding
+  body: json
+  auth: inherit
+}
+
+body {
+  {
+    "recipe_id": "{{lastJobId}}"
+  }
+}
+
+docs {
+  # Generate Embedding
+  
+  Queues an embedding generation job for a recipe.
+  Requires a valid recipe_id from a completed import.
+}
+
+script:post-response {
+  test("Status is 200 or 202", function() {
+    expect(res.status).to.be.oneOf([200, 202]);
+  });
+}
