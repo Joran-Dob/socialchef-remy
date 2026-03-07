@@ -263,13 +263,8 @@ type RecipeInstruction struct {
 	RecipeID    pgtype.UUID
 	StepNumber  int32
 	Instruction string
+	TimerData   []byte
 	CreatedAt   pgtype.Timestamptz
-}
-
-type RecipeMealType struct {
-	RecipeID   pgtype.UUID
-	MealTypeID pgtype.UUID
-	CreatedAt  pgtype.Timestamptz
 }
 
 type RecipeNutrition struct {

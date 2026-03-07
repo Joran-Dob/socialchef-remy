@@ -13,26 +13,28 @@ import (
 
 const createInstruction = `-- name: CreateInstruction :one
 INSERT INTO recipe_instructions (
-    recipe_id, step_number, instruction
+    recipe_id, step_number, instruction, timer_data
 ) VALUES (
-    $1, $2, $3
-) RETURNING id, recipe_id, step_number, instruction, created_at
+    $1, $2, $3, $4
+) RETURNING id, recipe_id, step_number, instruction, timer_data, created_at
 `
 
 type CreateInstructionParams struct {
 	RecipeID    pgtype.UUID
 	StepNumber  int32
 	Instruction string
+	TimerData   []byte
 }
 
 func (q *Queries) CreateInstruction(ctx context.Context, arg CreateInstructionParams) (RecipeInstruction, error) {
-	row := q.db.QueryRow(ctx, createInstruction, arg.RecipeID, arg.StepNumber, arg.Instruction)
+	row := q.db.QueryRow(ctx, createInstruction, arg.RecipeID, arg.StepNumber, arg.Instruction, arg.TimerData)
 	var i RecipeInstruction
 	err := row.Scan(
 		&i.ID,
 		&i.RecipeID,
 		&i.StepNumber,
 		&i.Instruction,
+		&i.TimerData,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -48,7 +50,7 @@ func (q *Queries) DeleteInstructionsByRecipe(ctx context.Context, recipeID pgtyp
 }
 
 const getInstructionsByRecipe = `-- name: GetInstructionsByRecipe :many
-SELECT id, recipe_id, step_number, instruction, created_at FROM recipe_instructions WHERE recipe_id = $1 ORDER BY step_number
+SELECT id, recipe_id, step_number, instruction, timer_data, created_at FROM recipe_instructions WHERE recipe_id = $1 ORDER BY step_number
 `
 
 func (q *Queries) GetInstructionsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]RecipeInstruction, error) {
@@ -65,6 +67,7 @@ func (q *Queries) GetInstructionsByRecipe(ctx context.Context, recipeID pgtype.U
 			&i.RecipeID,
 			&i.StepNumber,
 			&i.Instruction,
+			&i.TimerData,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

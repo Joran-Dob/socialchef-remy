@@ -61,11 +61,12 @@ CREATE TABLE recipe_ingredients (
 
 -- Recipe instructions table
 CREATE TABLE recipe_instructions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
-    step_number INTEGER NOT NULL,
+id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+step_number INTEGER NOT NULL,
     instruction TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    timer_data JSONB DEFAULT NULL,
+created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Recipe nutrition table
@@ -137,6 +138,7 @@ CREATE INDEX idx_recipes_origin ON recipes(origin);
 CREATE INDEX idx_recipes_recipe_name ON recipes(recipe_name);
 CREATE INDEX idx_recipe_ingredients_recipe_id ON recipe_ingredients(recipe_id);
 CREATE INDEX idx_recipe_instructions_recipe_id ON recipe_instructions(recipe_id);
+CREATE INDEX idx_recipe_instructions_timer_data ON recipe_instructions USING GIN (timer_data);
 CREATE INDEX idx_social_media_owners_platform ON social_media_owners(platform);
 CREATE INDEX idx_recipe_images_recipe_id ON recipe_images(recipe_id);
 CREATE INDEX idx_stored_images_content_hash ON stored_images(content_hash);
