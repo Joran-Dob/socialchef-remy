@@ -18,8 +18,6 @@ script:pre-request {
   // Need to generate a new JWT
   console.log("Generating new JWT token...");
   
-  const crypto = require('crypto');
-  
   // Get secrets from environment
   const jwtSecret = bru.getProcessEnv("SUPABASE_JWT_SECRET");
   const supabaseUrl = bru.getProcessEnv("SUPABASE_URL");
@@ -31,41 +29,72 @@ script:pre-request {
     return;
   }
   
-  // JWT Header
-  const header = {
-    "alg": "HS256",
-    "typ": "JWT"
-  };
-  
-  // JWT Payload - 1 hour expiry
-  const exp = Math.floor(Date.now() / 1000) + 3600;
-  const payload = {
-    "sub": testUserId || "test-user-uuid-1234-5678-9012-345678901234",
-    "iss": supabaseUrl + "/auth/v1",
-    "exp": exp
-  };
-  
-  // Encode header and payload
-  const encodedHeader = Buffer.from(JSON.stringify(header)).toString('base64url');
-  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  
-  // Create signature
-  const signature = crypto
-    .createHmac('sha256', jwtSecret)
-    .update(encodedHeader + "." + encodedPayload)
-    .digest('base64url');
-  
-  // Combine to form JWT
-  const jwt = encodedHeader + "." + encodedPayload + "." + signature;
-  
-  // Store for caching
-  bru.setVar("jwtToken", jwt);
-  bru.setVar("tokenExpiry", (exp * 1000) - 60000); // Expire 1 min early for safety
-  
-  console.log("JWT token generated successfully, expires at:", new Date(exp * 1000).toISOString());
-  
-  // Set header for current request
-  req.setHeader("Authorization", "Bearer " + jwt);
+  try {
+    // Simple base64url encoding function (works in all JS environments)
+    function base64urlEncode(str) {
+      return btoa(str)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+    }
+    
+    // JWT Header
+    const header = {
+      "alg": "HS256",
+      "typ": "JWT"
+    };
+    
+    // JWT Payload - 1 hour expiry
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    const payload = {
+      "sub": testUserId || "test-user-uuid-1234-5678-9012-345678901234",
+      "iss": supabaseUrl + "/auth/v1",
+      "exp": exp
+    };
+    
+    // Encode header and payload
+    const encodedHeader = base64urlEncode(JSON.stringify(header));
+    const encodedPayload = base64urlEncode(JSON.stringify(payload));
+    const data = encodedHeader + "." + encodedPayload;
+    
+    // Use Web Crypto API for HMAC-SHA256 (works in Bruno Desktop and CLI)
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(jwtSecret);
+    const messageData = encoder.encode(data);
+    
+    crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    ).then(cryptoKey => {
+      return crypto.subtle.sign('HMAC', cryptoKey, messageData);
+    }).then(signature => {
+      const signatureArray = new Uint8Array(signature);
+      const signatureBase64 = btoa(String.fromCharCode(...signatureArray))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+      
+      // Combine to form JWT
+      const jwt = data + "." + signatureBase64;
+      
+      // Store for caching
+      bru.setVar("jwtToken", jwt);
+      bru.setVar("tokenExpiry", (exp * 1000) - 60000); // Expire 1 min early for safety
+      
+      console.log("JWT token generated successfully, expires at:", new Date(exp * 1000).toISOString());
+      
+      // Set header for current request
+      req.setHeader("Authorization", "Bearer " + jwt);
+    }).catch(error => {
+      console.error("Error generating JWT:", error.message);
+    });
+    
+  } catch (error) {
+    console.error("Error in JWT generation:", error.message);
+  }
 }
 
 script:post-response {
