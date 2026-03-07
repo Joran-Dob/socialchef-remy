@@ -18,7 +18,7 @@ HEADER=$(echo -n '{"alg":"HS256","typ":"JWT"}' | base64 | tr '+/' '-_' | tr -d '
 
 # Create JWT payload (expires in 1 hour)
 EXP=$(($(date +%s) + 3600))
-PAYLOAD=$(echo -n "{\"sub\":\"test-user-uuid-1234-5678-9012-345678901234\",\"iss\":\"$SUPABASE_URL/auth/v1\",\"exp\":$EXP}" | base64 | tr '+/' '-_' | tr -d '=')
+PAYLOAD=$(echo -n "{\"sub\":\"60399ada-5092-4665-b002-e0fc0345cb1b\",\"iss\":\"$SUPABASE_URL/auth/v1\",\"exp\":$EXP}" | base64 | tr '+/' '-_' | tr -d '=')
 
 # Create signature
 SIGNATURE=$(echo -n "$HEADER.$PAYLOAD" | openssl dgst -sha256 -hmac "$SUPABASE_JWT_SECRET" -binary | base64 | tr '+/' '-_' | tr -d '=')
@@ -33,6 +33,6 @@ echo "Add this to your bruno/environments/local.bru:"
 echo ""
 echo "vars {"
 echo "  baseUrl: http://localhost:8080"
-echo "  testUserId: test-user-uuid-1234-5678-9012-345678901234"
+echo "  testUserId: 60399ada-5092-4665-b002-e0fc0345cb1b"
 echo "  jwtToken: $JWT"
 echo "}"
