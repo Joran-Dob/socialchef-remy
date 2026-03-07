@@ -104,7 +104,7 @@ func (s *FirecrawlScraper) Scrape(ctx context.Context, postURL string) (*Firecra
 		s.app = app
 	}
 
-	timeout := int(30) // 30 seconds timeout in seconds
+	timeout := int(30000) // 30 seconds timeout in milliseconds
 	params := &firecrawl.ScrapeParams{
 		Formats: []string{"markdown"},
 		Timeout: &timeout,
