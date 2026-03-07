@@ -170,7 +170,7 @@ func (s *FirecrawlScraper) Scrape(ctx context.Context, postURL string) (*Firecra
 		OwnerUsername: ownerUsername,
 		OwnerName:     ownerName,
 		OwnerAvatar:   ownerAvatar,
-		OwnerID:       "",
+		OwnerID:       ownerUsername,
 	}
 
 	return post, nil
