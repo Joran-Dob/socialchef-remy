@@ -54,6 +54,7 @@ func (s *StringOrNumber) UnmarshalJSON(data []byte) error {
 type Ingredient struct {
 	OriginalQuantity StringOrNumber `json:"original_quantity"`
 	OriginalUnit     string         `json:"original_unit"`
+	TotalQuantity    StringOrNumber `json:"total_quantity"`
 	Quantity         StringOrNumber `json:"quantity"`
 	Unit             string         `json:"unit"`
 	Name             string         `json:"name"`
