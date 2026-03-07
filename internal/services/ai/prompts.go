@@ -201,7 +201,12 @@ When analyzing ingredients:
    - unit: The unit for the adjusted quantity - MUST BE METRIC (g, ml, etc.)
    
 2. For adjusting quantities to represent exactly 1 serving, use these rules:
-   - If original_serving_size is provided, divide all quantities by that number
+   - If original_serving_size is provided, DIVIDE all quantities by that number
+   - Example: If recipe has 8 servings and uses 2 cups flour:
+     * 2 cups ÷ 8 = 0.25 cups per serving
+     * Convert to metric: 0.25 cups = 30g
+     * Result: original_quantity: 2, original_unit: cups, quantity: 30, unit: g
+   - IMPORTANT: ALWAYS DIVIDE (not multiply) by the serving size
    - For count-based ingredients (e.g., eggs, sausages, chicken breasts):
      * Keep as count/pieces and divide by serving size
      * Round to nearest practical fraction (e.g., 0.25, 0.33, 0.5, 1, 2)
