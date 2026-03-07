@@ -26,3 +26,8 @@ go.work.sum
 bin/
 
 .sisyphus/
+
+
+# Bruno environment files
+bruno/.env.bruno
+.env.bruno
