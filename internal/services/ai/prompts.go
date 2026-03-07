@@ -33,7 +33,7 @@ When presented with a recipe description, extract the following information into
 3. Ingredients List:
    - Original quantity (as stated in the recipe)
    - Original unit of measurement
-   - Quantity adjusted for 1 serving
+   - Total quantity for all servings
    - Unit of measurement for adjusted quantity
    - Ingredient name
 
@@ -67,7 +67,7 @@ If any information is not explicitly stated, use your best judgment to infer it:
   * The generated name MUST be in the original language of the recipe content
   * Provide a brief, enticing summary of the dish for the description (in the original language)
 - For ingredients:
-  * Always adjust quantities to represent 1 serving
+  * Return quantities as stated in the recipe (total amounts for all servings)
   * If the original serving size is not provided, estimate it based on the recipe context
 - For time estimates:
   * If not explicitly stated, estimate based on similar recipes and cooking methods
@@ -202,29 +202,23 @@ const ingredientAnalysisSection = `<INGREDIENT_ANALYSIS>
 %s
 
 When analyzing ingredients:
-1. ALWAYS provide BOTH the original quantities (as stated in the recipe) AND quantities adjusted for 1 serving:
+1. ALWAYS provide BOTH the original quantities (as stated in the recipe) AND total quantities for the complete recipe:
    - original_quantity: The exact quantity as stated in the source recipe (can be in any unit)
    - original_unit: The exact unit as stated in the source recipe (can be imperial)
-   - quantity: The quantity adjusted for exactly 1 serving - MUST BE METRIC
+   - quantity: The TOTAL quantity for all servings combined - MUST BE METRIC
    - unit: The unit for the adjusted quantity - MUST BE METRIC (g, ml, etc.)
    
-2. For adjusting quantities to represent exactly 1 serving, use these rules:
-   - If original_serving_size is provided, DIVIDE all quantities by that number
+2. For quantities, ALWAYS return the TOTAL amount as stated in the recipe (do NOT divide by serving size):
+   - Return the total quantity for all servings combined
    - Example: If recipe has 8 servings and uses 2 cups flour:
-     * 2 cups ÷ 8 = 0.25 cups per serving
-     * Convert to metric: 0.25 cups = 30g
-     * Result: original_quantity: 2, original_unit: cups, quantity: 30, unit: g
-   - IMPORTANT: ALWAYS DIVIDE (not multiply) by the serving size
+     * Return the total quantity: 2 cups = 480g (this is the TOTAL for all 8 servings)
+     * Result: original_quantity: 2, original_unit: cups, quantity: 480, unit: g
    - For count-based ingredients (e.g., eggs, sausages, chicken breasts):
-     * Keep as count/pieces and divide by serving size
-     * Round to nearest practical fraction (e.g., 0.25, 0.33, 0.5, 1, 2)
-     * Example: 4 sausages for 4 servings = original_quantity: 4, quantity: 1
-   - For baked goods, consider standard serving sizes (e.g., one cookie, one slice of cake)
-   - For main dishes, use typical portion sizes (e.g., 100-150g protein per person)
-   - For ingredients that don't divide well, round to the nearest practical fraction
-   - Keep proportions balanced when scaling (e.g., maintain ratios in baking recipes)
-   - For very small quantities after division, use appropriate smaller units
-     (e.g., convert grams to milligrams if needed)
+     * Keep as count/pieces - return the total number in the recipe
+     * Example: 4 sausages for 4 servings = original_quantity: 4, quantity: 4
+   - For baked goods, return total amounts used in the full recipe
+   - For main dishes, return total amounts for the complete recipe
+   - For very large quantities, use appropriate larger units (e.g., convert grams to kilograms if needed)
 
 3. Use appropriate units based on ingredient type:
    - Count-based items: Use "piece", "whole", "slice", etc.
@@ -315,7 +309,7 @@ The user will provide the recipe content in the following format:
 Your task is to parse both the post description and video transcript to extract complete recipe information and respond with only the structured JSON output that matches the GeneratedRecipe interface. Do not include any additional explanation or text outside of the JSON object. Ensure that:
 1. The recipe object contains all the main recipe information
 2. Each ingredient in the ingredients array has original_quantity, original_unit, quantity, unit, and name
-3. All ingredient quantities are provided in both original form and adjusted to represent 1 serving
+3. All ingredient quantities are provided in both original form and total form for the complete recipe
 4. The "quantity" and "unit" fields MUST use metric units (g, ml, etc.) - NEVER cups, tbsp, oz, etc.
 5. Each instruction in the instructions array has a step number and instruction text
 6. The nutrition object contains protein, carbs, fat, and fiber values in grams
