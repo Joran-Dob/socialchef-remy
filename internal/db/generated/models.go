@@ -57,8 +57,9 @@ func (ns NullMeasurementUnit) Value() (driver.Value, error) {
 type RecipeOrigin string
 
 const (
-	RecipeOriginInstagram RecipeOrigin = "instagram"
-	RecipeOriginTiktok    RecipeOrigin = "tiktok"
+	RecipeOriginInstagram  RecipeOrigin = "instagram"
+	RecipeOriginTiktok     RecipeOrigin = "tiktok"
+	RecipeOriginFirecrawl  RecipeOrigin = "firecrawl"
 )
 
 func (e *RecipeOrigin) Scan(src interface{}) error {
