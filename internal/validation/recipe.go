@@ -39,8 +39,17 @@ type Ingredient struct {
 }
 
 type Instruction struct {
-	StepNumber  int    `json:"step_number"`
-	Instruction string `json:"instruction"`
+	StepNumber  int     `json:"step_number"`
+	Instruction string  `json:"instruction"`
+	TimerData   []Timer `json:"timer_data,omitempty"`
+}
+
+// Timer represents a cooking timer extracted from instruction text
+type Timer struct {
+	DurationSeconds int    `json:"duration_seconds"`
+	Label           string `json:"label"`
+	Type            string `json:"type"`
+	Category        string `json:"category"`
 }
 
 type Nutrition struct {
