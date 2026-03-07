@@ -406,3 +406,41 @@ func BuildRecipePrompt(platform string) string {
 
 	return sb.String()
 }
+
+// BuildFirecrawlPrompt builds a recipe extraction prompt optimized for website content extraction
+func BuildFirecrawlPrompt() string {
+	var sb strings.Builder
+	sb.WriteString(roleSection)
+	sb.WriteString("\n\n")
+
+	sb.WriteString(`<PLATFORM_CONTEXT>
+This recipe comes from a website. Keep in mind:
+- Content may be in markdown format converted from HTML
+- Recipe data may be in structured formats (JSON-LD, schema.org)
+- Extract the main recipe content, ignoring ads and navigation
+- Websites may have multiple recipes; extract the primary one
+- Measurement formats vary (cups, grams, ounces may all be present)
+- Pay attention to serving size information usually near the recipe title
+</PLATFORM_CONTEXT>`)
+	sb.WriteString("\n\n")
+
+	sb.WriteString(taskOpen)
+	sb.WriteString("\n")
+	sb.WriteString(extractionGuidelinesSection)
+	sb.WriteString("\n\n")
+	sb.WriteString(inferenceSection)
+	sb.WriteString("\n\n")
+	sb.WriteString(outputFormatSection)
+	sb.WriteString("\n\n")
+	sb.WriteString(referenceListsSection)
+	sb.WriteString("\n\n")
+	sb.WriteString(fmt.Sprintf(ingredientAnalysisSection, criticalMetricRequirementSection))
+	sb.WriteString("\n\n")
+	sb.WriteString(languageHandlingSection)
+	sb.WriteString("\n\n")
+	sb.WriteString(instructionsSection)
+	sb.WriteString("\n")
+	sb.WriteString(taskClose)
+
+	return sb.String()
+}

@@ -119,3 +119,46 @@ func TestGetPlatformContext(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildFirecrawlPrompt(t *testing.T) {
+	prompt := BuildFirecrawlPrompt()
+
+	if len(prompt) == 0 {
+		t.Errorf("BuildFirecrawlPrompt() returned empty string")
+	}
+
+	// Verify line count (approximate, should be similar to BuildRecipePrompt)
+	lines := strings.Split(prompt, "\n")
+	if len(lines) < 200 {
+		t.Errorf("BuildFirecrawlPrompt() returned %d lines, expected > 200", len(lines))
+	}
+
+	// Verify Firecrawl-specific content
+	expectedStrings := []string{
+		"<PLATFORM_CONTEXT>",
+		"website",
+		"markdown",
+		"schema.org",
+		"JSON-LD",
+		"<ROLE>",
+		"<EXTRACTION_GUIDELINES>",
+		"<INFERENCE>",
+		"<OUTPUT_FORMAT>",
+		"<REFERENCE_LISTS>",
+		"<INGREDIENT_ANALYSIS>",
+		"<CRITICAL_METRIC_REQUIREMENT>",
+		"<LANGUAGE_HANDLING>",
+		"<INSTRUCTIONS>",
+		"original_quantity",
+		"original_unit",
+		"quantity",
+		"unit",
+		"METRIC",
+	}
+
+	for _, s := range expectedStrings {
+		if !strings.Contains(prompt, s) {
+			t.Errorf("BuildFirecrawlPrompt() did not contain expected string: %s", s)
+		}
+	}
+}
