@@ -314,8 +314,8 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 		RecipeName:  "Chocolate Cake",
 		Description: "A delicious chocolate cake",
 		Ingredients: []groq.Ingredient{
-			{Name: "Flour", OriginalQuantity: "2", Quantity: 2, Unit: "cups"},
-			{Name: "Sugar", OriginalQuantity: "1", Quantity: 1, Unit: "cup"},
+			{Name: "Flour", OriginalQuantity: "2", Quantity: "2", Unit: "cups"},
+			{Name: "Sugar", OriginalQuantity: "1", Quantity: "1", Unit: "cup"},
 		},
 		Instructions: []groq.Instruction{
 			{StepNumber: 1, Instruction: "Preheat oven to 350F"},

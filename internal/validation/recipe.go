@@ -31,11 +31,11 @@ type Recipe struct {
 }
 
 type Ingredient struct {
-	OriginalQuantity string  `json:"original_quantity"`
-	OriginalUnit     string  `json:"original_unit"`
-	Quantity         float64 `json:"quantity"`
-	Unit             string  `json:"unit"`
-	Name             string  `json:"name"`
+	OriginalQuantity string `json:"original_quantity"`
+	OriginalUnit     string `json:"original_unit"`
+	Quantity         string `json:"quantity"`
+	Unit             string `json:"unit"`
+	Name             string `json:"name"`
 }
 
 type Instruction struct {
@@ -197,7 +197,7 @@ func ValidateRecipe(recipe Recipe, config RecipeOutputValidationConfig) RecipeVa
 			totalFields++
 			if DetectPlaceholders(ingredient.Name) {
 				placeholderCount++
-			} else if ingredient.Name != "" && ingredient.Quantity != 0 && ingredient.Unit != "" {
+			} else if ingredient.Name != "" && ingredient.Quantity != "" && ingredient.Unit != "" {
 				validIngredients++
 			}
 		}
