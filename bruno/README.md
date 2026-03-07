@@ -89,3 +89,33 @@ These endpoints exist in code but routes aren't registered yet. Update `cmd/serv
 - Health check is public (no JWT required)
 - All other endpoints require valid JWT token
 - Search endpoints are prepared but not exposed in current router config
+
+
+## Known Issues
+
+### Async JWT Generation in CLI
+**Problem:** Bruno CLI doesn't wait for async crypto operations in pre-request scripts. The request is sent before the JWT is generated.
+
+**Solution:** Add a pre-generated JWT token to your environment:
+
+1. Generate a JWT using your `SUPABASE_JWT_SECRET`:
+   ```bash
+   # Use a JWT generator or https://jwt.io
+   # Payload should be:
+   # {
+   #   "sub": "test-user-uuid-1234-5678-9012-345678901234",
+   #   "iss": "YOUR_SUPABASE_URL/auth/v1",
+   #   "exp": 1234567890
+   # }
+   ```
+
+2. Add the token to `bruno/environments/local.bru`:
+   ```
+   vars {
+     baseUrl: http://localhost:8080
+     testUserId: test-user-uuid-1234-5678-9012-345678901234
+     jwtToken: eyJhbGciOiJIUzI1NiIs...
+   }
+   ```
+
+**Alternative:** Use Bruno Desktop App, which handles async operations better than CLI.
