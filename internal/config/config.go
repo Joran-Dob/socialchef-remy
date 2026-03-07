@@ -26,6 +26,8 @@ type Config struct {
 	ApifyAPIKey    string
 	ProxyServerURL string
 	ProxyAPIKey    string
+	FirecrawlAPIKey string
+	FirecrawlEnabled bool
 
 	OtelExporterOTLPEndpoint string
 	OtelExporterOTLPHeaders  string
@@ -65,6 +67,8 @@ func Load() (*Config, error) {
 		ApifyAPIKey:              os.Getenv("APIFY_API_KEY"),
 		ProxyServerURL:           os.Getenv("PROXY_SERVER_URL"),
 		ProxyAPIKey:              os.Getenv("PROXY_API_KEY"),
+		FirecrawlAPIKey:           os.Getenv("FIRECRAWL_API_KEY"),
+		FirecrawlEnabled:          os.Getenv("FIRECRAWL_ENABLED") == "true",
 		OtelExporterOTLPEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		OtelExporterOTLPHeaders:  os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"),
 		SentryDSN:                os.Getenv("SENTRY_DSN"),

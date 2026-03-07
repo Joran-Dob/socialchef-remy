@@ -190,6 +190,19 @@ func (m *MockTikTokScraper) Scrape(ctx context.Context, postURL string) (*scrape
 	return args.Get(0).(*scraper.TikTokPost), args.Error(1)
 }
 
+
+type MockFirecrawlScraper struct {
+	mock.Mock
+}
+
+func (m *MockFirecrawlScraper) Scrape(ctx context.Context, postURL string) (*scraper.FirecrawlPost, error) {
+	args := m.Called(ctx, postURL)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*scraper.FirecrawlPost), args.Error(1)
+}
+
 type MockOpenAIClient struct {
 	mock.Mock
 }
@@ -272,8 +285,9 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, mockTikTok, mockOpenAI, mockTranscription, mockGroq, mockStorage, mockBroadcaster, nil, nil,
+		mockDB, mockInsta, mockTikTok, nil, mockOpenAI, mockTranscription, mockGroq, mockStorage, mockBroadcaster, nil, nil,
 	)
+
 
 
 	// Expectations
@@ -300,8 +314,8 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 		RecipeName:  "Chocolate Cake",
 		Description: "A delicious chocolate cake",
 		Ingredients: []groq.Ingredient{
-			{Name: "Flour", OriginalQuantity: "2", Quantity: 2, Unit: "cups"},
-			{Name: "Sugar", OriginalQuantity: "1", Quantity: 1, Unit: "cup"},
+			{Name: "Flour", OriginalQuantity: "2", Quantity: "2", Unit: "cups"},
+			{Name: "Sugar", OriginalQuantity: "1", Quantity: "1", Unit: "cup"},
 		},
 		Instructions: []groq.Instruction{
 			{StepNumber: 1, Instruction: "Preheat oven to 350F"},
@@ -361,8 +375,9 @@ func TestHandleProcessRecipe_ContentValidationFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, nil, nil, nil, mockBroadcaster, nil, nil,
+		mockDB, mockInsta, nil, nil, nil, nil, nil, nil, mockBroadcaster, nil, nil,
 	)
+
 
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
@@ -401,8 +416,9 @@ func TestHandleProcessRecipe_TranscriptionFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, mockTranscription, nil, nil, mockBroadcaster, nil, nil,
+		mockDB, mockInsta, nil, nil, nil, mockTranscription, nil, nil, mockBroadcaster, nil, nil,
 	)
+
 
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
@@ -444,8 +460,9 @@ func TestHandleProcessRecipe_OutputValidationFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, nil, mockGroq, nil, mockBroadcaster, nil, nil,
+		mockDB, mockInsta, nil, nil, nil, nil, mockGroq, nil, mockBroadcaster, nil, nil,
 	)
+
 
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)

@@ -6,7 +6,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Enums
-CREATE TYPE recipe_origin AS ENUM ('instagram', 'tiktok');
+CREATE TYPE recipe_origin AS ENUM ('instagram', 'tiktok', 'firecrawl');
 CREATE TYPE social_media_platform AS ENUM ('instagram', 'tiktok');
 CREATE TYPE measurement_unit AS ENUM ('metric', 'imperial');
 

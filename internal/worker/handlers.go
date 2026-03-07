@@ -62,6 +62,10 @@ type InstagramScraper interface {
 type TikTokScraper interface {
 	Scrape(ctx context.Context, postURL string) (*scraper.TikTokPost, error)
 }
+type FirecrawlScraper interface {
+	Scrape(ctx context.Context, postURL string) (*scraper.FirecrawlPost, error)
+}
+
 
 type OpenAIClient interface {
 	GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
@@ -88,6 +92,8 @@ type RecipeProcessor struct {
 	db            DBQueries
 	instagram     InstagramScraper
 	tiktok        TikTokScraper
+	firecrawl     FirecrawlScraper
+
 	openai        OpenAIClient
 	transcription TranscriptionClient
 	groq          GroqClient
@@ -101,6 +107,8 @@ func NewRecipeProcessor(
 	db DBQueries,
 	instagram InstagramScraper,
 	tiktok TikTokScraper,
+	firecrawl FirecrawlScraper,
+
 	openaiClient OpenAIClient,
 	transcriptionClient TranscriptionClient,
 	groqClient GroqClient,
@@ -113,6 +121,8 @@ func NewRecipeProcessor(
 		db:            db,
 		instagram:     instagram,
 		tiktok:        tiktok,
+		firecrawl:     firecrawl,
+
 		openai:        openaiClient,
 		transcription: transcriptionClient,
 		groq:          groqClient,
@@ -186,10 +196,26 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		ownerAvatar = post.OwnerAvatar
 		ownerID = post.OwnerID
 
+	} else if p.firecrawl != nil {
+		// Firecrawl handles all other URLs (only if enabled/configured)
+		platform = "firecrawl"
+		post, err := p.firecrawl.Scrape(ctx, url)
+		if err != nil {
+			status = "failure"
+			p.markFailed(ctx, jobID, userID, fmt.Sprintf("Firecrawl scrape failed: %v", err))
+			return err
+		}
+		caption = post.Caption
+		imageURL = post.ImageURL
+		videoURL = post.VideoURL
+		ownerUsername = post.OwnerUsername
+		ownerAvatar = post.OwnerAvatar
+		ownerID = post.OwnerID
 	} else {
+		// Firecrawl not enabled
 		status = "failure"
-		p.markFailed(ctx, jobID, userID, "Invalid URL: must be Instagram or TikTok")
-		return fmt.Errorf("invalid URL")
+		p.markFailed(ctx, jobID, userID, "Invalid URL: must be Instagram or TikTok (Firecrawl not enabled)")
+		return fmt.Errorf("invalid URL: Firecrawl not enabled")
 	}
 
 	validationResult := validation.QuickValidate(caption, "")
@@ -350,9 +376,11 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	var origin generated.RecipeOrigin
 	if platform == "instagram" {
 		origin = generated.RecipeOriginInstagram
-	} else {
-		origin = generated.RecipeOriginTiktok
-	}
+} else if platform == "tiktok" {
+	origin = generated.RecipeOriginTiktok
+} else {
+	origin = generated.RecipeOriginFirecrawl
+}
 
 		savedRecipe, err := p.db.CreateRecipe(ctx, generated.CreateRecipeParams{
 		ID:                  recipeUUID,
@@ -432,7 +460,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	for _, ing := range recipe.Ingredients {
 		_, err := p.db.CreateIngredient(ctx, generated.CreateIngredientParams{
 			RecipeID:         savedRecipe.ID,
-			Quantity:         pgtype.Text{String: formatQuantity(ing.Quantity), Valid: ing.Quantity > 0},
+			Quantity:         pgtype.Text{String: formatQuantity(string(ing.Quantity)), Valid: ing.Quantity != ""},
 			Unit:             pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
 			OriginalQuantity: pgtype.Text{String: string(ing.OriginalQuantity), Valid: ing.OriginalQuantity != ""},
 			OriginalUnit:     pgtype.Text{String: ing.OriginalUnit, Valid: ing.OriginalUnit != ""},
@@ -667,7 +695,7 @@ func convertIngredients(ings []groq.Ingredient) []validation.Ingredient {
 		result[i] = validation.Ingredient{
 			OriginalQuantity: string(ing.OriginalQuantity),
 			OriginalUnit:     ing.OriginalUnit,
-			Quantity:         ing.Quantity,
+			Quantity:         string(ing.Quantity),
 			Unit:             ing.Unit,
 			Name:             ing.Name,
 		}
@@ -706,15 +734,11 @@ func ptrVector(v pgvector.Vector) *pgvector.Vector {
 	return &v
 }
 
-func formatQuantity(q float64) string {
-	if q == 0 {
+func formatQuantity(q string) string {
+	if q == "" {
 		return ""
 	}
-	// Format with appropriate precision - whole numbers as integers, otherwise 2 decimals
-	if q == float64(int(q)) {
-		return fmt.Sprintf("%d", int(q))
-	}
-	return fmt.Sprintf("%.2f", q)
+	return q
 }
 
 // HandleInstagramRetry handles retry attempts for failed Instagram scrapes.

@@ -83,6 +83,13 @@ func main() {
 
 	instagramScraper := scraper.NewInstagramScraper(cfg.ProxyServerURL, cfg.ProxyAPIKey)
 	tiktokScraper := scraper.NewTikTokScraper(cfg.ApifyAPIKey)
+
+	// Initialize Firecrawl only if enabled
+	var firecrawlScraper *scraper.FirecrawlScraper
+	if cfg.FirecrawlEnabled {
+		firecrawlScraper = scraper.NewFirecrawlScraper(cfg.FirecrawlAPIKey)
+	}
+
 	provider := transcription.NewProvider(cfg.Transcription, cfg.OpenAIKey, cfg.GroqKey)
 	transcriptionClient := transcription.NewProviderAdapter(provider)
 	storageClient := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
@@ -101,6 +108,7 @@ func main() {
 		queries,
 		instagramScraper,
 		tiktokScraper,
+		firecrawlScraper,
 		openaiClient,
 		transcriptionClient,
 		groqClient,
