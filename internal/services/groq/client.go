@@ -70,7 +70,12 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 		metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
 	}()
 
-	systemPrompt := ai.BuildRecipePrompt(platform)
+	var systemPrompt string
+	if platform == "firecrawl" {
+		systemPrompt = ai.BuildFirecrawlPrompt()
+	} else {
+		systemPrompt = ai.BuildRecipePrompt(platform)
+	}
 
 	userContent := description
 	if transcript != "" {
