@@ -62,6 +62,7 @@ func NewClient(apiKey string) *Client {
 }
 
 func (c *Client) GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error) {
+	slog.Info("=== GenerateCategories called ===", "prompt_length", len(prompt))
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime).Seconds()
