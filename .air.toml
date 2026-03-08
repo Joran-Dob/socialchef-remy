@@ -5,8 +5,8 @@ tmp_dir = "tmp"
 [build]
   args_bin = []
   bin = "./tmp/server"
-  cmd = "go build -o ./tmp/server ./cmd/server/main.go && go build -o ./tmp/worker ./cmd/worker/main.go"
-  full_bin = "./scripts/air-dev.sh"
+  cmd = "go build -o ./tmp/server ./cmd/server/main.go && go build -o ./tmp/worker ./cmd/worker/main.go && printf '%s\\n' '#!/bin/sh' 'trap \"kill \\$(jobs -p) 2>/dev/null\" EXIT' './tmp/server &' './tmp/worker &' 'wait' > ./tmp/run.sh && chmod +x ./tmp/run.sh"
+  full_bin = "./tmp/run.sh"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", "testdata", "data"]
   exclude_file = []
