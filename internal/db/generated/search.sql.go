@@ -47,14 +47,27 @@ func (q *Queries) GetRecipesWithoutEmbeddings(ctx context.Context, limit int32) 
 
 const searchRecipesByEmbedding = `-- name: SearchRecipesByEmbedding :many
 
-SELECT 
-    id,
-    recipe_name,
-    description,
-    CAST(1 - (embedding <=> $2::vector) AS float8) as similarity
-FROM recipes
-WHERE embedding IS NOT NULL
-ORDER BY embedding <=> $2::vector
+SELECT
+    r.id,
+    r.recipe_name,
+    r.description,
+    COALESCE(
+        array_agg(DISTINCT cc.name) FILTER (WHERE cc.name IS NOT NULL),
+        ARRAY[]::text[]
+    ) as cuisine_categories,
+    COALESCE(
+        array_agg(DISTINCT mt.name) FILTER (WHERE mt.name IS NOT NULL),
+        ARRAY[]::text[]
+    ) as meal_types,
+    CAST(1 - (r.embedding <=> $2::vector) AS float8) as similarity
+FROM recipes r
+LEFT JOIN recipe_cuisine_categories rcc ON r.id = rcc.recipe_id
+LEFT JOIN cuisine_categories cc ON rcc.cuisine_category_id = cc.id
+LEFT JOIN recipe_meal_types rmt ON r.id = rmt.recipe_id
+LEFT JOIN meal_types mt ON rmt.meal_type_id = mt.id
+WHERE r.embedding IS NOT NULL
+GROUP BY r.id, r.recipe_name, r.description, r.embedding
+ORDER BY r.embedding <=> $2::vector
 LIMIT $1
 `
 
@@ -64,10 +77,12 @@ type SearchRecipesByEmbeddingParams struct {
 }
 
 type SearchRecipesByEmbeddingRow struct {
-	ID          pgtype.UUID
-	RecipeName  string
-	Description pgtype.Text
-	Similarity  float64
+	ID                pgtype.UUID
+	RecipeName        string
+	Description       pgtype.Text
+	CuisineCategories interface{}
+	MealTypes         interface{}
+	Similarity        float64
 }
 
 // Note: SearchRecipesHybrid uses database function that sqlc can't introspect.
@@ -86,6 +101,8 @@ func (q *Queries) SearchRecipesByEmbedding(ctx context.Context, arg SearchRecipe
 			&i.ID,
 			&i.RecipeName,
 			&i.Description,
+			&i.CuisineCategories,
+			&i.MealTypes,
 			&i.Similarity,
 		); err != nil {
 			return nil, err
@@ -99,9 +116,44 @@ func (q *Queries) SearchRecipesByEmbedding(ctx context.Context, arg SearchRecipe
 }
 
 const searchRecipesByName = `-- name: SearchRecipesByName :many
-SELECT r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time, r.total_time, r.original_serving_size, r.difficulty_rating, r.focused_diet, r.estimated_calories, r.origin, r.url, r.language, r.created_by, r.owner_id, r.thumbnail_id, r.embedding, r.search_vector, r.created_at, r.updated_at
+SELECT
+    r.id,
+    r.recipe_name,
+    r.description,
+    r.prep_time,
+    r.cooking_time,
+    r.total_time,
+    r.original_serving_size,
+    r.difficulty_rating,
+    r.focused_diet,
+    r.estimated_calories,
+    r.origin,
+    r.url,
+    r.language,
+    r.created_by,
+    r.owner_id,
+    r.thumbnail_id,
+    COALESCE(
+        array_agg(DISTINCT cc.name) FILTER (WHERE cc.name IS NOT NULL),
+        ARRAY[]::text[]
+    ) as cuisine_categories,
+    COALESCE(
+        array_agg(DISTINCT mt.name) FILTER (WHERE mt.name IS NOT NULL),
+        ARRAY[]::text[]
+    ) as meal_types,
+    r.created_at,
+    r.updated_at
 FROM recipes r
+LEFT JOIN recipe_cuisine_categories rcc ON r.id = rcc.recipe_id
+LEFT JOIN cuisine_categories cc ON rcc.cuisine_category_id = cc.id
+LEFT JOIN recipe_meal_types rmt ON r.id = rmt.recipe_id
+LEFT JOIN meal_types mt ON rmt.meal_type_id = mt.id
 WHERE r.recipe_name ILIKE '%' || $1 || '%'
+GROUP BY
+    r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time,
+    r.total_time, r.original_serving_size, r.difficulty_rating, r.focused_diet,
+    r.estimated_calories, r.origin, r.url, r.language, r.created_by,
+    r.owner_id, r.thumbnail_id, r.created_at, r.updated_at
 ORDER BY r.created_at DESC
 LIMIT $2
 `
@@ -111,15 +163,38 @@ type SearchRecipesByNameParams struct {
 	Limit   int32
 }
 
-func (q *Queries) SearchRecipesByName(ctx context.Context, arg SearchRecipesByNameParams) ([]Recipe, error) {
+type SearchRecipesByNameRow struct {
+	ID                  pgtype.UUID
+	RecipeName          string
+	Description         pgtype.Text
+	PrepTime            pgtype.Int4
+	CookingTime         pgtype.Int4
+	TotalTime           pgtype.Int4
+	OriginalServingSize pgtype.Int4
+	DifficultyRating    pgtype.Int2
+	FocusedDiet         pgtype.Text
+	EstimatedCalories   pgtype.Int4
+	Origin              RecipeOrigin
+	Url                 string
+	Language            pgtype.Text
+	CreatedBy           pgtype.UUID
+	OwnerID             pgtype.UUID
+	ThumbnailID         pgtype.UUID
+	CuisineCategories   interface{}
+	MealTypes           interface{}
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
+}
+
+func (q *Queries) SearchRecipesByName(ctx context.Context, arg SearchRecipesByNameParams) ([]SearchRecipesByNameRow, error) {
 	rows, err := q.db.Query(ctx, searchRecipesByName, arg.Column1, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Recipe
+	var items []SearchRecipesByNameRow
 	for rows.Next() {
-		var i Recipe
+		var i SearchRecipesByNameRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.RecipeName,
@@ -137,8 +212,8 @@ func (q *Queries) SearchRecipesByName(ctx context.Context, arg SearchRecipesByNa
 			&i.CreatedBy,
 			&i.OwnerID,
 			&i.ThumbnailID,
-			&i.Embedding,
-			&i.SearchVector,
+			&i.CuisineCategories,
+			&i.MealTypes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
