@@ -95,3 +95,11 @@ func (f *FallbackProvider) GenerateCategories(ctx context.Context, prompt string
 	}
 	return &ai.CategoryAIResponse{}, nil
 }
+
+// GenerateRichInstructions delegates to the primary provider
+func (f *FallbackProvider) GenerateRichInstructions(ctx context.Context, recipe *Recipe) (*RichInstructionResponse, error) {
+	if richProvider, ok := f.Primary.(RichInstructionProvider); ok {
+		return richProvider.GenerateRichInstructions(ctx, recipe)
+	}
+	return nil, nil
+}
