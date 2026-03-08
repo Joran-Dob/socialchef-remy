@@ -6,6 +6,7 @@ import (
 
 	"github.com/socialchef/remy/internal/errors"
 	"github.com/socialchef/remy/internal/metrics"
+	"github.com/socialchef/remy/internal/services/ai"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -83,4 +84,14 @@ func (f *FallbackProvider) GenerateRecipe(ctx context.Context, description, tran
 		"platform", platform)
 
 	return nil, err
+}
+
+// GenerateCategories delegates to the primary provider
+func (f *FallbackProvider) GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error) {
+	if catProvider, ok := f.Primary.(interface {
+		GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error)
+	}); ok {
+		return catProvider.GenerateCategories(ctx, prompt)
+	}
+	return &ai.CategoryAIResponse{}, nil
 }
