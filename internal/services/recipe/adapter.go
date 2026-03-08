@@ -31,3 +31,10 @@ func (a *GroqClientAdapter) GenerateCategories(ctx context.Context, prompt strin
 	}
 	return &ai.CategoryAIResponse{}, nil
 }
+
+func (a *GroqClientAdapter) GenerateRichInstructions(ctx context.Context, recipe *Recipe) (*RichInstructionResponse, error) {
+	if richProvider, ok := a.provider.(RichInstructionProvider); ok {
+		return richProvider.GenerateRichInstructions(ctx, recipe)
+	}
+	return nil, nil
+}

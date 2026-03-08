@@ -14,6 +14,7 @@ import (
 	"github.com/socialchef/remy/internal/db/generated"
 	"github.com/socialchef/remy/internal/services/ai"
 	"github.com/socialchef/remy/internal/services/groq"
+	recipeservice "github.com/socialchef/remy/internal/services/recipe"
 	"github.com/socialchef/remy/internal/services/scraper"
 	"github.com/socialchef/remy/internal/services/storage"
 	"github.com/stretchr/testify/assert"
@@ -265,6 +266,14 @@ func (m *MockGroqClient) GenerateCategories(ctx context.Context, prompt string) 
 	return args.Get(0).(*ai.CategoryAIResponse), args.Error(1)
 }
 
+func (m *MockGroqClient) GenerateRichInstructions(ctx context.Context, recipe *groq.Recipe) (*recipeservice.RichInstructionResponse, error) {
+	args := m.Called(ctx, recipe)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*recipeservice.RichInstructionResponse), args.Error(1)
+}
+
 type MockStorageClient struct {
 	mock.Mock
 }
@@ -371,6 +380,14 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 		Occasions:           []string{"Party"},
 		DietaryRestrictions: []string{},
 		Equipment:           []string{"Oven"},
+	}, nil)
+
+	mockGroq.On("GenerateRichInstructions", ctx, mock.Anything).Return(&recipeservice.RichInstructionResponse{
+		Instructions: []recipeservice.RichInstruction{
+			{StepNumber: 1, InstructionRich: "Preheat oven to {{ingredient:0}}"},
+			{StepNumber: 2, InstructionRich: "Mix {{ingredient:1}} with {{ingredient:0}}"},
+		},
+		PromptVersion: 1,
 	}, nil)
 
 	recipeUUID := pgtype.UUID{Valid: true} // Simplified for mock
@@ -532,6 +549,13 @@ func TestHandleProcessRecipe_OutputValidationFails(t *testing.T) {
 	mockDB.On("GetDietaryRestrictionsByUser", ctx, mock.Anything).Return([]string{}, nil)
 	mockDB.On("GetEquipmentByUser", ctx, mock.Anything).Return([]string{}, nil)
 	mockGroq.On("GenerateCategories", ctx, mock.Anything).Return(&ai.CategoryAIResponse{}, nil)
+
+	mockGroq.On("GenerateRichInstructions", ctx, mock.Anything).Return(&recipeservice.RichInstructionResponse{
+		Instructions: []recipeservice.RichInstruction{
+			{StepNumber: 1, InstructionRich: ""},
+		},
+		PromptVersion: 1,
+	}, nil)
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
 	mockDB.On("UpdateImportJobStatus", ctx, mock.MatchedBy(func(arg generated.UpdateImportJobStatusParams) bool {

@@ -144,6 +144,11 @@ func (c *Client) GenerateCategories(ctx context.Context, prompt string) (*ai.Cat
 	return &result, nil
 }
 
+func (c *Client) GenerateRichInstructions(ctx context.Context, r *Recipe) (*recipe.RichInstructionResponse, error) {
+	provider := recipe.NewGroqProvider(c.apiKey)
+	return provider.GenerateRichInstructions(ctx, r)
+}
+
 func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, platform string) (*Recipe, error) {
 	startTime := time.Now()
 	defer func() {

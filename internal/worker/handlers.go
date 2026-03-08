@@ -20,6 +20,7 @@ import (
 	"github.com/socialchef/remy/internal/errors"
 	"github.com/socialchef/remy/internal/services/ai"
 	"github.com/socialchef/remy/internal/services/groq"
+	"github.com/socialchef/remy/internal/services/recipe"
 	"github.com/socialchef/remy/internal/services/scraper"
 	"github.com/socialchef/remy/internal/services/storage"
 	"github.com/socialchef/remy/internal/validation"
@@ -84,6 +85,7 @@ type TranscriptionClient interface {
 type GroqClient interface {
 	GenerateRecipe(ctx context.Context, caption, transcript, platform string) (*groq.Recipe, error)
 	GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error)
+	GenerateRichInstructions(ctx context.Context, recipe *groq.Recipe) (*recipe.RichInstructionResponse, error)
 }
 
 type StorageClient interface {
@@ -310,6 +312,20 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		slog.Error("Failed to generate categories", "error", err, "recipe_name", recipe.RecipeName)
 	}
 
+	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Processing instruction structure...")
+
+	richResp, err := p.groq.GenerateRichInstructions(ctx, recipe)
+	if err != nil {
+		slog.Warn("Failed to generate rich instructions, continuing without them", "error", err, "recipe_name", recipe.RecipeName)
+	} else {
+		for i, inst := range richResp.Instructions {
+			if i < len(recipe.Instructions) {
+				recipe.Instructions[i].InstructionRich = inst.InstructionRich
+				recipe.Instructions[i].InstructionRichVersion = richResp.PromptVersion
+			}
+		}
+	}
+
 	validationConfig := validation.RecipeOutputValidationConfig{
 		MinIngredients:      2,
 		MinInstructions:     2,
@@ -525,10 +541,12 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		}
 
 		_, err := p.db.CreateInstruction(ctx, generated.CreateInstructionParams{
-			RecipeID:    savedRecipe.ID,
-			StepNumber:  int32(i + 1),
-			Instruction: inst.Instruction,
-			TimerData:   timerData,
+			RecipeID:               savedRecipe.ID,
+			StepNumber:             int32(i + 1),
+			Instruction:            inst.Instruction,
+			TimerData:              timerData,
+			InstructionRich:        pgtype.Text{String: inst.InstructionRich, Valid: inst.InstructionRich != ""},
+			InstructionRichVersion: pgtype.Int4{Int32: int32(inst.InstructionRichVersion), Valid: inst.InstructionRichVersion > 0},
 		})
 		if err != nil {
 			slog.Error("Failed to save instruction", "error", err)
