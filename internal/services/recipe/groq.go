@@ -12,6 +12,7 @@ import (
 	"github.com/socialchef/remy/internal/httpclient"
 	"github.com/socialchef/remy/internal/metrics"
 	"github.com/socialchef/remy/internal/services/ai"
+	"github.com/socialchef/remy/internal/validation"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -239,4 +240,135 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Recipe) (*RichInstructionResponse, error) {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		attrs := []attribute.KeyValue{attribute.String("provider", "groq"), attribute.String("operation", "generate_rich_instructions")}
+		metrics.AIGenerationDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPIDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}()
+
+	recipeForPrompt := ai.RecipeForPrompt{
+		Name: recipe.RecipeName,
+	}
+	for _, ing := range recipe.Ingredients {
+		recipeForPrompt.Ingredients = append(recipeForPrompt.Ingredients, ing.Name)
+	}
+	for _, inst := range recipe.Instructions {
+		var timers []ai.Timer
+		for _, td := range inst.TimerData {
+			timers = append(timers, ai.Timer{
+				DurationSeconds: td.DurationSeconds,
+				Label:           td.Label,
+				Type:            td.Type,
+				Category:        td.Category,
+			})
+		}
+		recipeForPrompt.Instructions = append(recipeForPrompt.Instructions, ai.InstructionForPrompt{
+			StepNumber:  inst.StepNumber,
+			Instruction: inst.Instruction,
+			TimerData:   timers,
+		})
+	}
+
+	systemPrompt := ai.BuildPlaceholderPrompt(recipeForPrompt)
+
+	recipeJSON, err := json.Marshal(recipe)
+	if err != nil {
+		return nil, ClassifyError(fmt.Errorf("failed to marshal recipe: %w", err), "groq")
+	}
+
+	type chatRequest struct {
+		Model    string `json:"model"`
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
+		ResponseFormat struct {
+			Type string `json:"type"`
+		} `json:"response_format"`
+	}
+
+	req := chatRequest{
+		Model: "llama-3.3-70b-versatile",
+		ResponseFormat: struct {
+			Type string `json:"type"`
+		}{Type: "json_object"},
+	}
+	req.Messages = append(req.Messages, struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}{Role: "system", Content: systemPrompt})
+	req.Messages = append(req.Messages, struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}{Role: "user", Content: string(recipeJSON)})
+
+	body, _ := json.Marshal(req)
+	httpReq, err := http.NewRequestWithContext(httpclient.WithProvider(ctx, "Groq"), "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return nil, ClassifyError(err, "groq")
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpclient.InstrumentedClient.Do(httpReq)
+	if err != nil {
+		return nil, ClassifyError(err, "groq")
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, ClassifyError(err, "groq")
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, ClassifyError(fmt.Errorf("Groq API error (status %d): %s", resp.StatusCode, string(respBody)), "groq")
+	}
+
+	var chatResp struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+		return nil, ClassifyError(fmt.Errorf("failed to unmarshal API response: %w", err), "groq")
+	}
+
+	if len(chatResp.Choices) == 0 {
+		return nil, ClassifyError(fmt.Errorf("no response from Groq"), "groq")
+	}
+
+	content := chatResp.Choices[0].Message.Content
+
+	var result RichInstructionResponse
+	if err := json.Unmarshal([]byte(content), &result); err != nil {
+		return nil, ClassifyError(fmt.Errorf("failed to unmarshal rich instructions: %w", err), "groq")
+	}
+
+	timerCountByStep := make(map[int]int)
+	for _, inst := range recipe.Instructions {
+		timerCountByStep[inst.StepNumber] = len(inst.TimerData)
+	}
+
+	for _, inst := range result.Instructions {
+		if err := validation.ValidateRichInstructionFormat(inst.InstructionRich); err != nil {
+			return nil, ClassifyError(fmt.Errorf("invalid placeholder format in step %d: %w", inst.StepNumber, err), "groq")
+		}
+		timerCount := timerCountByStep[inst.StepNumber]
+		if err := validation.ValidateRichInstructionBounds(inst.InstructionRich, len(recipe.Ingredients), timerCount); err != nil {
+			return nil, ClassifyError(fmt.Errorf("placeholder out of bounds in step %d: %w", inst.StepNumber, err), "groq")
+		}
+	}
+
+	result.PromptVersion = ai.RichInstructionPromptVersion
+
+	return &result, nil
 }
