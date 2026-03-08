@@ -12,7 +12,7 @@ import (
 // DBQueries defines the database operations needed for search
 type DBQueries interface {
 	SearchRecipesByEmbedding(ctx context.Context, arg generated.SearchRecipesByEmbeddingParams) ([]generated.SearchRecipesByEmbeddingRow, error)
-	SearchRecipesByName(ctx context.Context, arg generated.SearchRecipesByNameParams) ([]generated.Recipe, error)
+	SearchRecipesByName(ctx context.Context, arg generated.SearchRecipesByNameParams) ([]generated.SearchRecipesByNameRow, error)
 }
 
 // OpenAIClient defines the interface for generating embeddings
@@ -69,8 +69,8 @@ func (c *Client) SearchSemantic(ctx context.Context, query string, limit int32) 
 			RecipeName:        r.RecipeName,
 			Description:       r.Description.String,
 			Similarity:        r.Similarity,
-			CuisineCategories: []string{},
-			MealTypes:         []string{},
+			CuisineCategories: interfaceToStringSlice(r.CuisineCategories),
+			MealTypes:         interfaceToStringSlice(r.MealTypes),
 		}
 	}
 
@@ -94,8 +94,8 @@ func (c *Client) SearchByName(ctx context.Context, query string, limit int32) ([
 			ID:                pgUUIDToString(r.ID),
 			RecipeName:        r.RecipeName,
 			Description:       r.Description.String,
-			CuisineCategories: []string{},
-			MealTypes:         []string{},
+			CuisineCategories: interfaceToStringSlice(r.CuisineCategories),
+			MealTypes:         interfaceToStringSlice(r.MealTypes),
 		}
 	}
 
@@ -110,4 +110,23 @@ func pgUUIDToString(u pgtype.UUID) string {
 	// Convert [16]byte to UUID string format
 	return fmt.Sprintf("%x-%x-%x-%x-%x",
 		u.Bytes[0:4], u.Bytes[4:6], u.Bytes[6:8], u.Bytes[8:10], u.Bytes[10:16])
+}
+
+func interfaceToStringSlice(v interface{}) []string {
+	if v == nil {
+		return []string{}
+	}
+	if arr, ok := v.([]string); ok {
+		return arr
+	}
+	if arr, ok := v.([]interface{}); ok {
+		result := make([]string, len(arr))
+		for i, item := range arr {
+			if s, ok := item.(string); ok {
+				result[i] = s
+			}
+		}
+		return result
+	}
+	return []string{}
 }
