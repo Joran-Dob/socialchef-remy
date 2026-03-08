@@ -499,3 +499,106 @@ func writeCategorySection(sb *strings.Builder, title string, categories []string
 	}
 	sb.WriteString("\n")
 }
+
+// RichInstructionPromptVersion is the version of the rich instruction prompt
+const RichInstructionPromptVersion = 1
+
+// Timer represents a cooking timer extracted from instruction text
+type Timer struct {
+	DurationSeconds int    `json:"duration_seconds"`
+	Label           string `json:"label"`
+	Type            string `json:"type"`
+	Category        string `json:"category"`
+}
+
+// RecipeForPrompt holds recipe data needed for placeholder prompt generation
+type RecipeForPrompt struct {
+	Name         string
+	Ingredients  []string
+	Instructions []InstructionForPrompt
+}
+
+// InstructionForPrompt holds instruction data with timer indices
+type InstructionForPrompt struct {
+	StepNumber  int
+	Instruction string
+	TimerData   []Timer
+}
+
+// BuildPlaceholderPrompt builds a prompt for rich instruction generation with placeholders
+func BuildPlaceholderPrompt(recipe RecipeForPrompt) string {
+	var sb strings.Builder
+
+	sb.WriteString(`<ROLE>
+You are a specialized AI assistant for recipe instruction enhancement. Your task is to process recipe instructions and enrich them with interactive placeholders for ingredients and timers. You should maintain the original language and meaning while adding structured placeholder markers.
+</ROLE>
+
+`)
+
+	sb.WriteString("<CONTEXT>\n")
+	sb.WriteString(fmt.Sprintf("Recipe Name: %s\n\n", recipe.Name))
+
+	sb.WriteString("Ingredients (use these indices for {{ingredient:N}} placeholders):\n")
+	for i, ing := range recipe.Ingredients {
+		sb.WriteString(fmt.Sprintf("  [%d] %s\n", i, ing))
+	}
+	sb.WriteString("\n")
+
+	sb.WriteString("Instructions with Timer Data:\n")
+	for _, inst := range recipe.Instructions {
+		sb.WriteString(fmt.Sprintf("\nStep %d: %s\n", inst.StepNumber, inst.Instruction))
+		if len(inst.TimerData) > 0 {
+			sb.WriteString("  Timers (use these indices for {{timer:N}} placeholders):\n")
+			for j, timer := range inst.TimerData {
+				sb.WriteString(fmt.Sprintf("    [%d] Label: %s, Duration: %ds, Type: %s, Category: %s\n",
+					j, timer.Label, timer.DurationSeconds, timer.Type, timer.Category))
+			}
+		}
+	}
+	sb.WriteString("</CONTEXT>\n\n")
+
+	sb.WriteString(`<OUTPUT_FORMAT>
+Return a JSON object with the following structure:
+
+{
+  "rich_instructions": [
+    {
+      "step_number": 1,
+      "instruction_rich": "Enhanced instruction text with {{ingredient:0}} and {{timer:0}} placeholders"
+    }
+  ]
+}
+
+The instruction_rich field should contain the original instruction text enhanced with:
+- {{ingredient:N}} placeholders where N is the ingredient index
+- {{timer:N}} placeholders where N is the timer index within that instruction
+</OUTPUT_FORMAT>
+
+`)
+
+	sb.WriteString(`<INSTRUCTIONS>
+1. PLACEHOLDER RULES:
+   - Insert {{ingredient:N}} placeholders where ingredients are mentioned (N = ingredient index)
+   - Insert {{timer:N}} placeholders where timing is mentioned (N = timer index within that instruction)
+   - Preserve the original instruction text and language
+   - Placeholders should replace or augment the text they reference
+
+2. INGREDIENT PLACEHOLDERS:
+   - Use the ingredient index from the ingredient list above
+   - Example: If ingredient[0] is "chicken breast", replace "chicken breast" with "{{ingredient:0}}"
+   - Only use valid indices that exist in the ingredient list
+
+3. TIMER PLACEHOLDERS:
+   - Use the timer index from the timer_data for each instruction
+   - Example: If an instruction has timer_data[0], insert {{timer:0}} at the appropriate location
+   - Only use valid indices that exist in that instruction's timer_data
+
+4. OUTPUT REQUIREMENTS:
+   - Return ONLY the JSON object, no additional text
+   - Maintain the original language of the recipe
+   - Keep step numbers sequential and matching the input
+   - The instruction_rich should be a complete, readable sentence with placeholders integrated naturally
+</INSTRUCTIONS>`)
+
+	return sb.String()
+}
