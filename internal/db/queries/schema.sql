@@ -67,6 +67,8 @@ recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
 step_number INTEGER NOT NULL,
     instruction TEXT NOT NULL,
     timer_data JSONB DEFAULT NULL,
+    instruction_rich TEXT DEFAULT NULL,
+    instruction_rich_version INTEGER DEFAULT NULL,
 created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

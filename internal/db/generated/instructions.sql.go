@@ -13,17 +13,19 @@ import (
 
 const createInstruction = `-- name: CreateInstruction :one
 INSERT INTO recipe_instructions (
-    recipe_id, step_number, instruction, timer_data
+    recipe_id, step_number, instruction, timer_data, instruction_rich, instruction_rich_version
 ) VALUES (
-    $1, $2, $3, $4
-) RETURNING id, recipe_id, step_number, instruction, timer_data, created_at
+    $1, $2, $3, $4, $5, $6
+) RETURNING id, recipe_id, step_number, instruction, timer_data, instruction_rich, instruction_rich_version, created_at
 `
 
 type CreateInstructionParams struct {
-	RecipeID    pgtype.UUID
-	StepNumber  int32
-	Instruction string
-	TimerData   []byte
+	RecipeID               pgtype.UUID
+	StepNumber             int32
+	Instruction            string
+	TimerData              []byte
+	InstructionRich        pgtype.Text
+	InstructionRichVersion pgtype.Int4
 }
 
 func (q *Queries) CreateInstruction(ctx context.Context, arg CreateInstructionParams) (RecipeInstruction, error) {
@@ -32,6 +34,8 @@ func (q *Queries) CreateInstruction(ctx context.Context, arg CreateInstructionPa
 		arg.StepNumber,
 		arg.Instruction,
 		arg.TimerData,
+		arg.InstructionRich,
+		arg.InstructionRichVersion,
 	)
 	var i RecipeInstruction
 	err := row.Scan(
@@ -40,6 +44,8 @@ func (q *Queries) CreateInstruction(ctx context.Context, arg CreateInstructionPa
 		&i.StepNumber,
 		&i.Instruction,
 		&i.TimerData,
+		&i.InstructionRich,
+		&i.InstructionRichVersion,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -55,7 +61,7 @@ func (q *Queries) DeleteInstructionsByRecipe(ctx context.Context, recipeID pgtyp
 }
 
 const getInstructionsByRecipe = `-- name: GetInstructionsByRecipe :many
-SELECT id, recipe_id, step_number, instruction, timer_data, created_at FROM recipe_instructions WHERE recipe_id = $1 ORDER BY step_number
+SELECT id, recipe_id, step_number, instruction, timer_data, instruction_rich, instruction_rich_version, created_at FROM recipe_instructions WHERE recipe_id = $1 ORDER BY step_number
 `
 
 func (q *Queries) GetInstructionsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]RecipeInstruction, error) {
@@ -73,6 +79,8 @@ func (q *Queries) GetInstructionsByRecipe(ctx context.Context, recipeID pgtype.U
 			&i.StepNumber,
 			&i.Instruction,
 			&i.TimerData,
+			&i.InstructionRich,
+			&i.InstructionRichVersion,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

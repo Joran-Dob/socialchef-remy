@@ -62,9 +62,11 @@ type Ingredient struct {
 
 // Instruction represents a recipe instruction step
 type Instruction struct {
-	StepNumber  int     `json:"step_number"`
-	Instruction string  `json:"instruction"`
-	TimerData   []Timer `json:"timer_data,omitempty"`
+	StepNumber             int     `json:"step_number"`
+	Instruction            string  `json:"instruction"`
+	TimerData              []Timer `json:"timer_data,omitempty"`
+	InstructionRich        string  `json:"instruction_rich,omitempty"`
+	InstructionRichVersion int     `json:"instruction_rich_version,omitempty"`
 }
 
 // Timer represents a cooking timer extracted from instruction text
