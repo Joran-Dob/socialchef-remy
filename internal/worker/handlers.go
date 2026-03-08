@@ -317,7 +317,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	richResp, err := p.groq.GenerateRichInstructions(ctx, recipe)
 	if err != nil {
 		slog.Warn("Failed to generate rich instructions, continuing without them", "error", err, "recipe_name", recipe.RecipeName)
-	} else {
+	} else if richResp != nil {
 		for i, inst := range richResp.Instructions {
 			if i < len(recipe.Instructions) {
 				recipe.Instructions[i].InstructionRich = inst.InstructionRich
