@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -62,7 +61,6 @@ func NewClient(apiKey string) *Client {
 }
 
 func (c *Client) GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error) {
-	slog.Info("=== GenerateCategories called ===", "prompt_length", len(prompt))
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime).Seconds()
@@ -138,18 +136,10 @@ func (c *Client) GenerateCategories(ctx context.Context, prompt string) (*ai.Cat
 
 	content := chatResp.Choices[0].Message.Content
 
-	slog.Debug("AI category response received", "content", content)
-
 	var result ai.CategoryAIResponse
 	if err := json.Unmarshal([]byte(content), &result); err != nil {
-		slog.Error("failed to unmarshal category response", "error", err, "content", content)
 		return nil, err
 	}
-
-	slog.Debug("category result parsed",
-		"cuisine_count", len(result.CuisineCategories),
-		"meal_type_count", len(result.MealTypes),
-		"occasion_count", len(result.Occasions))
 
 	return &result, nil
 }

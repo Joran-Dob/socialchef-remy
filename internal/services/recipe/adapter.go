@@ -2,7 +2,6 @@ package recipe
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/socialchef/remy/internal/services/ai"
 )
@@ -25,13 +24,10 @@ func (a *GroqClientAdapter) GenerateRecipe(ctx context.Context, caption, transcr
 }
 
 func (a *GroqClientAdapter) GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error) {
-	fmt.Printf("[DEBUG ADAPTER] GenerateCategories called\n")
 	if catProvider, ok := a.provider.(interface {
 		GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error)
 	}); ok {
-		fmt.Printf("[DEBUG ADAPTER] Type assertion PASSED, calling provider.GenerateCategories\n")
 		return catProvider.GenerateCategories(ctx, prompt)
 	}
-	fmt.Printf("[DEBUG ADAPTER] Type assertion FAILED, returning empty\n")
 	return &ai.CategoryAIResponse{}, nil
 }

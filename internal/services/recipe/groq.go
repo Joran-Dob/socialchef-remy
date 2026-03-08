@@ -151,7 +151,6 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 
 // GenerateCategories generates category suggestions using Groq's API
 func (p *GroqProvider) GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error) {
-	fmt.Printf("[DEBUG] GenerateCategories called with prompt length: %d\n", len(prompt))
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime).Seconds()
@@ -226,16 +225,12 @@ func (p *GroqProvider) GenerateCategories(ctx context.Context, prompt string) (*
 	}
 
 	content := chatResp.Choices[0].Message.Content
-	fmt.Printf("[DEBUG] AI response content: %s\n", content)
 
 	var result ai.CategoryAIResponse
 	if err := json.Unmarshal([]byte(content), &result); err != nil {
-		fmt.Printf("[DEBUG] Failed to unmarshal: %v\n", err)
 		return nil, err
 	}
 
-	fmt.Printf("[DEBUG] Categories parsed - cuisine: %d, meal: %d, occasion: %d\n",
-		len(result.CuisineCategories), len(result.MealTypes), len(result.Occasions))
 	return &result, nil
 }
 
