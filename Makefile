@@ -4,6 +4,12 @@ build:
 	go build -o bin/server ./cmd/server
 	go build -o bin/worker ./cmd/worker
 
+run-server:
+	go run cmd/server/main.go
+
+run-worker:
+	go run cmd/worker/main.go
+
 test:
 	go test ./...
 
