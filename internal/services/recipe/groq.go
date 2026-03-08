@@ -149,6 +149,90 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 	}, nil
 }
 
+// GenerateCategories generates category suggestions using Groq's API
+func (p *GroqProvider) GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error) {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime).Seconds()
+		attrs := []attribute.KeyValue{attribute.String("provider", "groq"), attribute.String("operation", "generate_categories")}
+		metrics.AIGenerationDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPIDuration.Record(ctx, duration, metric.WithAttributes(attrs...))
+		metrics.ExternalAPICallsTotal.Add(ctx, 1, metric.WithAttributes(attrs...))
+	}()
+
+	type chatRequest struct {
+		Model    string `json:"model"`
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
+		ResponseFormat struct {
+			Type string `json:"type"`
+		} `json:"response_format"`
+	}
+
+	req := chatRequest{
+		Model: "llama-3.3-70b-versatile",
+		ResponseFormat: struct {
+			Type string `json:"type"`
+		}{Type: "json_object"},
+	}
+	req.Messages = append(req.Messages, struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}{Role: "system", Content: prompt})
+	req.Messages = append(req.Messages, struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}{Role: "user", Content: "Categorize this recipe according to the instructions."})
+
+	body, _ := json.Marshal(req)
+	httpReq, err := http.NewRequestWithContext(httpclient.WithProvider(ctx, "Groq"), "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpclient.InstrumentedClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("Groq API error (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	var chatResp struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+		return nil, err
+	}
+
+	if len(chatResp.Choices) == 0 {
+		return nil, fmt.Errorf("no response from Groq")
+	}
+
+	content := chatResp.Choices[0].Message.Content
+
+	var result ai.CategoryAIResponse
+	if err := json.Unmarshal([]byte(content), &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
 
 func min(a, b int) int {
 	if a < b {
