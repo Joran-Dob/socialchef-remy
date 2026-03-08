@@ -5,8 +5,8 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	"log"
 	"log/slog"
-	"time"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -19,9 +19,9 @@ import (
 	"github.com/socialchef/remy/internal/logger"
 	"github.com/socialchef/remy/internal/metrics"
 	"github.com/socialchef/remy/internal/middleware"
+	"github.com/socialchef/remy/internal/sentry"
 	"github.com/socialchef/remy/internal/services/openai"
 	"github.com/socialchef/remy/internal/services/search"
-	"github.com/socialchef/remy/internal/sentry"
 	"github.com/socialchef/remy/internal/telemetry"
 	"github.com/socialchef/remy/internal/worker"
 	"go.opentelemetry.io/otel"
@@ -127,6 +127,9 @@ func main() {
 		r.Get("/api/recipe-status", apiServer.HandleJobStatus)
 		r.Get("/api/user-import-status", apiServer.HandleUserImportStatus)
 		r.Post("/api/generate-embedding", apiServer.HandleGenerateEmbedding)
+		r.Post("/api/v1/search", apiServer.HandleSearch)
+		r.Post("/api/v1/search/semantic", apiServer.HandleSearchSemantic)
+		r.Post("/api/v1/search/by-name", apiServer.HandleSearchByName)
 	})
 
 	// Start server
