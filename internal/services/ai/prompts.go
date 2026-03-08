@@ -561,7 +561,7 @@ You are a specialized AI assistant for recipe instruction enhancement. Your task
 Return a JSON object with the following structure:
 
 {
-  "rich_instructions": [
+  "instructions": [
     {
       "step_number": 1,
       "instruction_rich": "Enhanced instruction text with {{ingredient:0}} and {{timer:0}} placeholders"
