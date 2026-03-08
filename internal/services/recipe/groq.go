@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/socialchef/remy/internal/httpclient"
 	"github.com/socialchef/remy/internal/metrics"
 	"github.com/socialchef/remy/internal/services/ai"
@@ -255,8 +256,15 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 	recipeForPrompt := ai.RecipeForPrompt{
 		Name: recipe.RecipeName,
 	}
+	// Generate UUIDs for each ingredient to use in placeholders
+	validIngredientUUIDs := make([]string, 0, len(recipe.Ingredients))
 	for _, ing := range recipe.Ingredients {
-		recipeForPrompt.Ingredients = append(recipeForPrompt.Ingredients, ing.Name)
+		ingUUID := uuid.New().String()
+		validIngredientUUIDs = append(validIngredientUUIDs, ingUUID)
+		recipeForPrompt.Ingredients = append(recipeForPrompt.Ingredients, ai.IngredientForPrompt{
+			ID:   ingUUID,
+			Name: ing.Name,
+		})
 	}
 	for _, inst := range recipe.Instructions {
 		var timers []ai.Timer
@@ -363,7 +371,7 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 			return nil, ClassifyError(fmt.Errorf("invalid placeholder format in step %d: %w", inst.StepNumber, err), "groq")
 		}
 		timerCount := timerCountByStep[inst.StepNumber]
-		if err := validation.ValidateRichInstructionBounds(inst.InstructionRich, len(recipe.Ingredients), timerCount); err != nil {
+		if err := validation.ValidateRichInstructionBounds(inst.InstructionRich, validIngredientUUIDs, timerCount); err != nil {
 			return nil, ClassifyError(fmt.Errorf("placeholder out of bounds in step %d: %w", inst.StepNumber, err), "groq")
 		}
 	}

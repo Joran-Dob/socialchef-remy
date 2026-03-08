@@ -160,3 +160,58 @@ func TestBuildFirecrawlPrompt(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildPlaceholderPrompt(t *testing.T) {
+	recipe := RecipeForPrompt{
+		Name: "Chocolate Cake",
+		Ingredients: []IngredientForPrompt{
+			{ID: "550e8400-e29b-41d4-a716-446655440000", Name: "flour"},
+			{ID: "660e8400-e29b-41d4-a716-446655440001", Name: "sugar"},
+			{ID: "770e8400-e29b-41d4-a716-446655440002", Name: "cocoa powder"},
+		},
+		Instructions: []InstructionForPrompt{
+			{
+				StepNumber:  1,
+				Instruction: "Mix dry ingredients.",
+				TimerData: []Timer{
+					{DurationSeconds: 300, Label: "Mix", Type: "prep", Category: "active"},
+				},
+			},
+		},
+	}
+
+	prompt := BuildPlaceholderPrompt(recipe)
+
+	if len(prompt) == 0 {
+		t.Errorf("BuildPlaceholderPrompt() returned empty string")
+	}
+
+	expectedStrings := []string{
+		"<ROLE>",
+		"<CONTEXT>",
+		"Recipe Name: Chocolate Cake",
+		"Ingredients (use these UUIDs for {{ingredient:UUID}} placeholders):",
+		"[550e8400-e29b-41d4-a716-446655440000] flour",
+		"[660e8400-e29b-41d4-a716-446655440001] sugar",
+		"[770e8400-e29b-41d4-a716-446655440002] cocoa powder",
+		"<OUTPUT_FORMAT>",
+		"{{ingredient:550e8400-e29b-41d4-a716-446655440000}}",
+		"{{timer:0}}",
+		"36-character UUID format",
+		"<INSTRUCTIONS>",
+	}
+
+	for _, s := range expectedStrings {
+		if !strings.Contains(prompt, s) {
+			t.Errorf("BuildPlaceholderPrompt() did not contain expected string: %s", s)
+		}
+	}
+
+	if strings.Contains(prompt, "{{ingredient:0}}") {
+		t.Error("BuildPlaceholderPrompt() should not contain numeric ingredient index example")
+	}
+
+	if strings.Contains(prompt, "ingredient index") {
+		t.Error("BuildPlaceholderPrompt() should reference UUIDs, not indices")
+	}
+}

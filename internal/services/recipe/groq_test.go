@@ -21,11 +21,11 @@ func TestGroqGenerateRichInstructions_Success(t *testing.T) {
 		Instructions: []RichInstruction{
 			{
 				StepNumber:      1,
-				InstructionRich: "Add {{ingredient:0}} to the bowl and mix for {{timer:0}}.",
+				InstructionRich: "Add {{ingredient:550e8400-e29b-41d4-a716-446655440000}} to the bowl and mix for {{timer:0}}.",
 			},
 			{
 				StepNumber:      2,
-				InstructionRich: "Bake with {{ingredient:1}} at 180°C.",
+				InstructionRich: "Bake with {{ingredient:660e8400-e29b-41d4-a716-446655440001}} at 180°C.",
 			},
 		},
 	}
@@ -90,7 +90,7 @@ func TestGroqGenerateRichInstructions_Success(t *testing.T) {
 
 func TestGroqGenerateRichInstructions_ValidationError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		respContent := `{"instructions":[{"step_number":1,"instruction_rich":"Add {{ingredient:99}}"}]}`
+		respContent := `{"instructions":[{"step_number":1,"instruction_rich":"Add {{ingredient:999e8400-e29b-41d4-a716-446655440099}}"}]}`
 		chatResp := map[string]interface{}{
 			"choices": []map[string]interface{}{
 				{
@@ -271,7 +271,7 @@ func TestGroqGenerateRichInstructions_ValidPlaceholderValidation(t *testing.T) {
 		Instructions: []RichInstruction{
 			{
 				StepNumber:      1,
-				InstructionRich: "Mix {{ingredient:0}} with {{ingredient:1}} for {{timer:0}}.",
+				InstructionRich: "Mix {{ingredient:550e8400-e29b-41d4-a716-446655440000}} with {{ingredient:660e8400-e29b-41d4-a716-446655440001}} for {{timer:0}}.",
 			},
 		},
 	}

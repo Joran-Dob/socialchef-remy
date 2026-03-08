@@ -511,10 +511,16 @@ type Timer struct {
 	Category        string `json:"category"`
 }
 
+// IngredientForPrompt holds ingredient data with UUID for placeholder generation
+type IngredientForPrompt struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // RecipeForPrompt holds recipe data needed for placeholder prompt generation
 type RecipeForPrompt struct {
 	Name         string
-	Ingredients  []string
+	Ingredients  []IngredientForPrompt
 	Instructions []InstructionForPrompt
 }
 
@@ -538,9 +544,9 @@ You are a specialized AI assistant for recipe instruction enhancement. Your task
 	sb.WriteString("<CONTEXT>\n")
 	sb.WriteString(fmt.Sprintf("Recipe Name: %s\n\n", recipe.Name))
 
-	sb.WriteString("Ingredients (use these indices for {{ingredient:N}} placeholders):\n")
-	for i, ing := range recipe.Ingredients {
-		sb.WriteString(fmt.Sprintf("  [%d] %s\n", i, ing))
+	sb.WriteString("Ingredients (use these UUIDs for {{ingredient:UUID}} placeholders):\n")
+	for _, ing := range recipe.Ingredients {
+		sb.WriteString(fmt.Sprintf("  [%s] %s\n", ing.ID, ing.Name))
 	}
 	sb.WriteString("\n")
 
@@ -564,13 +570,13 @@ Return a JSON object with the following structure:
   "instructions": [
     {
       "step_number": 1,
-      "instruction_rich": "Enhanced instruction text with {{ingredient:0}} and {{timer:0}} placeholders"
+      "instruction_rich": "Enhanced instruction text with {{ingredient:550e8400-e29b-41d4-a716-446655440000}} and {{timer:0}} placeholders"
     }
   ]
 }
 
 The instruction_rich field should contain the original instruction text enhanced with:
-- {{ingredient:N}} placeholders where N is the ingredient index
+- {{ingredient:UUID}} placeholders where UUID is the ingredient's unique identifier (36-character UUID format)
 - {{timer:N}} placeholders where N is the timer index within that instruction
 </OUTPUT_FORMAT>
 
@@ -578,15 +584,15 @@ The instruction_rich field should contain the original instruction text enhanced
 
 	sb.WriteString(`<INSTRUCTIONS>
 1. PLACEHOLDER RULES:
-   - Insert {{ingredient:N}} placeholders where ingredients are mentioned (N = ingredient index)
+   - Insert {{ingredient:UUID}} placeholders where ingredients are mentioned (UUID = ingredient's unique identifier)
    - Insert {{timer:N}} placeholders where timing is mentioned (N = timer index within that instruction)
    - Preserve the original instruction text and language
    - Placeholders should replace or augment the text they reference
 
 2. INGREDIENT PLACEHOLDERS:
-   - Use the ingredient index from the ingredient list above
-   - Example: If ingredient[0] is "chicken breast", replace "chicken breast" with "{{ingredient:0}}"
-   - Only use valid indices that exist in the ingredient list
+   - Use the ingredient UUID from the ingredient list above (36-character UUID format like 550e8400-e29b-41d4-a716-446655440000)
+   - Example: If ingredient with UUID "550e8400-e29b-41d4-a716-446655440000" is "chicken breast", replace "chicken breast" with "{{ingredient:550e8400-e29b-41d4-a716-446655440000}}"
+   - Only use valid UUIDs that exist in the ingredient list
 
 3. TIMER PLACEHOLDERS:
    - Use the timer index from the timer_data for each instruction
