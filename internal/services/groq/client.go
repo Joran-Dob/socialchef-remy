@@ -90,7 +90,11 @@ func (c *Client) GenerateCategories(ctx context.Context, prompt string) (*ai.Cat
 	req.Messages = append(req.Messages, struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
-	}{Role: "user", Content: prompt})
+	}{Role: "system", Content: prompt})
+	req.Messages = append(req.Messages, struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}{Role: "user", Content: "Categorize this recipe according to the instructions."})
 
 	body, _ := json.Marshal(req)
 	httpReq, err := http.NewRequestWithContext(httpclient.WithProvider(ctx, "Groq"), "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewReader(body))
