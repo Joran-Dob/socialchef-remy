@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -136,10 +137,18 @@ func (c *Client) GenerateCategories(ctx context.Context, prompt string) (*ai.Cat
 
 	content := chatResp.Choices[0].Message.Content
 
+	slog.Debug("AI category response received", "content", content)
+
 	var result ai.CategoryAIResponse
 	if err := json.Unmarshal([]byte(content), &result); err != nil {
+		slog.Error("failed to unmarshal category response", "error", err, "content", content)
 		return nil, err
 	}
+
+	slog.Debug("category result parsed",
+		"cuisine_count", len(result.CuisineCategories),
+		"meal_type_count", len(result.MealTypes),
+		"occasion_count", len(result.Occasions))
 
 	return &result, nil
 }
