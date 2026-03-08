@@ -18,6 +18,7 @@ import (
 	"github.com/pgvector/pgvector-go"
 	"github.com/socialchef/remy/internal/db/generated"
 	"github.com/socialchef/remy/internal/errors"
+	"github.com/socialchef/remy/internal/services/ai"
 	"github.com/socialchef/remy/internal/services/groq"
 	"github.com/socialchef/remy/internal/services/scraper"
 	"github.com/socialchef/remy/internal/services/storage"
@@ -54,6 +55,11 @@ type DBQueries interface {
 	AddRecipeDietaryRestriction(ctx context.Context, arg generated.AddRecipeDietaryRestrictionParams) error
 	GetOrCreateEquipment(ctx context.Context, name string) (pgtype.UUID, error)
 	AddRecipeEquipment(ctx context.Context, arg generated.AddRecipeEquipmentParams) error
+	GetCuisineCategoriesByUser(ctx context.Context, userID pgtype.UUID) ([]string, error)
+	GetMealTypesByUser(ctx context.Context, userID pgtype.UUID) ([]string, error)
+	GetOccasionsByUser(ctx context.Context, userID pgtype.UUID) ([]string, error)
+	GetDietaryRestrictionsByUser(ctx context.Context, userID pgtype.UUID) ([]string, error)
+	GetEquipmentByUser(ctx context.Context, userID pgtype.UUID) ([]string, error)
 }
 
 type InstagramScraper interface {
@@ -67,7 +73,6 @@ type FirecrawlScraper interface {
 	Scrape(ctx context.Context, postURL string) (*scraper.FirecrawlPost, error)
 }
 
-
 type OpenAIClient interface {
 	GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
 }
@@ -78,6 +83,7 @@ type TranscriptionClient interface {
 
 type GroqClient interface {
 	GenerateRecipe(ctx context.Context, caption, transcript, platform string) (*groq.Recipe, error)
+	GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error)
 }
 
 type StorageClient interface {
@@ -90,10 +96,10 @@ type ProgressBroadcasterInterface interface {
 }
 
 type RecipeProcessor struct {
-	db            DBQueries
-	instagram     InstagramScraper
-	tiktok        TikTokScraper
-	firecrawl     FirecrawlScraper
+	db        DBQueries
+	instagram InstagramScraper
+	tiktok    TikTokScraper
+	firecrawl FirecrawlScraper
 
 	openai        OpenAIClient
 	transcription TranscriptionClient
@@ -119,10 +125,10 @@ func NewRecipeProcessor(
 	asynqClient *asynq.Client,
 ) *RecipeProcessor {
 	return &RecipeProcessor{
-		db:            db,
-		instagram:     instagram,
-		tiktok:        tiktok,
-		firecrawl:     firecrawl,
+		db:        db,
+		instagram: instagram,
+		tiktok:    tiktok,
+		firecrawl: firecrawl,
 
 		openai:        openaiClient,
 		transcription: transcriptionClient,
@@ -234,9 +240,9 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	// Run transcription and image download in parallel
 	if videoURL != "" || imageURL != "" {
 		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Processing video and image content...")
-		
+
 		funcs := []ParallelFunc{}
-		
+
 		// Add transcription function if videoURL exists
 		if videoURL != "" {
 			funcs = append(funcs, func(ctx context.Context) error {
@@ -248,7 +254,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 				return nil
 			})
 		}
-		
+
 		// Add image download function if imageURL exists
 		if imageURL != "" {
 			funcs = append(funcs, func(ctx context.Context) error {
@@ -260,10 +266,10 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 				return nil
 			})
 		}
-		
+
 		// Execute parallel functions
 		result := RunParallel(ctx, funcs)
-		
+
 		// Check for transcription errors (fail job)
 		for _, err := range result.Errors {
 			// Check if this error is from transcription (videoURL != "" and we have a transcript error)
@@ -273,7 +279,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 				return err
 			}
 		}
-		
+
 		// Image download errors are logged but don't fail the job
 		// (error is already logged by RunParallel)
 	}
@@ -284,6 +290,24 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		status = "failure"
 		p.markFailed(ctx, jobID, userID, fmt.Sprintf("Recipe generation failed: %v", err))
 		return err
+	}
+
+	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Generating categories with AI...")
+
+	categoryService := ai.NewCategoryService(p.db, p.groq)
+	categories, err := categoryService.SuggestCategories(ctx, ai.RecipeInfo{
+		Name:        recipe.RecipeName,
+		Description: recipe.Description,
+		Ingredients: extractIngredientNames(recipe.Ingredients),
+	}, userID)
+	if err == nil {
+		recipe.CuisineCategories = categories.CuisineCategories
+		recipe.MealTypes = categories.MealTypes
+		recipe.Occasions = categories.Occasions
+		recipe.DietaryRestrictions = categories.DietaryRestrictions
+		recipe.Equipment = categories.Equipment
+	} else {
+		slog.Error("Failed to generate categories", "error", err, "recipe_name", recipe.RecipeName)
 	}
 
 	validationConfig := validation.RecipeOutputValidationConfig{
@@ -377,13 +401,13 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	var origin generated.RecipeOrigin
 	if platform == "instagram" {
 		origin = generated.RecipeOriginInstagram
-} else if platform == "tiktok" {
-	origin = generated.RecipeOriginTiktok
-} else {
-	origin = generated.RecipeOriginFirecrawl
-}
+	} else if platform == "tiktok" {
+		origin = generated.RecipeOriginTiktok
+	} else {
+		origin = generated.RecipeOriginFirecrawl
+	}
 
-		savedRecipe, err := p.db.CreateRecipe(ctx, generated.CreateRecipeParams{
+	savedRecipe, err := p.db.CreateRecipe(ctx, generated.CreateRecipeParams{
 		ID:                  recipeUUID,
 		CreatedBy:           userUUID,
 		RecipeName:          recipe.RecipeName,
@@ -477,8 +501,8 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 		_, err := p.db.CreateIngredient(ctx, generated.CreateIngredientParams{
 			RecipeID:         savedRecipe.ID,
-			Quantity:         pgtype.Text{String: perServingQty, Valid: true},      // per-serving for Flutter
-			TotalQuantity:    pgtype.Text{String: totalQty, Valid: true},           // total from AI
+			Quantity:         pgtype.Text{String: perServingQty, Valid: true}, // per-serving for Flutter
+			TotalQuantity:    pgtype.Text{String: totalQty, Valid: true},      // total from AI
 			Unit:             pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
 			OriginalQuantity: pgtype.Text{String: string(ing.OriginalQuantity), Valid: ing.OriginalQuantity != ""},
 			OriginalUnit:     pgtype.Text{String: ing.OriginalUnit, Valid: ing.OriginalUnit != ""},
@@ -526,7 +550,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 	if imageURL != "" && imageData != nil {
 		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Processing recipe image...")
-		
+
 		hash := storage.HashContent(imageData)
 		path := fmt.Sprintf("post_images/%s", hash)
 		_, err := p.storage.UploadImageWithHash(ctx, "recipes", path, imageURL, imageData)
@@ -538,7 +562,7 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 				slog.Error("Failed to get stored image after upload", "error", err)
 			} else {
 				storedImageUUID := parseUUID(existing.ID)
-			
+
 				recipeImage, err := p.db.CreateRecipeImage(ctx, generated.CreateRecipeImageParams{
 					RecipeID:      savedRecipe.ID,
 					StoredImageID: storedImageUUID,
@@ -761,6 +785,14 @@ func pgUUIDToString(u pgtype.UUID) string {
 }
 func ptrVector(v pgvector.Vector) *pgvector.Vector {
 	return &v
+}
+
+func extractIngredientNames(ingredients []groq.Ingredient) []string {
+	names := make([]string, len(ingredients))
+	for i, ing := range ingredients {
+		names[i] = ing.Name
+	}
+	return names
 }
 
 func formatQuantity(q string) string {

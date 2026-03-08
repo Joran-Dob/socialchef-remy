@@ -12,6 +12,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/socialchef/remy/internal/db/generated"
+	"github.com/socialchef/remy/internal/services/ai"
 	"github.com/socialchef/remy/internal/services/groq"
 	"github.com/socialchef/remy/internal/services/scraper"
 	"github.com/socialchef/remy/internal/services/storage"
@@ -165,6 +166,30 @@ func (m *MockDB) AddRecipeEquipment(ctx context.Context, arg generated.AddRecipe
 	return args.Error(0)
 }
 
+func (m *MockDB) GetCuisineCategoriesByUser(ctx context.Context, userID pgtype.UUID) ([]string, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockDB) GetMealTypesByUser(ctx context.Context, userID pgtype.UUID) ([]string, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockDB) GetOccasionsByUser(ctx context.Context, userID pgtype.UUID) ([]string, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockDB) GetDietaryRestrictionsByUser(ctx context.Context, userID pgtype.UUID) ([]string, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockDB) GetEquipmentByUser(ctx context.Context, userID pgtype.UUID) ([]string, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).([]string), args.Error(1)
+}
 
 type MockInstagramScraper struct {
 	mock.Mock
@@ -189,7 +214,6 @@ func (m *MockTikTokScraper) Scrape(ctx context.Context, postURL string) (*scrape
 	}
 	return args.Get(0).(*scraper.TikTokPost), args.Error(1)
 }
-
 
 type MockFirecrawlScraper struct {
 	mock.Mock
@@ -231,6 +255,14 @@ func (m *MockGroqClient) GenerateRecipe(ctx context.Context, caption, transcript
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*groq.Recipe), args.Error(1)
+}
+
+func (m *MockGroqClient) GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error) {
+	args := m.Called(ctx, prompt)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*ai.CategoryAIResponse), args.Error(1)
 }
 
 type MockStorageClient struct {
@@ -288,8 +320,6 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 		mockDB, mockInsta, mockTikTok, nil, mockOpenAI, mockTranscription, mockGroq, mockStorage, mockBroadcaster, nil, nil,
 	)
 
-
-
 	// Expectations
 	mockDB.On("UpdateImportJobStatus", ctx, mock.MatchedBy(func(arg generated.UpdateImportJobStatusParams) bool {
 		return arg.JobID == jobID && arg.Status == "EXECUTING"
@@ -330,6 +360,19 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 	}
 	mockGroq.On("GenerateRecipe", ctx, mock.Anything, "Mix flour and sugar, then add eggs.", "instagram").Return(expectedRecipe, nil)
 
+	mockDB.On("GetCuisineCategoriesByUser", ctx, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetMealTypesByUser", ctx, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetOccasionsByUser", ctx, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetDietaryRestrictionsByUser", ctx, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetEquipmentByUser", ctx, mock.Anything).Return([]string{}, nil)
+	mockGroq.On("GenerateCategories", ctx, mock.Anything).Return(&ai.CategoryAIResponse{
+		CuisineCategories:   []string{"Dessert"},
+		MealTypes:           []string{"Snack"},
+		Occasions:           []string{"Party"},
+		DietaryRestrictions: []string{},
+		Equipment:           []string{"Oven"},
+	}, nil)
+
 	recipeUUID := pgtype.UUID{Valid: true} // Simplified for mock
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
 	mockDB.On("CreateRecipe", ctx, mock.Anything).Return(generated.Recipe{ID: recipeUUID, RecipeName: "Chocolate Cake"}, nil)
@@ -345,7 +388,15 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 
 	mockBroadcaster.On("Broadcast", userID, mock.Anything).Return(nil)
 
-	// Run
+	mockDB.On("GetOrCreateCuisineCategory", ctx, mock.Anything).Return(pgtype.UUID{Valid: true}, nil)
+	mockDB.On("AddRecipeCuisineCategory", ctx, mock.Anything).Return(nil)
+	mockDB.On("GetOrCreateMealType", ctx, mock.Anything).Return(pgtype.UUID{Valid: true}, nil)
+	mockDB.On("AddRecipeMealType", ctx, mock.Anything).Return(nil)
+	mockDB.On("GetOrCreateOccasion", ctx, mock.Anything).Return(pgtype.UUID{Valid: true}, nil)
+	mockDB.On("AddRecipeOccasion", ctx, mock.Anything).Return(nil)
+	mockDB.On("GetOrCreateEquipment", ctx, mock.Anything).Return(pgtype.UUID{Valid: true}, nil)
+	mockDB.On("AddRecipeEquipment", ctx, mock.Anything).Return(nil)
+
 	err := processor.HandleProcessRecipe(ctx, task)
 
 	// Assert
@@ -377,8 +428,6 @@ func TestHandleProcessRecipe_ContentValidationFails(t *testing.T) {
 	processor := NewRecipeProcessor(
 		mockDB, mockInsta, nil, nil, nil, nil, nil, nil, mockBroadcaster, nil, nil,
 	)
-
-
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
 	mockInsta.On("Scrape", ctx, url).Return(&scraper.InstagramPost{
@@ -418,8 +467,6 @@ func TestHandleProcessRecipe_TranscriptionFails(t *testing.T) {
 	processor := NewRecipeProcessor(
 		mockDB, mockInsta, nil, nil, nil, mockTranscription, nil, nil, mockBroadcaster, nil, nil,
 	)
-
-
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
 	mockInsta.On("Scrape", ctx, url).Return(&scraper.InstagramPost{
@@ -463,8 +510,6 @@ func TestHandleProcessRecipe_OutputValidationFails(t *testing.T) {
 		mockDB, mockInsta, nil, nil, nil, nil, mockGroq, nil, mockBroadcaster, nil, nil,
 	)
 
-
-
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
 	mockInsta.On("Scrape", ctx, url).Return(&scraper.InstagramPost{
 		Caption: "Ingredients: Water, Salt. Step 1: Mix. Step 2: Done.",
@@ -480,6 +525,13 @@ func TestHandleProcessRecipe_OutputValidationFails(t *testing.T) {
 			{StepNumber: 1, Instruction: "Placeholder"},
 		},
 	}, nil)
+
+	mockDB.On("GetCuisineCategoriesByUser", ctx, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetMealTypesByUser", ctx, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetOccasionsByUser", ctx, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetDietaryRestrictionsByUser", ctx, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetEquipmentByUser", ctx, mock.Anything).Return([]string{}, nil)
+	mockGroq.On("GenerateCategories", ctx, mock.Anything).Return(&ai.CategoryAIResponse{}, nil)
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
 	mockDB.On("UpdateImportJobStatus", ctx, mock.MatchedBy(func(arg generated.UpdateImportJobStatusParams) bool {

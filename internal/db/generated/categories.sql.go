@@ -91,6 +91,151 @@ func (q *Queries) AddRecipeOccasion(ctx context.Context, arg AddRecipeOccasionPa
 	return err
 }
 
+const getCuisineCategoriesByUser = `-- name: GetCuisineCategoriesByUser :many
+SELECT DISTINCT cc.name 
+FROM cuisine_categories cc
+JOIN recipe_cuisine_categories rcc ON cc.id = rcc.cuisine_category_id
+JOIN recipes r ON rcc.recipe_id = r.id
+WHERE r.created_by = $1
+ORDER BY cc.name
+`
+
+func (q *Queries) GetCuisineCategoriesByUser(ctx context.Context, createdBy pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, getCuisineCategoriesByUser, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDietaryRestrictionsByUser = `-- name: GetDietaryRestrictionsByUser :many
+SELECT DISTINCT dr.name 
+FROM dietary_restrictions dr
+JOIN recipe_dietary_restrictions rdr ON dr.id = rdr.dietary_restriction_id
+JOIN recipes r ON rdr.recipe_id = r.id
+WHERE r.created_by = $1
+ORDER BY dr.name
+`
+
+func (q *Queries) GetDietaryRestrictionsByUser(ctx context.Context, createdBy pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, getDietaryRestrictionsByUser, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getEquipmentByUser = `-- name: GetEquipmentByUser :many
+SELECT DISTINCT e.name 
+FROM equipment e
+JOIN recipe_equipment re ON e.id = re.equipment_id
+JOIN recipes r ON re.recipe_id = r.id
+WHERE r.created_by = $1
+ORDER BY e.name
+`
+
+func (q *Queries) GetEquipmentByUser(ctx context.Context, createdBy pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, getEquipmentByUser, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getMealTypesByUser = `-- name: GetMealTypesByUser :many
+SELECT DISTINCT mt.name 
+FROM meal_types mt
+JOIN recipe_meal_types rmt ON mt.id = rmt.meal_type_id
+JOIN recipes r ON rmt.recipe_id = r.id
+WHERE r.created_by = $1
+ORDER BY mt.name
+`
+
+func (q *Queries) GetMealTypesByUser(ctx context.Context, createdBy pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, getMealTypesByUser, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getOccasionsByUser = `-- name: GetOccasionsByUser :many
+SELECT DISTINCT o.name 
+FROM occasions o
+JOIN recipe_occasions ro ON o.id = ro.occasion_id
+JOIN recipes r ON ro.recipe_id = r.id
+WHERE r.created_by = $1
+ORDER BY o.name
+`
+
+func (q *Queries) GetOccasionsByUser(ctx context.Context, createdBy pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, getOccasionsByUser, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getOrCreateCuisineCategory = `-- name: GetOrCreateCuisineCategory :one
 INSERT INTO cuisine_categories (name) VALUES ($1)
 ON CONFLICT (name) DO UPDATE SET name = $1

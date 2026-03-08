@@ -52,3 +52,43 @@ RETURNING id;
 INSERT INTO recipe_equipment (recipe_id, equipment_id)
 VALUES ($1, $2)
 ON CONFLICT DO NOTHING;
+
+-- name: GetCuisineCategoriesByUser :many
+SELECT DISTINCT cc.name 
+FROM cuisine_categories cc
+JOIN recipe_cuisine_categories rcc ON cc.id = rcc.cuisine_category_id
+JOIN recipes r ON rcc.recipe_id = r.id
+WHERE r.created_by = $1
+ORDER BY cc.name;
+
+-- name: GetMealTypesByUser :many
+SELECT DISTINCT mt.name 
+FROM meal_types mt
+JOIN recipe_meal_types rmt ON mt.id = rmt.meal_type_id
+JOIN recipes r ON rmt.recipe_id = r.id
+WHERE r.created_by = $1
+ORDER BY mt.name;
+
+-- name: GetOccasionsByUser :many
+SELECT DISTINCT o.name 
+FROM occasions o
+JOIN recipe_occasions ro ON o.id = ro.occasion_id
+JOIN recipes r ON ro.recipe_id = r.id
+WHERE r.created_by = $1
+ORDER BY o.name;
+
+-- name: GetDietaryRestrictionsByUser :many
+SELECT DISTINCT dr.name 
+FROM dietary_restrictions dr
+JOIN recipe_dietary_restrictions rdr ON dr.id = rdr.dietary_restriction_id
+JOIN recipes r ON rdr.recipe_id = r.id
+WHERE r.created_by = $1
+ORDER BY dr.name;
+
+-- name: GetEquipmentByUser :many
+SELECT DISTINCT e.name 
+FROM equipment e
+JOIN recipe_equipment re ON e.id = re.equipment_id
+JOIN recipes r ON re.recipe_id = r.id
+WHERE r.created_by = $1
+ORDER BY e.name;

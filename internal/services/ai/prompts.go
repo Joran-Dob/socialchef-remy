@@ -23,21 +23,14 @@ When presented with a recipe description, extract the following information into
    - Focused diet
    - Estimated calories
 
-2. Categories and Equipment:
-   - Cuisine categories
-   - Meal types
-   - Occasions
-   - Dietary restrictions
-   - Equipment needed
-
-3. Ingredients List:
+2. Ingredients List:
    - Original quantity (as stated in the recipe)
    - Original unit of measurement
    - Total quantity for all servings
    - Unit of measurement for adjusted quantity
    - Ingredient name
 
-4. Instructions List:
+3. Instructions List:
    - Step-by-step cooking instructions
    - Each step should be clear, detailed, and actionable
    - Include helpful details such as:
@@ -50,7 +43,7 @@ When presented with a recipe description, extract the following information into
      * Common mistakes to avoid
      * Tips for best results
 
-5. Nutritional Information:
+4. Nutritional Information:
    - Protein (grams)
    - Carbohydrates (grams)
    - Fat (grams)
@@ -77,11 +70,8 @@ If any information is not explicitly stated, use your best judgment to infer it:
 - For difficulty rating:
   * Consider the complexity of techniques, number of ingredients, and time required
   * Rate difficulty from 1 (very easy) to 5 (very challenging)
-- For dietary restrictions, carefully analyze the ingredients list
 - For the focused diet, determine if the recipe strongly aligns with a specific diet plan
-- For meal types and occasions, infer from the recipe context and typical use of similar dishes
 - Estimate the calorie count and nutritional information based on the ingredients for 1 serving
-- For equipment, list all necessary tools mentioned or implied by the cooking methods
 </INFERENCE>`
 
 const outputFormatSection = `<OUTPUT_FORMAT>
@@ -128,48 +118,9 @@ Always format your response as a JSON object with the following structure:
     "fat": null,
     "fiber": null
   },
-  "cuisine_categories": [],
-  "meal_types": [],
-  "occasions": [],
-  "dietary_restrictions": [],
-  "equipment": [],
   "language": ""
 }
 </OUTPUT_FORMAT>`
-
-const referenceListsSection = `<REFERENCE_LISTS>
-<CUISINE_CATEGORIES>
-When identifying cuisine categories, refer to this non-exhaustive list:
-Italian, Greek, French, Spanish, Mexican, Thai, Chinese, Japanese, Indian, Middle Eastern, American, British, German, Korean, Vietnamese, Brazilian, Caribbean, Mediterranean, African, Russian
-</CUISINE_CATEGORIES>
-
-<DIETARY_RESTRICTIONS>
-For dietary restrictions, consider these categories and their criteria based on ingredients:
-- Vegetarian: No meat, fish, or poultry ingredients
-- Vegan: No animal product ingredients (including eggs, dairy, honey)
-- Gluten-free: No wheat, barley, rye, or other gluten-containing grain ingredients
-- Dairy-free: No milk, cheese, butter, or other dairy product ingredients
-- Keto: Very low-carb ingredients, high-fat ingredients (e.g., meats, oils, low-carb vegetables)
-- Paleo: No grain, legume, dairy, or processed food ingredients
-- Low-carb: Limited high-carb ingredient content (e.g., minimal grains, sugars, starchy vegetables)
-- Low-fat: Limited high-fat ingredient content (e.g., minimal oils, fatty meats, full-fat dairy)
-</DIETARY_RESTRICTIONS>
-
-<FOCUSED_DIETS>
-For the focused diet field, consider these options if the recipe strongly aligns with one:
-Keto, Paleo, Mediterranean, Whole30, DASH, Vegetarian, Vegan, Low-carb, Low-fat
-</FOCUSED_DIETS>
-
-<MEAL_TYPES>
-Consider these common meal types:
-Breakfast, Brunch, Lunch, Dinner, Snack, Dessert, Appetizer, Side dish
-</MEAL_TYPES>
-
-<OCCASIONS>
-Consider these common occasions:
-Weeknight, Weekend, Holiday, Party, Picnic, Potluck, Special occasion, Quick and easy
-</OCCASIONS>
-</REFERENCE_LISTS>`
 
 const criticalMetricRequirementSection = `<CRITICAL_METRIC_REQUIREMENT>
 ALL adjusted ingredient measurements MUST be in METRIC units. This is mandatory.
@@ -267,17 +218,12 @@ CRITICAL: You MUST preserve the original language of the recipe content througho
    - If the content contains multiple languages, use the dominant language of the recipe instructions
    - If the post description is in one language but the video transcript is in another, prioritize the language used for the actual recipe instructions and ingredients
 
-2. Language Preservation Rules:
-   - recipe_name: GENERATE a descriptive title based on what the recipe makes, IN THE ORIGINAL LANGUAGE (do NOT copy the source title verbatim, do NOT translate)
-   - description: MUST be in the original language (do NOT translate)
-   - ingredients[].name: MUST be in the original language (do NOT translate)
-   - instructions[].instruction: MUST be in the original language (do NOT translate)
-   - cuisine_categories: MAY be in English as these are standard categories
-   - meal_types: MAY be in English as these are standard categories
-   - occasions: MAY be in English as these are standard categories
-   - dietary_restrictions: MAY be in English as these are standard categories
-   - equipment: MAY be in English as these are standard equipment names
-   - language: MUST contain the ISO 639-1 language code of the detected language (e.g., "en", "es", "fr", "de", "it", "pt", "ja", "zh", "ko", "ar", "hi", etc.)
+ 2. Language Preservation Rules:
+    - recipe_name: GENERATE a descriptive title based on what the recipe makes, IN THE ORIGINAL LANGUAGE (do NOT copy the source title verbatim, do NOT translate)
+    - description: MUST be in the original language (do NOT translate)
+    - ingredients[].name: MUST be in the original language (do NOT translate)
+    - instructions[].instruction: MUST be in the original language (do NOT translate)
+    - language: MUST contain the ISO 639-1 language code of the detected language (e.g., "en", "es", "fr", "de", "it", "pt", "ja", "zh", "ko", "ar", "hi", etc.)
 
 3. Recipe Title Generation:
    - Create a clear, descriptive title that reflects what the dish is
@@ -300,7 +246,6 @@ CRITICAL: You MUST preserve the original language of the recipe content througho
    - Do NOT convert measurements to different number systems (keep Arabic numerals, etc.)
 </LANGUAGE_HANDLING>`
 
-
 const instructionsSection = `<INSTRUCTIONS>
 The user will provide the recipe content in the following format:
 1. First: The post description (caption/text from the social media post)
@@ -313,19 +258,17 @@ Your task is to parse both the post description and video transcript to extract 
 4. The "quantity" and "unit" fields MUST use metric units (g, ml, etc.) - NEVER cups, tbsp, oz, etc.
 5. Each instruction in the instructions array has a step number and instruction text
 6. The nutrition object contains protein, carbs, fat, and fiber values in grams
-7. All time fields (prep_time, cooking_time, total_time) are in minutes
-8. The difficulty_rating is a number from 1 to 5
-9. Categories (cuisine, meal types, occasions) are inferred based on the recipe context
-10. Equipment includes all necessary tools for preparing the recipe
-11. All temperatures in instructions should be in Celsius (°C)
-12. Each instruction in the instructions array should:
-    - Have a clear step number and detailed instruction text
-    - Include visual cues and timing indicators where relevant
-    - Explain complex techniques when needed
-    - Provide safety warnings when appropriate
-    - Include helpful tips for best results
-    - Be detailed enough for a beginner to follow
-13. Extract cooking timers from each instruction and include them in the timer_data array:
+ 7. All time fields (prep_time, cooking_time, total_time) are in minutes
+  8. The difficulty_rating is a number from 1 to 5
+ 9. All temperatures in instructions should be in Celsius (°C)
+   10. Each instruction in the instructions array should:
+     - Have a clear step number and detailed instruction text
+     - Include visual cues and timing indicators where relevant
+     - Explain complex techniques when needed
+     - Provide safety warnings when appropriate
+     - Include helpful tips for best results
+     - Be detailed enough for a beginner to follow
+  11. Extract cooking timers from each instruction and include them in the timer_data array:
     - Look for time mentions like "simmer for 10 minutes", "bake for 30 minutes", "rest for 5 minutes"
     - Create a timer object for each time-based instruction with these fields:
       * duration_seconds: The duration in seconds (e.g., 10 minutes = 600, 1 hour = 3600)
@@ -394,8 +337,6 @@ func BuildRecipePrompt(platform string) string {
 	sb.WriteString("\n\n")
 	sb.WriteString(outputFormatSection)
 	sb.WriteString("\n\n")
-	sb.WriteString(referenceListsSection)
-	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf(ingredientAnalysisSection, criticalMetricRequirementSection))
 	sb.WriteString("\n\n")
 	sb.WriteString(languageHandlingSection)
@@ -432,8 +373,6 @@ This recipe comes from a website. Keep in mind:
 	sb.WriteString("\n\n")
 	sb.WriteString(outputFormatSection)
 	sb.WriteString("\n\n")
-	sb.WriteString(referenceListsSection)
-	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf(ingredientAnalysisSection, criticalMetricRequirementSection))
 	sb.WriteString("\n\n")
 	sb.WriteString(languageHandlingSection)
@@ -443,4 +382,120 @@ This recipe comes from a website. Keep in mind:
 	sb.WriteString(taskClose)
 
 	return sb.String()
+}
+
+// CategorySet holds existing user categories grouped by type
+type CategorySet struct {
+	CuisineCategories   []string
+	MealTypes           []string
+	Occasions           []string
+	DietaryRestrictions []string
+	Equipment           []string
+}
+
+// RecipeInfo holds minimal recipe information needed for category matching
+type RecipeInfo struct {
+	Name        string
+	Description string
+	Ingredients []string
+}
+
+// BuildCategoryPrompt builds a prompt for category matching AI
+func BuildCategoryPrompt(recipe RecipeInfo, existing CategorySet) string {
+	var sb strings.Builder
+
+	sb.WriteString(`<ROLE>
+You are a specialized AI assistant for recipe categorization. Your task is to analyze a recipe and match it to existing user categories or suggest new ones when appropriate. You should make thoughtful, accurate matches based on recipe content and context.
+</ROLE>
+
+`)
+
+	sb.WriteString("<RECIPE_CONTEXT>\n")
+	sb.WriteString(fmt.Sprintf("Recipe Name: %s\n", recipe.Name))
+	if recipe.Description != "" {
+		sb.WriteString(fmt.Sprintf("Description: %s\n", recipe.Description))
+	}
+	if len(recipe.Ingredients) > 0 {
+		sb.WriteString("Ingredients:\n")
+		for _, ing := range recipe.Ingredients {
+			sb.WriteString(fmt.Sprintf("- %s\n", ing))
+		}
+	}
+	sb.WriteString("</RECIPE_CONTEXT>\n\n")
+
+	sb.WriteString("<EXISTING_CATEGORIES>\n")
+	writeCategorySection(&sb, "Cuisine Categories", existing.CuisineCategories)
+	writeCategorySection(&sb, "Meal Types", existing.MealTypes)
+	writeCategorySection(&sb, "Occasions", existing.Occasions)
+	writeCategorySection(&sb, "Dietary Restrictions", existing.DietaryRestrictions)
+	writeCategorySection(&sb, "Equipment", existing.Equipment)
+	sb.WriteString("</EXISTING_CATEGORIES>\n\n")
+
+	sb.WriteString(`<INSTRUCTIONS>
+1. MATCHING LOGIC:
+   - Analyze the recipe context (name, description, ingredients) carefully
+   - Match the recipe to existing categories when there's a clear fit
+   - A match is appropriate when the category meaningfully describes the recipe
+   - Recipes can have MULTIPLE categories per type (e.g., both "Italian" and "Mediterranean")
+   - If no existing category fits well (similarity < 0.7 concept), leave the array empty for that type
+
+2. THRESHOLD GUIDANCE:
+   - Use existing categories liberally when they apply
+   - Only suggest NEW categories if no existing category captures the essence
+   - For cuisine: consider ingredient origins, cooking techniques, and flavor profiles
+   - For meal types: consider when the dish is typically eaten
+   - For occasions: consider when the dish would be served
+   - For dietary restrictions: only include if the recipe clearly fits
+   - For equipment: list all necessary tools for preparation
+
+3. NEW CATEGORY SUGGESTIONS:
+   - Only suggest new categories in "new_category_suggestions" when truly needed
+   - New suggestions should be concise, descriptive, and user-friendly
+   - Avoid duplicating existing categories (case-insensitive comparison)
+</INSTRUCTIONS>
+
+`)
+
+	sb.WriteString(`<OUTPUT_FORMAT>
+Return ONLY a JSON object with the following structure (no additional text):
+
+{
+  "cuisine_categories": ["ExistingCategory1", "ExistingCategory2"],
+  "meal_types": ["ExistingMealType"],
+  "occasions": ["ExistingOccasion"],
+  "dietary_restrictions": ["ExistingRestriction"],
+  "equipment": ["ExistingEquipment1", "ExistingEquipment2"],
+  "new_category_suggestions": {
+    "cuisine_categories": [],
+    "meal_types": [],
+    "occasions": [],
+    "dietary_restrictions": [],
+    "equipment": []
+  }
+}
+
+Guidelines:
+- Use strings from existing categories where possible
+- Arrays can be empty if no match exists
+- New suggestions only when existing categories don't fit
+- Equipment should include all tools needed
+</OUTPUT_FORMAT>`)
+
+	return sb.String()
+}
+
+// writeCategorySection writes a category section to the string builder
+func writeCategorySection(sb *strings.Builder, title string, categories []string) {
+	sb.WriteString(fmt.Sprintf("%s: ", title))
+	if len(categories) == 0 {
+		sb.WriteString("None yet")
+	} else {
+		for i, cat := range categories {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("\"%s\"", cat))
+		}
+	}
+	sb.WriteString("\n")
 }
