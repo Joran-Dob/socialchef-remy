@@ -314,16 +314,20 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Processing instruction structure...")
 
+	slog.Debug("About to call GenerateRichInstructions", "recipe_name", recipe.RecipeName, "groq_client_type", fmt.Sprintf("%T", p.groq))
 	richResp, err := p.groq.GenerateRichInstructions(ctx, recipe)
 	if err != nil {
 		slog.Warn("Failed to generate rich instructions, continuing without them", "error", err, "recipe_name", recipe.RecipeName)
 	} else if richResp != nil {
+		slog.Info("Rich instructions generated successfully", "recipe_name", recipe.RecipeName, "steps", len(richResp.Instructions))
 		for i, inst := range richResp.Instructions {
 			if i < len(recipe.Instructions) {
 				recipe.Instructions[i].InstructionRich = inst.InstructionRich
 				recipe.Instructions[i].InstructionRichVersion = richResp.PromptVersion
 			}
 		}
+	} else {
+		slog.Debug("GenerateRichInstructions returned nil response", "recipe_name", recipe.RecipeName)
 	}
 
 	validationConfig := validation.RecipeOutputValidationConfig{
