@@ -92,3 +92,20 @@ func (q *Queries) GetInstructionsByRecipe(ctx context.Context, recipeID pgtype.U
 	}
 	return items, nil
 }
+
+const updateInstructionRich = `-- name: UpdateInstructionRich :exec
+UPDATE recipe_instructions
+SET instruction_rich = $1, instruction_rich_version = $2
+WHERE id = $3
+`
+
+type UpdateInstructionRichParams struct {
+	InstructionRich        pgtype.Text
+	InstructionRichVersion pgtype.Int4
+	ID                     pgtype.UUID
+}
+
+func (q *Queries) UpdateInstructionRich(ctx context.Context, arg UpdateInstructionRichParams) error {
+	_, err := q.db.Exec(ctx, updateInstructionRich, arg.InstructionRich, arg.InstructionRichVersion, arg.ID)
+	return err
+}

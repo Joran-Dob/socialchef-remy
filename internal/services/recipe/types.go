@@ -52,6 +52,7 @@ func (s *StringOrNumber) UnmarshalJSON(data []byte) error {
 
 // Ingredient represents a recipe ingredient
 type Ingredient struct {
+	ID               string         `json:"id,omitempty"` // NEW: Real database ID
 	OriginalQuantity StringOrNumber `json:"original_quantity"`
 	OriginalUnit     string         `json:"original_unit"`
 	TotalQuantity    StringOrNumber `json:"total_quantity"`

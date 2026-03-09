@@ -72,6 +72,11 @@ func (m *MockDB) CreateInstruction(ctx context.Context, arg generated.CreateInst
 	return args.Get(0).(generated.RecipeInstruction), args.Error(1)
 }
 
+func (m *MockDB) UpdateInstructionRich(ctx context.Context, arg generated.UpdateInstructionRichParams) error {
+	args := m.Called(ctx, arg)
+	return args.Error(0)
+}
+
 func (m *MockDB) CreateNutrition(ctx context.Context, arg generated.CreateNutritionParams) (generated.RecipeNutrition, error) {
 	args := m.Called(ctx, arg)
 	return args.Get(0).(generated.RecipeNutrition), args.Error(1)
@@ -393,9 +398,10 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 	recipeUUID := pgtype.UUID{Valid: true} // Simplified for mock
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
 	mockDB.On("CreateRecipe", ctx, mock.Anything).Return(generated.Recipe{ID: recipeUUID, RecipeName: "Chocolate Cake"}, nil)
-	mockDB.On("CreateIngredient", ctx, mock.Anything).Return(generated.RecipeIngredient{}, nil)
-	mockDB.On("CreateInstruction", ctx, mock.Anything).Return(generated.RecipeInstruction{}, nil)
+	mockDB.On("CreateIngredient", ctx, mock.Anything).Return(generated.RecipeIngredient{ID: pgtype.UUID{Valid: true}}, nil)
+	mockDB.On("CreateInstruction", ctx, mock.Anything).Return(generated.RecipeInstruction{ID: pgtype.UUID{Valid: true}}, nil)
 	mockDB.On("CreateNutrition", ctx, mock.Anything).Return(generated.RecipeNutrition{}, nil)
+	mockDB.On("UpdateInstructionRich", ctx, mock.Anything).Return(nil)
 
 	// Mock Image Processing
 	mockStorage.On("UploadImageWithHash", ctx, "recipes", mock.Anything, ts.URL, mock.Anything).Return("https://public.com/image.jpg", nil)

@@ -256,13 +256,15 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 	recipeForPrompt := ai.RecipeForPrompt{
 		Name: recipe.RecipeName,
 	}
-	// Generate UUIDs for each ingredient to use in placeholders
 	validIngredientUUIDs := make([]string, 0, len(recipe.Ingredients))
 	for _, ing := range recipe.Ingredients {
-		ingUUID := uuid.New().String()
-		validIngredientUUIDs = append(validIngredientUUIDs, ingUUID)
+		ingID := ing.ID
+		if ingID == "" {
+			ingID = uuid.New().String()
+		}
+		validIngredientUUIDs = append(validIngredientUUIDs, ingID)
 		recipeForPrompt.Ingredients = append(recipeForPrompt.Ingredients, ai.IngredientForPrompt{
-			ID:   ingUUID,
+			ID:   ingID,
 			Name: ing.Name,
 		})
 	}

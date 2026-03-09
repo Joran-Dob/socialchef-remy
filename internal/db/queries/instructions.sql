@@ -10,3 +10,8 @@ INSERT INTO recipe_instructions (
 
 -- name: DeleteInstructionsByRecipe :exec
 DELETE FROM recipe_instructions WHERE recipe_id = $1;
+
+-- name: UpdateInstructionRich :exec
+UPDATE recipe_instructions
+SET instruction_rich = $1, instruction_rich_version = $2
+WHERE id = $3;

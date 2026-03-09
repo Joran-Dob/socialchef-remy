@@ -36,6 +36,7 @@ type DBQueries interface {
 	UpdateRecipe(ctx context.Context, arg generated.UpdateRecipeParams) (generated.Recipe, error)
 	CreateIngredient(ctx context.Context, arg generated.CreateIngredientParams) (generated.RecipeIngredient, error)
 	CreateInstruction(ctx context.Context, arg generated.CreateInstructionParams) (generated.RecipeInstruction, error)
+	UpdateInstructionRich(ctx context.Context, arg generated.UpdateInstructionRichParams) error
 	CreateNutrition(ctx context.Context, arg generated.CreateNutritionParams) (generated.RecipeNutrition, error)
 	GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipeIngredient, error)
 	DeleteOldImportJobs(ctx context.Context) error
@@ -312,20 +313,6 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		slog.Error("Failed to generate categories", "error", err, "recipe_name", recipe.RecipeName)
 	}
 
-	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Processing instruction structure...")
-
-	richResp, err := p.groq.GenerateRichInstructions(ctx, recipe)
-	if err != nil {
-		slog.Warn("Failed to generate rich instructions, continuing without them", "error", err, "recipe_name", recipe.RecipeName)
-	} else if richResp != nil {
-		for i, inst := range richResp.Instructions {
-			if i < len(recipe.Instructions) {
-				recipe.Instructions[i].InstructionRich = inst.InstructionRich
-				recipe.Instructions[i].InstructionRichVersion = richResp.PromptVersion
-			}
-		}
-	}
-
 	validationConfig := validation.RecipeOutputValidationConfig{
 		MinIngredients:      2,
 		MinInstructions:     2,
@@ -498,27 +485,26 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		}
 	}
 
-	for _, ing := range recipe.Ingredients {
-		// AI now returns total quantities
+	savedIngredientIDs := make([]string, len(recipe.Ingredients))
+	for i, ing := range recipe.Ingredients {
 		totalQty := string(ing.Quantity)
 
-		// Calculate per-serving quantity
 		var perServingQty string
 		if recipe.OriginalServings != nil && *recipe.OriginalServings > 0 {
 			if totalNum, err := strconv.ParseFloat(totalQty, 64); err == nil {
 				perServingNum := totalNum / float64(*recipe.OriginalServings)
 				perServingQty = strconv.FormatFloat(perServingNum, 'f', -1, 64)
 			} else {
-				perServingQty = totalQty // fallback if parsing fails
+				perServingQty = totalQty
 			}
 		} else {
-			perServingQty = totalQty // fallback if no serving size
+			perServingQty = totalQty
 		}
 
-		_, err := p.db.CreateIngredient(ctx, generated.CreateIngredientParams{
+		savedIng, err := p.db.CreateIngredient(ctx, generated.CreateIngredientParams{
 			RecipeID:         savedRecipe.ID,
-			Quantity:         pgtype.Text{String: perServingQty, Valid: true}, // per-serving for Flutter
-			TotalQuantity:    pgtype.Text{String: totalQty, Valid: true},      // total from AI
+			Quantity:         pgtype.Text{String: perServingQty, Valid: true},
+			TotalQuantity:    pgtype.Text{String: totalQty, Valid: true},
 			Unit:             pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
 			OriginalQuantity: pgtype.Text{String: string(ing.OriginalQuantity), Valid: ing.OriginalQuantity != ""},
 			OriginalUnit:     pgtype.Text{String: ing.OriginalUnit, Valid: ing.OriginalUnit != ""},
@@ -526,11 +512,13 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		})
 		if err != nil {
 			slog.Error("Failed to save ingredient", "error", err)
+			continue
 		}
+		savedIngredientIDs[i] = pgUUIDToString(savedIng.ID)
 	}
 
+	savedInstructions := make([]generated.RecipeInstruction, len(recipe.Instructions))
 	for i, inst := range recipe.Instructions {
-		// Convert timer data to JSONB
 		var timerData []byte
 		if len(inst.TimerData) > 0 {
 			var err error
@@ -540,16 +528,44 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 			}
 		}
 
-		_, err := p.db.CreateInstruction(ctx, generated.CreateInstructionParams{
+		savedInst, err := p.db.CreateInstruction(ctx, generated.CreateInstructionParams{
 			RecipeID:               savedRecipe.ID,
 			StepNumber:             int32(i + 1),
 			Instruction:            inst.Instruction,
 			TimerData:              timerData,
-			InstructionRich:        pgtype.Text{String: inst.InstructionRich, Valid: inst.InstructionRich != ""},
-			InstructionRichVersion: pgtype.Int4{Int32: int32(inst.InstructionRichVersion), Valid: inst.InstructionRichVersion > 0},
+			InstructionRich:        pgtype.Text{},
+			InstructionRichVersion: pgtype.Int4{},
 		})
 		if err != nil {
 			slog.Error("Failed to save instruction", "error", err)
+			continue
+		}
+		savedInstructions[i] = savedInst
+	}
+
+	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Generating rich instruction formatting...")
+
+	for i := range recipe.Ingredients {
+		if i < len(savedIngredientIDs) && savedIngredientIDs[i] != "" {
+			recipe.Ingredients[i].ID = savedIngredientIDs[i]
+		}
+	}
+
+	richResp, err := p.groq.GenerateRichInstructions(ctx, recipe)
+	if err != nil {
+		slog.Warn("Failed to generate rich instructions, continuing without them", "error", err, "recipe_name", recipe.RecipeName)
+	} else if richResp != nil {
+		for i, inst := range richResp.Instructions {
+			if i < len(savedInstructions) {
+				err := p.db.UpdateInstructionRich(ctx, generated.UpdateInstructionRichParams{
+					InstructionRich:        pgtype.Text{String: inst.InstructionRich, Valid: inst.InstructionRich != ""},
+					InstructionRichVersion: pgtype.Int4{Int32: int32(richResp.PromptVersion), Valid: richResp.PromptVersion > 0},
+					ID:                     savedInstructions[i].ID,
+				})
+				if err != nil {
+					slog.Error("Failed to update instruction with rich text", "error", err, "step", i+1)
+				}
+			}
 		}
 	}
 
