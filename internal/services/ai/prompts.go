@@ -248,11 +248,16 @@ When analyzing ingredients:
 12. EVERY ingredient MUST have a quantity - never leave quantity empty/null:
     - If a specific amount is mentioned: use that (e.g., "50g", "2", "1/2")
     - If no amount is mentioned but it's required: use "1" as default
-    - For vague amounts: use descriptive text in original_quantity (e.g., "handful", "to taste", "as needed")
+    - For vague amounts: use descriptive text in original_quantity (e.g., "handful", "to taste", "pinch", "piece")
+    - IMPORTANT: Descriptive quantities MUST be in the ORIGINAL LANGUAGE of the recipe:
+      * Dutch recipe: "handvol basilicum" → original_quantity: "handvol" (not "handful")
+      * Dutch recipe: "snufje zout" → original_quantity: "snufje" (not "pinch")
+      * French recipe: "pincée de sel" → original_quantity: "pincée" (not "pinch")
+      * English recipe: "handful of basil" → original_quantity: "handful"
     - Examples:
       * "granaatappelpitten" (no amount) → original_quantity: "1", original_unit: "", name: "granaatappelpitten"
-      * "handful of basil" → original_quantity: "handful", original_unit: "", name: "basil"
-      * "salt to taste" → original_quantity: "to taste", original_unit: "", name: "salt"
+      * "handvol basilicum" (Dutch) → original_quantity: "handvol", original_unit: "", name: "basilicum"
+      * "zout naar smaak" (Dutch) → original_quantity: "naar smaak", original_unit: "", name: "zout"
     - NEVER output an ingredient without any quantity information
 
 13. Check each ingredient against the criteria for each dietary category
