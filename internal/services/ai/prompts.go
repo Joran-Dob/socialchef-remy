@@ -242,8 +242,18 @@ When analyzing ingredients:
       * "3 tomaten" → original_quantity: "3", original_unit: "", name: "tomaat"
         (unit is empty, but quantity "3" is preserved!)
       * "1 citroen" → original_quantity: "1", original_unit: "", name: "citroen"
-        (unit is empty, but quantity "1" is preserved!)
+         (unit is empty, but quantity "1" is preserved!)
     - This is different from "2 bollen knoflook" where "bollen" (heads) is a container/measurement
+
+12. EVERY ingredient MUST have a quantity - never leave quantity empty/null:
+    - If a specific amount is mentioned: use that (e.g., "50g", "2", "1/2")
+    - If no amount is mentioned but it's required: use "1" as default
+    - For vague amounts: use descriptive text in original_quantity (e.g., "handful", "to taste", "as needed")
+    - Examples:
+      * "granaatappelpitten" (no amount) → original_quantity: "1", original_unit: "", name: "granaatappelpitten"
+      * "handful of basil" → original_quantity: "handful", original_unit: "", name: "basil"
+      * "salt to taste" → original_quantity: "to taste", original_unit: "", name: "salt"
+    - NEVER output an ingredient without any quantity information
 
 13. Check each ingredient against the criteria for each dietary category
 14. Consider common ingredients that might violate certain restrictions (e.g., flour often contains gluten, sauces may contain dairy or gluten)
