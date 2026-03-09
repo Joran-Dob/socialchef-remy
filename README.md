@@ -40,8 +40,25 @@ recipe_generation:
   fallback_provider: groq      # secondary provider if primary fails
 ```
 
+### Feature Support Matrix
+
+All providers support the core recipe generation features:
+
+| Feature | Groq | Cerebras | OpenAI | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Recipe Generation** | ✅ | ✅ | ✅ | Generate structured recipes from captions and transcripts |
+| **Category Generation** | ✅ | ✅ | ❌ | AI-powered category suggestions (cuisine, meal type, dietary restrictions) |
+| **Rich Instructions** | ✅ | ✅ | ❌ | Enhanced instructions with ingredient/timer placeholders |
+
+**Note**: When using Cerebras or OpenAI as primary providers, enable `fallback_enabled` to ensure category and rich instruction features work via fallback to Groq.
+
 ### Fallback Behavior
-When `fallback_enabled` is true, if the primary provider fails with a retryable error (rate limit, server error, credit exhaustion), the system automatically tries the fallback provider.
+
+When `fallback_enabled` is true:
+
+1. **Retryable Errors**: If the primary provider fails with a rate limit, server error, or credit exhaustion, the system automatically tries the fallback provider.
+2. **Capability Fallback**: If the primary provider doesn't support a feature (e.g., Cerebras for categories), the system automatically uses the fallback provider for that feature.
+3. **Graceful Degradation**: If both providers fail for optional features (categories, rich instructions), the system returns empty results rather than failing the entire recipe generation.
 
 ## Error Handling
 
