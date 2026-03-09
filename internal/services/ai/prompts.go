@@ -147,7 +147,16 @@ CONVERSION EXAMPLES - Always convert like this:
 - "1 tsp salt" → quantity: 5, unit: "g"
 - "8 oz chicken" → quantity: 227, unit: "g"
 - "1 lb ground beef" → quantity: 454, unit: "g"
-- "350°F" → write as "175°C" in instructions
+
+TEMPERATURE CONVERSION - ALWAYS REQUIRED:
+- NEVER use Fahrenheit (°F) in output
+- ALWAYS convert to Celsius (°C):
+  * "350°F" → "175°C"
+  * "375°F" → "190°C"
+  * "400°F" → "200°C"
+  * "425°F" → "220°C"
+  * "450°F" → "230°C"
+- Round to nearest 5°C for practical cooking temperatures
 </CRITICAL_METRIC_REQUIREMENT>`
 
 const ingredientAnalysisSection = `<INGREDIENT_ANALYSIS>
@@ -282,6 +291,19 @@ Your task is to parse both the post description and video transcript to extract 
  7. All time fields (prep_time, cooking_time, total_time) are in minutes
   8. The difficulty_rating is a number from 1 to 5
  9. All temperatures in instructions should be in Celsius (°C)
+    
+    CRITICAL - Temperature Conversion:
+    - ALWAYS convert Fahrenheit (°F) to Celsius (°C) in instructions
+    - NEVER leave temperatures in Fahrenheit
+    - Common conversions:
+      * 350°F → 175°C
+      * 375°F → 190°C  
+      * 400°F → 200°C
+      * 425°F → 220°C
+      * 450°F → 230°C
+    - Formula: (°F - 32) × 5/9 = °C
+    - Round to nearest 5°C for practical use (e.g., 356°F → 180°C)
+    
    10. Each instruction in the instructions array should:
      - Have a clear step number and detailed instruction text
      - Include visual cues and timing indicators where relevant
