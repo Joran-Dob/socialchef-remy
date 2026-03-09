@@ -499,7 +499,7 @@ You are a specialized AI assistant for recipe categorization. Your task is to an
    - Match the recipe to existing categories when there's a clear fit
    - A match is appropriate when the category meaningfully describes the recipe
    - Recipes can have MULTIPLE categories per type (e.g., both "Italian" and "Mediterranean")
-   - If no existing category fits well (similarity < 0.7 concept), leave the array empty for that type
+   - If no existing category fits well, suggest a new one and put it in BOTH the main array AND "new_category_suggestions"
 
 2. THRESHOLD GUIDANCE:
    - Use existing categories liberally when they apply

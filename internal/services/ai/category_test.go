@@ -600,3 +600,81 @@ func TestSuggestCategories_EmptyAIResponse(t *testing.T) {
 		t.Errorf("expected empty meal types, got %v", result.MealTypes)
 	}
 }
+
+// TestMergeNewSuggestions_IntoEmptyMainArrays tests the core bug scenario:
+// AI leaves main arrays empty and puts values only in new_category_suggestions.
+func TestMergeNewSuggestions_IntoEmptyMainArrays(t *testing.T) {
+	resp := &CategoryAIResponse{
+		CuisineCategories:   []string{},
+		MealTypes:           []string{},
+		Occasions:           []string{},
+		DietaryRestrictions: []string{},
+		Equipment:           []string{},
+		NewCategorySuggestions: &NewCategorySet{
+			CuisineCategories:   []string{"Thai"},
+			MealTypes:           []string{"Dinner"},
+			Occasions:           []string{"Weeknight"},
+			DietaryRestrictions: []string{},
+			Equipment:           []string{"Wok"},
+		},
+	}
+
+	mergeNewSuggestions(resp)
+
+	if len(resp.CuisineCategories) != 1 || resp.CuisineCategories[0] != "Thai" {
+		t.Errorf("expected [Thai], got %v", resp.CuisineCategories)
+	}
+	if len(resp.MealTypes) != 1 || resp.MealTypes[0] != "Dinner" {
+		t.Errorf("expected [Dinner], got %v", resp.MealTypes)
+	}
+	if len(resp.Occasions) != 1 || resp.Occasions[0] != "Weeknight" {
+		t.Errorf("expected [Weeknight], got %v", resp.Occasions)
+	}
+	if len(resp.DietaryRestrictions) != 0 {
+		t.Errorf("expected empty dietary restrictions, got %v", resp.DietaryRestrictions)
+	}
+	if len(resp.Equipment) != 1 || resp.Equipment[0] != "Wok" {
+		t.Errorf("expected [Wok], got %v", resp.Equipment)
+	}
+}
+
+// TestMergeNewSuggestions_CaseInsensitiveDedup tests that duplicates differing
+// only in case are not added twice.
+func TestMergeNewSuggestions_CaseInsensitiveDedup(t *testing.T) {
+	resp := &CategoryAIResponse{
+		CuisineCategories: []string{"Italian"},
+		MealTypes:         []string{"Dinner"},
+		NewCategorySuggestions: &NewCategorySet{
+			CuisineCategories: []string{"italian", "Italian", "ITALIAN"},
+			MealTypes:         []string{"dinner", "Lunch"},
+		},
+	}
+
+	mergeNewSuggestions(resp)
+
+	if len(resp.CuisineCategories) != 1 {
+		t.Errorf("expected 1 cuisine category (no duplicates), got %v", resp.CuisineCategories)
+	}
+	if len(resp.MealTypes) != 2 {
+		t.Errorf("expected 2 meal types [Dinner, Lunch], got %v", resp.MealTypes)
+	}
+}
+
+// TestMergeNewSuggestions_NilNewSuggestions tests that nil NewCategorySuggestions is a no-op.
+func TestMergeNewSuggestions_NilNewSuggestions(t *testing.T) {
+	resp := &CategoryAIResponse{
+		CuisineCategories: []string{"Italian"},
+		MealTypes:         []string{"Dinner"},
+	}
+
+	mergeNewSuggestions(resp)
+
+	if len(resp.CuisineCategories) != 1 || resp.CuisineCategories[0] != "Italian" {
+		t.Errorf("expected [Italian] unchanged, got %v", resp.CuisineCategories)
+	}
+}
+
+// TestMergeNewSuggestions_NilResponse tests that a nil response doesn't panic.
+func TestMergeNewSuggestions_NilResponse(t *testing.T) {
+	mergeNewSuggestions(nil) // should not panic
+}

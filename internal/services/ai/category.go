@@ -103,7 +103,10 @@ func (s *CategoryService) SuggestCategories(
 		return nil, fmt.Errorf("failed to generate categories: %w", err)
 	}
 
-	// 5. Parse response and return CategorySuggestions
+	// 5. Merge new_category_suggestions into main arrays
+	mergeNewSuggestions(aiResponse)
+
+	// 6. Parse response and return CategorySuggestions
 	suggestions := &CategorySuggestions{
 		CuisineCategories:   aiResponse.CuisineCategories,
 		MealTypes:           aiResponse.MealTypes,
@@ -162,6 +165,35 @@ func (s *CategoryService) fetchExistingCategories(ctx context.Context, userID pg
 	}
 
 	return &existing, nil
+}
+
+// mergeNewSuggestions appends entries from NewCategorySuggestions into the main
+// arrays so that new suggestions are never silently dropped.
+func mergeNewSuggestions(resp *CategoryAIResponse) {
+	if resp == nil || resp.NewCategorySuggestions == nil {
+		return
+	}
+	ns := resp.NewCategorySuggestions
+	resp.CuisineCategories = appendUnique(resp.CuisineCategories, ns.CuisineCategories)
+	resp.MealTypes = appendUnique(resp.MealTypes, ns.MealTypes)
+	resp.Occasions = appendUnique(resp.Occasions, ns.Occasions)
+	resp.DietaryRestrictions = appendUnique(resp.DietaryRestrictions, ns.DietaryRestrictions)
+	resp.Equipment = appendUnique(resp.Equipment, ns.Equipment)
+}
+
+// appendUnique appends additions to existing, skipping case-insensitive duplicates.
+func appendUnique(existing, additions []string) []string {
+	seen := make(map[string]bool, len(existing))
+	for _, s := range existing {
+		seen[strings.ToLower(s)] = true
+	}
+	for _, s := range additions {
+		if !seen[strings.ToLower(s)] {
+			existing = append(existing, s)
+			seen[strings.ToLower(s)] = true
+		}
+	}
+	return existing
 }
 
 // hasNoCategories checks if user has no existing categories

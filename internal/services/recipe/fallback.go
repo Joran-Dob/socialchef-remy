@@ -86,20 +86,158 @@ func (f *FallbackProvider) GenerateRecipe(ctx context.Context, description, tran
 	return nil, err
 }
 
-// GenerateCategories delegates to the primary provider
+// GenerateCategories tries the primary provider first, falls back to secondary on retryable errors
 func (f *FallbackProvider) GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error) {
-	if catProvider, ok := f.Primary.(interface {
+	// Check if primary implements GenerateCategories
+	catProvider, primaryOk := f.Primary.(interface {
+		GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error)
+	})
+
+	if primaryOk {
+		// Try primary provider first
+		result, err := catProvider.GenerateCategories(ctx, prompt)
+
+		if err == nil {
+			// Primary succeeded, return result
+			return result, nil
+		}
+
+		// Classify the error
+		providerErr := ClassifyError(err, "primary")
+
+		// Check if error is retryable
+		if IsRetryableError(err) {
+			slog.Info("Primary provider failed with retryable error, attempting fallback",
+				"error_type", providerErr.Type,
+				"error", err.Error(),
+				"operation", "generate_categories")
+
+			// Record fallback metric
+			metrics.ProviderFallbackTotal.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("from_provider", providerErr.Provider),
+				attribute.String("to_provider", "secondary"),
+				attribute.String("reason", providerErr.Type),
+				attribute.String("operation", "generate_categories"),
+			))
+
+			// Try secondary provider
+			return f.trySecondaryCategories(ctx, prompt)
+		}
+
+		// Not a retryable error (e.g., 4xx), return original error
+		slog.Info("Primary provider failed with non-retryable error, not attempting fallback",
+			"error_type", providerErr.Type,
+			"error", err.Error(),
+			"operation", "generate_categories")
+
+		return nil, err
+	}
+
+	// Primary doesn't implement GenerateCategories, try secondary directly
+	return f.trySecondaryCategories(ctx, prompt)
+}
+
+// trySecondaryCategories attempts to generate categories using the secondary provider
+func (f *FallbackProvider) trySecondaryCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error) {
+	// Check if secondary implements GenerateCategories
+	if catProvider, ok := f.Secondary.(interface {
 		GenerateCategories(ctx context.Context, prompt string) (*ai.CategoryAIResponse, error)
 	}); ok {
-		return catProvider.GenerateCategories(ctx, prompt)
+		result, err := catProvider.GenerateCategories(ctx, prompt)
+		if err == nil {
+			slog.Info("Fallback provider succeeded for categories",
+				"operation", "generate_categories")
+			return result, nil
+		}
+
+		// Secondary also failed
+		fallbackProviderErr := ClassifyError(err, "secondary")
+		slog.Error("Both primary and secondary providers failed for categories",
+			"fallback_error_type", fallbackProviderErr.Type,
+			"fallback_error", err.Error(),
+			"operation", "generate_categories")
+
+		// Graceful degradation: return empty response, not error
+		return &ai.CategoryAIResponse{}, nil
 	}
+
+	// Secondary doesn't implement GenerateCategories either
+	slog.Info("Neither provider implements GenerateCategories, returning empty response",
+		"operation", "generate_categories")
 	return &ai.CategoryAIResponse{}, nil
 }
 
-// GenerateRichInstructions delegates to the primary provider
+// GenerateRichInstructions tries the primary provider first, falls back to secondary on retryable errors
 func (f *FallbackProvider) GenerateRichInstructions(ctx context.Context, recipe *Recipe) (*RichInstructionResponse, error) {
+	// Check if primary implements RichInstructionProvider
 	if richProvider, ok := f.Primary.(RichInstructionProvider); ok {
-		return richProvider.GenerateRichInstructions(ctx, recipe)
+		// Try primary provider first
+		result, err := richProvider.GenerateRichInstructions(ctx, recipe)
+
+		if err == nil {
+			// Primary succeeded, return result
+			return result, nil
+		}
+
+		// Classify the error
+		providerErr := ClassifyError(err, "primary")
+
+		// Check if error is retryable
+		if IsRetryableError(err) {
+			slog.Info("Primary provider failed with retryable error, attempting fallback",
+				"error_type", providerErr.Type,
+				"error", err.Error(),
+				"operation", "generate_rich_instructions")
+
+			// Record fallback metric
+			metrics.ProviderFallbackTotal.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("from_provider", providerErr.Provider),
+				attribute.String("to_provider", "secondary"),
+				attribute.String("reason", providerErr.Type),
+				attribute.String("operation", "generate_rich_instructions"),
+			))
+
+			// Try secondary provider
+			return f.trySecondaryRichInstructions(ctx, recipe)
+		}
+
+		// Not a retryable error (e.g., 4xx), return original error
+		slog.Info("Primary provider failed with non-retryable error, not attempting fallback",
+			"error_type", providerErr.Type,
+			"error", err.Error(),
+			"operation", "generate_rich_instructions")
+
+		return nil, err
 	}
+
+	// Primary doesn't implement RichInstructionProvider, try secondary directly
+	return f.trySecondaryRichInstructions(ctx, recipe)
+}
+
+// trySecondaryRichInstructions attempts to generate rich instructions using the secondary provider
+func (f *FallbackProvider) trySecondaryRichInstructions(ctx context.Context, recipe *Recipe) (*RichInstructionResponse, error) {
+	// Check if secondary implements RichInstructionProvider
+	if richProvider, ok := f.Secondary.(RichInstructionProvider); ok {
+		result, err := richProvider.GenerateRichInstructions(ctx, recipe)
+		if err == nil {
+			slog.Info("Fallback provider succeeded for rich instructions",
+				"operation", "generate_rich_instructions")
+			return result, nil
+		}
+
+		// Secondary also failed
+		fallbackProviderErr := ClassifyError(err, "secondary")
+		slog.Error("Both primary and secondary providers failed for rich instructions",
+			"fallback_error_type", fallbackProviderErr.Type,
+			"fallback_error", err.Error(),
+			"operation", "generate_rich_instructions")
+
+		// Graceful degradation: return nil, nil (not error)
+		return nil, nil
+	}
+
+	// Secondary doesn't implement RichInstructionProvider either
+	slog.Info("Neither provider implements RichInstructionProvider, returning nil",
+		"operation", "generate_rich_instructions")
 	return nil, nil
 }
