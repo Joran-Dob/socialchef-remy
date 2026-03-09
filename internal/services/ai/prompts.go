@@ -319,15 +319,8 @@ Your task is to parse both the post description and video transcript to extract 
      - Include visual cues and timing indicators where relevant
      - Explain complex techniques when needed
      - Provide safety warnings when appropriate
-     - Include helpful tips for best results
-     - Be detailed enough for a beginner to follow
-
-   CRITICAL - Instruction Quantity and Granularity:
-     - Generate at least 4-6 instruction steps for simple recipes, and 8-12 for complex ones
-     - Each instruction should describe ONE main action (never combine more than 2 actions in a single step)
-     - Break complex steps into multiple sub-steps (e.g., "mix ingredients and bake" should be 2 separate steps)
-     - Separate preparation steps (chopping, measuring) from cooking steps (sautéing, baking)
-     - Include distinct steps for: preheating, preparing ingredients, combining, cooking, and finishing/serving
+      - Include helpful tips for best results
+      - Be detailed enough for a beginner to follow
 
    11. Extract cooking timers from each instruction and include them in the timer_data array:
      - Look for time mentions like "simmer for 10 minutes", "bake for 30 minutes", "rest for 5 minutes"
