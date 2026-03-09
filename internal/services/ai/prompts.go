@@ -249,10 +249,11 @@ When analyzing ingredients:
     - If a specific amount is mentioned: use that (e.g., "50g", "2", "1/2")
     - If no amount is mentioned but it's required: use "1" as default
     - For vague amounts: use descriptive text in original_quantity (e.g., "handful", "to taste", "pinch")
-    - IMPORTANT: ALL text in original_quantity and original_unit MUST be in the ORIGINAL LANGUAGE:
-      * Dutch recipe: "2 stuks kip" → original_quantity: "2", original_unit: "stuks", name: "kip" (NOT "2 pieces chicken")
-      * Dutch recipe: "1 snufje zout" → original_quantity: "1", original_unit: "snufje", name: "zout" (NOT "1 pinch salt")
-      * English recipe: "2 pieces chicken" → original_quantity: "2", original_unit: "pieces", name: "chicken"
+    - IMPORTANT: Keep the NUMBER but REMOVE generic count words:
+      * "2 stuks kip" → original_quantity: "2", original_unit: "", name: "kip" (REMOVE "stuks", keep "2")
+      * "2 pieces chicken" → original_quantity: "2", original_unit: "", name: "chicken" (REMOVE "pieces", keep "2")
+      * "3 eieren" → original_quantity: "3", original_unit: "", name: "ei"
+      * "1 snufje zout" → original_quantity: "snufje", original_unit: "", name: "zout" ("snufje" is meaningful, goes in quantity)
     - Examples:
       * "granaatappelpitten" (no amount) → original_quantity: "1", original_unit: "", name: "granaatappelpitten"
       * "handvol basilicum" (Dutch) → original_quantity: "handvol", original_unit: "", name: "basilicum"
