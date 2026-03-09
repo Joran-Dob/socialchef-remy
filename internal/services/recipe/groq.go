@@ -272,6 +272,7 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 			if td.DurationSeconds > 0 {
 				timers = append(timers, ai.Timer{
 					DurationSeconds: td.DurationSeconds,
+					DurationText:    td.DurationText,
 					Label:           td.Label,
 					Type:            td.Type,
 					Category:        td.Category,

@@ -174,7 +174,7 @@ func TestBuildPlaceholderPrompt(t *testing.T) {
 				StepNumber:  1,
 				Instruction: "Mix dry ingredients.",
 				TimerData: []Timer{
-					{DurationSeconds: 300, Label: "Mix", Type: "prep", Category: "active"},
+					{DurationSeconds: 300, DurationText: "5 minutes", Label: "Mix", Type: "prep", Category: "active"},
 				},
 			},
 		},

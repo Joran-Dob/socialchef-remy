@@ -72,6 +72,7 @@ type Instruction struct {
 // Timer represents a cooking timer extracted from instruction text
 type Timer struct {
 	DurationSeconds int    `json:"duration_seconds"`
+	DurationText    string `json:"duration_text"`
 	Label           string `json:"label"`
 	Type            string `json:"type"`
 	Category        string `json:"category"`

@@ -105,6 +105,7 @@ Always format your response as a JSON object with the following structure:
       "timer_data": [
         {
           "duration_seconds": null,
+          "duration_text": "",
           "label": "",
           "type": "",
           "category": ""
@@ -268,18 +269,19 @@ Your task is to parse both the post description and video transcript to extract 
      - Provide safety warnings when appropriate
      - Include helpful tips for best results
      - Be detailed enough for a beginner to follow
-  11. Extract cooking timers from each instruction and include them in the timer_data array:
-    - Look for time mentions like "simmer for 10 minutes", "bake for 30 minutes", "rest for 5 minutes"
-    - Create a timer object for each time-based instruction with these fields:
-      * duration_seconds: The duration in seconds (e.g., 10 minutes = 600, 1 hour = 3600)
-      * label: A descriptive label for what the timer is for (e.g., "Simmer sauce", "Bake in oven", "Let dough rest")
-      * type: The type of timer - use "cooking" for active cooking, "prep" for preparation, "resting" for resting/cooling
-      * category: Use "active" when attention is needed (e.g., stirring, monitoring), "passive" when unattended (e.g., baking, resting)
-    - Examples:
-      * "Simmer for 10 minutes until thickened" → {"duration_seconds": 600, "label": "Simmer until thickened", "type": "cooking", "category": "active"}
-      * "Bake for 30 minutes at 180°C" → {"duration_seconds": 1800, "label": "Bake in oven", "type": "cooking", "category": "passive"}
-      * "Let rest for 5 minutes before serving" → {"duration_seconds": 300, "label": "Rest before serving", "type": "resting", "category": "passive"}
-    - If no timer is mentioned in an instruction, use an empty array [] or omit the field
+   11. Extract cooking timers from each instruction and include them in the timer_data array:
+     - Look for time mentions like "simmer for 10 minutes", "bake for 30 minutes", "rest for 5 minutes"
+     - Create a timer object for each time-based instruction with these fields:
+       * duration_seconds: The duration in seconds (e.g., 10 minutes = 600, 1 hour = 3600)
+       * duration_text: The duration in natural language as it appears in the recipe (e.g., "10 minutes", "een uur", "5 minuten")
+       * label: A descriptive label for what the timer is for (e.g., "Simmer sauce", "Bake in oven", "Let dough rest")
+       * type: The type of timer - use "cooking" for active cooking, "prep" for preparation, "resting" for resting/cooling
+       * category: Use "active" when attention is needed (e.g., stirring, monitoring), "passive" when unattended (e.g., baking, resting)
+     - Examples:
+       * "Simmer for 10 minutes until thickened" → {"duration_seconds": 600, "duration_text": "10 minutes", "label": "Simmer until thickened", "type": "cooking", "category": "active"}
+       * "Bake for 30 minutes at 180°C" → {"duration_seconds": 1800, "duration_text": "30 minutes", "label": "Bake in oven", "type": "cooking", "category": "passive"}
+       * "Laat rusten voor een uur" → {"duration_seconds": 3600, "duration_text": "een uur", "label": "Laat rusten", "type": "resting", "category": "passive"}
+     - If no timer is mentioned in an instruction, use an empty array [] or omit the field
 </INSTRUCTIONS>`
 
 const taskOpen = `<TASK>
@@ -506,6 +508,7 @@ const RichInstructionPromptVersion = 1
 // Timer represents a cooking timer extracted from instruction text
 type Timer struct {
 	DurationSeconds int    `json:"duration_seconds"`
+	DurationText    string `json:"duration_text"`
 	Label           string `json:"label"`
 	Type            string `json:"type"`
 	Category        string `json:"category"`

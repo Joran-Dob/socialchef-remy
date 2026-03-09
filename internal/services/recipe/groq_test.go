@@ -67,7 +67,7 @@ func TestGroqGenerateRichInstructions_Success(t *testing.T) {
 				StepNumber:  1,
 				Instruction: "Add flour to the bowl and mix for 5 minutes.",
 				TimerData: []Timer{
-					{DurationSeconds: 300, Label: "Mix", Type: "prep", Category: "active"},
+					{DurationSeconds: 300, DurationText: "5 minutes", Label: "Mix", Type: "prep", Category: "active"},
 				},
 			},
 			{
@@ -236,7 +236,7 @@ func TestGroqGenerateRichInstructions_PromptBuilding(t *testing.T) {
 				StepNumber:  1,
 				Instruction: "Mix dry ingredients.",
 				TimerData: []Timer{
-					{DurationSeconds: 300, Label: "Mix", Type: "prep", Category: "active"},
+					{DurationSeconds: 300, DurationText: "5 minutes", Label: "Mix", Type: "prep", Category: "active"},
 				},
 			},
 			{
