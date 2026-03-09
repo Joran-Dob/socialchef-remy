@@ -234,10 +234,15 @@ When analyzing ingredients:
     - "garlic" instead of "garlics"
 
 11. AVOID semantic duplication between unit and ingredient name:
-    - When the unit word is already implied by the ingredient itself, leave unit empty
+    - When the unit word is already implied by the ingredient itself, leave unit EMPTY (but keep the quantity!)
+    - The QUANTITY must ALWAYS be present - never remove the number
     - Examples:
-      * "1 granaatappel" → unit: "", name: "granaatappel" (correct: "granaatappel" implies the item itself)
-      * "1 citroen" → unit: "", name: "citroen" (correct: the item IS the unit)
+      * "1 granaatappel" → original_quantity: "1", original_unit: "", name: "granaatappel"
+        (unit is empty, but quantity "1" is preserved!)
+      * "3 tomaten" → original_quantity: "3", original_unit: "", name: "tomaat"
+        (unit is empty, but quantity "3" is preserved!)
+      * "1 citroen" → original_quantity: "1", original_unit: "", name: "citroen"
+        (unit is empty, but quantity "1" is preserved!)
     - This is different from "2 bollen knoflook" where "bollen" (heads) is a container/measurement
 
 13. Check each ingredient against the criteria for each dietary category
