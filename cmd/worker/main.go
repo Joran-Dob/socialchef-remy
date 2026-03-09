@@ -127,6 +127,7 @@ func main() {
 	mux.Use(worker.OTelMiddleware)
 	mux.HandleFunc(worker.TypeProcessRecipe, processor.HandleProcessRecipe)
 	mux.HandleFunc(worker.TypeGenerateEmbedding, processor.HandleGenerateEmbedding)
+	mux.HandleFunc(worker.TypeGenerateRichInstructions, processor.HandleGenerateRichInstructions)
 	mux.HandleFunc(worker.TypeCleanupJobs, processor.HandleCleanupJobs)
 
 	// Handle shutdown

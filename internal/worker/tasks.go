@@ -15,10 +15,11 @@ const (
 
 // Task type constants
 const (
-	TypeProcessRecipe     = "process:recipe"
-	TypeGenerateEmbedding = "generate:embedding"
-	TypeCleanupJobs       = "cleanup:jobs"
-	TypeInstagramRetry    = "instagram:retry"
+	TypeProcessRecipe             = "process:recipe"
+	TypeGenerateEmbedding         = "generate:embedding"
+	TypeGenerateRichInstructions  = "generate:rich-instructions"
+	TypeCleanupJobs               = "cleanup:jobs"
+	TypeInstagramRetry            = "instagram:retry"
 )
 
 // ProcessRecipePayload is the payload for recipe processing tasks
@@ -30,6 +31,11 @@ type ProcessRecipePayload struct {
 
 // GenerateEmbeddingPayload is the payload for embedding tasks
 type GenerateEmbeddingPayload struct {
+	RecipeID string `json:"recipe_id"`
+}
+
+// GenerateRichInstructionsPayload is the payload for rich instruction retry tasks
+type GenerateRichInstructionsPayload struct {
 	RecipeID string `json:"recipe_id"`
 }
 
@@ -55,6 +61,15 @@ func NewGenerateEmbeddingTask(payload GenerateEmbeddingPayload) (*asynq.Task, er
 		return nil, err
 	}
 	return asynq.NewTask(TypeGenerateEmbedding, data), nil
+}
+
+// NewGenerateRichInstructionsTask creates a new rich instructions retry task
+func NewGenerateRichInstructionsTask(payload GenerateRichInstructionsPayload) (*asynq.Task, error) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeGenerateRichInstructions, data, asynq.MaxRetry(3)), nil
 }
 
 // NewCleanupJobsTask creates a new cleanup task

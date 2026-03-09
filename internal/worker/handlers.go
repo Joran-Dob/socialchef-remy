@@ -39,6 +39,7 @@ type DBQueries interface {
 	UpdateInstructionRich(ctx context.Context, arg generated.UpdateInstructionRichParams) error
 	CreateNutrition(ctx context.Context, arg generated.CreateNutritionParams) (generated.RecipeNutrition, error)
 	GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipeIngredient, error)
+	GetInstructionsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipeInstruction, error)
 	DeleteOldImportJobs(ctx context.Context) error
 	DeleteStaleImportJobs(ctx context.Context) error
 	CreateRecipeImage(ctx context.Context, arg generated.CreateRecipeImageParams) (generated.RecipeImage, error)
@@ -553,7 +554,8 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 
 	richResp, err := p.groq.GenerateRichInstructions(ctx, recipe)
 	if err != nil {
-		slog.Warn("Failed to generate rich instructions, continuing without them", "error", err, "recipe_name", recipe.RecipeName)
+		slog.Warn("Failed to generate rich instructions, enqueueing retry", "error", err, "recipe_name", recipe.RecipeName)
+		p.enqueueRichInstructionsRetry(ctx, pgUUIDToString(savedRecipe.ID))
 	} else if richResp != nil {
 		for i, inst := range richResp.Instructions {
 			if i < len(savedInstructions) {
@@ -834,6 +836,106 @@ func formatQuantity(q string) string {
 		return ""
 	}
 	return q
+}
+
+func (p *RecipeProcessor) enqueueRichInstructionsRetry(ctx context.Context, recipeID string) {
+	if p.asynqClient == nil {
+		return
+	}
+	task, err := NewGenerateRichInstructionsTask(GenerateRichInstructionsPayload{RecipeID: recipeID})
+	if err == nil {
+		_, err = p.asynqClient.Enqueue(task)
+		if err != nil {
+			slog.Error("Failed to enqueue rich instructions retry", "error", err, "recipe_id", recipeID)
+		} else {
+			slog.Info("Enqueued rich instructions retry", "recipe_id", recipeID)
+		}
+	}
+}
+
+// HandleGenerateRichInstructions retries rich instruction generation for a saved recipe.
+func (p *RecipeProcessor) HandleGenerateRichInstructions(ctx context.Context, t *asynq.Task) error {
+	start := time.Now()
+	var status = "success"
+	defer func() {
+		duration := time.Since(start).Seconds()
+		p.metrics.RecordJob(ctx, "generate_rich_instructions", status, duration)
+	}()
+
+	var payload GenerateRichInstructionsPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		status = "failure"
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	recipeUUID := parseUUID(payload.RecipeID)
+	dbRecipe, err := p.db.GetRecipe(ctx, recipeUUID)
+	if err != nil {
+		status = "failure"
+		return fmt.Errorf("recipe not found: %w", err)
+	}
+
+	ingredients, err := p.db.GetIngredientsByRecipe(ctx, dbRecipe.ID)
+	if err != nil {
+		status = "failure"
+		return fmt.Errorf("failed to get ingredients: %w", err)
+	}
+
+	instructions, err := p.db.GetInstructionsByRecipe(ctx, dbRecipe.ID)
+	if err != nil {
+		status = "failure"
+		return fmt.Errorf("failed to get instructions: %w", err)
+	}
+
+	// Build recipe struct from DB data
+	r := &groq.Recipe{
+		RecipeName: dbRecipe.RecipeName,
+	}
+
+	for _, ing := range ingredients {
+		r.Ingredients = append(r.Ingredients, groq.Ingredient{
+			ID:   pgUUIDToString(ing.ID),
+			Name: ing.Name,
+		})
+	}
+
+	for _, inst := range instructions {
+		instruction := groq.Instruction{
+			StepNumber:  int(inst.StepNumber),
+			Instruction: inst.Instruction,
+		}
+		if len(inst.TimerData) > 0 {
+			var timers []recipe.Timer
+			if err := json.Unmarshal(inst.TimerData, &timers); err == nil {
+				instruction.TimerData = timers
+			}
+		}
+		r.Instructions = append(r.Instructions, instruction)
+	}
+
+	richResp, err := p.groq.GenerateRichInstructions(ctx, r)
+	if err != nil {
+		status = "failure"
+		return fmt.Errorf("failed to generate rich instructions: %w", err)
+	}
+
+	if richResp != nil {
+		for i, inst := range richResp.Instructions {
+			if i < len(instructions) {
+				err := p.db.UpdateInstructionRich(ctx, generated.UpdateInstructionRichParams{
+					InstructionRich:        pgtype.Text{String: inst.InstructionRich, Valid: inst.InstructionRich != ""},
+					InstructionRichVersion: pgtype.Int4{Int32: int32(richResp.PromptVersion), Valid: richResp.PromptVersion > 0},
+					ID:                     instructions[i].ID,
+				})
+				if err != nil {
+					slog.Error("Failed to update instruction with rich text", "error", err, "step", i+1)
+				}
+			}
+		}
+	}
+
+	slog.Info("Rich instructions generated and saved", "recipe_id", payload.RecipeID)
+	return nil
 }
 
 // HandleInstagramRetry handles retry attempts for failed Instagram scrapes.

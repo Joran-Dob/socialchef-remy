@@ -87,6 +87,11 @@ func (m *MockDB) GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UUI
 	return args.Get(0).([]generated.RecipeIngredient), args.Error(1)
 }
 
+func (m *MockDB) GetInstructionsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipeInstruction, error) {
+	args := m.Called(ctx, recipeID)
+	return args.Get(0).([]generated.RecipeInstruction), args.Error(1)
+}
+
 func (m *MockDB) DeleteOldImportJobs(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
