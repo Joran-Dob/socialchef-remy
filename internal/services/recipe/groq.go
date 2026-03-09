@@ -295,23 +295,62 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 		return nil, ClassifyError(fmt.Errorf("failed to marshal recipe: %w", err), "groq")
 	}
 
+	type jsonSchemaProperty struct {
+		Type        string                 `json:"type,omitempty"`
+		Items       *jsonSchemaProperty    `json:"items,omitempty"`
+		Properties  map[string]interface{} `json:"properties,omitempty"`
+		Required    []string               `json:"required,omitempty"`
+		Description string                 `json:"description,omitempty"`
+	}
+
+	type responseFormat struct {
+		Type       string `json:"type"`
+		JSONSchema struct {
+			Name   string                 `json:"name"`
+			Strict bool                   `json:"strict"`
+			Schema map[string]interface{} `json:"schema"`
+		} `json:"json_schema"`
+	}
+
 	type chatRequest struct {
 		Model    string `json:"model"`
 		Messages []struct {
 			Role    string `json:"role"`
 			Content string `json:"content"`
 		} `json:"messages"`
-		ResponseFormat struct {
-			Type string `json:"type"`
-		} `json:"response_format"`
+		ResponseFormat responseFormat `json:"response_format"`
 	}
 
 	req := chatRequest{
 		Model: "openai/gpt-oss-120b",
-		ResponseFormat: struct {
-			Type string `json:"type"`
-		}{Type: "json_object"},
 	}
+	req.ResponseFormat.Type = "json_schema"
+	req.ResponseFormat.JSONSchema.Name = "rich_instruction_response"
+	req.ResponseFormat.JSONSchema.Strict = true
+	req.ResponseFormat.JSONSchema.Schema = map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"instructions": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"step_number": map[string]interface{}{
+							"type": "integer",
+						},
+						"instruction_rich": map[string]interface{}{
+							"type": "string",
+						},
+					},
+					"required":             []string{"step_number", "instruction_rich"},
+					"additionalProperties": false,
+				},
+			},
+		},
+		"required":             []string{"instructions"},
+		"additionalProperties": false,
+	}
+
 	req.Messages = append(req.Messages, struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
