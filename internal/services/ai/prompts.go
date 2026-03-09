@@ -232,12 +232,20 @@ When analyzing ingredients:
 10. Use singular form for the ingredient name when possible:
     - "onion" instead of "onions"
     - "garlic" instead of "garlics"
-9. Check each ingredient against the criteria for each dietary category
-10. Consider common ingredients that might violate certain restrictions (e.g., flour often contains gluten, sauces may contain dairy or gluten)
-11. If an ingredient is ambiguous, assume it does not fit restrictive diets unless specified otherwise
-12. For calorie and nutrition estimation, consider the caloric density and nutritional content of main ingredients
-13. When scaling down sauces or marinades, maintain a practical minimum quantity needed for the cooking method
-14. For spices and seasonings, scale down proportionally but ensure quantities remain practical for flavor
+
+11. AVOID semantic duplication between unit and ingredient name:
+    - When the unit word is already implied by the ingredient itself, leave unit empty
+    - Examples:
+      * "1 granaatappel" → unit: "", name: "granaatappel" (correct: "granaatappel" implies the item itself)
+      * "1 citroen" → unit: "", name: "citroen" (correct: the item IS the unit)
+    - This is different from "2 bollen knoflook" where "bollen" (heads) is a container/measurement
+
+13. Check each ingredient against the criteria for each dietary category
+14. Consider common ingredients that might violate certain restrictions (e.g., flour often contains gluten, sauces may contain dairy or gluten)
+15. If an ingredient is ambiguous, assume it does not fit restrictive diets unless specified otherwise
+16. For calorie and nutrition estimation, consider the caloric density and nutritional content of main ingredients
+17. When scaling down sauces or marinades, maintain a practical minimum quantity needed for the cooking method
+18. For spices and seasonings, scale down proportionally but ensure quantities remain practical for flavor
 </INGREDIENT_ANALYSIS>`
 
 const languageHandlingSection = `<LANGUAGE_HANDLING>
