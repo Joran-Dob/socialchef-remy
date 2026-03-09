@@ -47,6 +47,7 @@ type Instruction struct {
 // Timer represents a cooking timer extracted from instruction text
 type Timer struct {
 	DurationSeconds int    `json:"duration_seconds"`
+	DurationText    string `json:"duration_text"`
 	Label           string `json:"label"`
 	Type            string `json:"type"`
 	Category        string `json:"category"`
@@ -114,7 +115,7 @@ var genericInstructionPatterns = []*regexp.Regexp{
 func DefaultRecipeValidationConfig() RecipeOutputValidationConfig {
 	return RecipeOutputValidationConfig{
 		MinIngredients:      2,
-		MinInstructions:     2,
+		MinInstructions:     3,
 		MaxPlaceholderRatio: 0.2,
 	}
 }
@@ -206,7 +207,7 @@ func ValidateRecipe(recipe Recipe, config RecipeOutputValidationConfig) RecipeVa
 			totalFields++
 			if DetectPlaceholders(ingredient.Name) {
 				placeholderCount++
-			} else if ingredient.Name != "" && ingredient.Quantity != "" && ingredient.Unit != "" {
+			} else if ingredient.Name != "" && ingredient.Quantity != "" {
 				validIngredients++
 			}
 		}

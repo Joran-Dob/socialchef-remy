@@ -301,19 +301,19 @@ Your task is to parse both the post description and video transcript to extract 
  7. All time fields (prep_time, cooking_time, total_time) are in minutes
   8. The difficulty_rating is a number from 1 to 5
  9. All temperatures in instructions should be in Celsius (°C)
-    
+
     CRITICAL - Temperature Conversion:
     - ALWAYS convert Fahrenheit (°F) to Celsius (°C) in instructions
     - NEVER leave temperatures in Fahrenheit
     - Common conversions:
       * 350°F → 175°C
-      * 375°F → 190°C  
+      * 375°F → 190°C
       * 400°F → 200°C
       * 425°F → 220°C
       * 450°F → 230°C
     - Formula: (°F - 32) × 5/9 = °C
     - Round to nearest 5°C for practical use (e.g., 356°F → 180°C)
-    
+
    10. Each instruction in the instructions array should:
      - Have a clear step number and detailed instruction text
      - Include visual cues and timing indicators where relevant
@@ -321,6 +321,14 @@ Your task is to parse both the post description and video transcript to extract 
      - Provide safety warnings when appropriate
      - Include helpful tips for best results
      - Be detailed enough for a beginner to follow
+
+   CRITICAL - Instruction Quantity and Granularity:
+     - Generate at least 4-6 instruction steps for simple recipes, and 8-12 for complex ones
+     - Each instruction should describe ONE main action (never combine more than 2 actions in a single step)
+     - Break complex steps into multiple sub-steps (e.g., "mix ingredients and bake" should be 2 separate steps)
+     - Separate preparation steps (chopping, measuring) from cooking steps (sautéing, baking)
+     - Include distinct steps for: preheating, preparing ingredients, combining, cooking, and finishing/serving
+
    11. Extract cooking timers from each instruction and include them in the timer_data array:
      - Look for time mentions like "simmer for 10 minutes", "bake for 30 minutes", "rest for 5 minutes"
      - Create a timer object for each time-based instruction with these fields:
@@ -555,7 +563,7 @@ func writeCategorySection(sb *strings.Builder, title string, categories []string
 }
 
 // RichInstructionPromptVersion is the version of the rich instruction prompt
-const RichInstructionPromptVersion = 1
+const RichInstructionPromptVersion = 3
 
 // Timer represents a cooking timer extracted from instruction text
 type Timer struct {
@@ -611,8 +619,8 @@ You are a specialized AI assistant for recipe instruction enhancement. Your task
 		if len(inst.TimerData) > 0 {
 			sb.WriteString("  Timers (use these indices for {{timer:N}} placeholders):\n")
 			for j, timer := range inst.TimerData {
-				sb.WriteString(fmt.Sprintf("    [%d] Label: %s, Duration: %ds, Type: %s, Category: %s\n",
-					j, timer.Label, timer.DurationSeconds, timer.Type, timer.Category))
+				sb.WriteString(fmt.Sprintf("    [%d] Label: %s, Duration: %ds, Text: %q, Type: %s, Category: %s\n",
+					j, timer.Label, timer.DurationSeconds, timer.DurationText, timer.Type, timer.Category))
 			}
 		}
 	}
@@ -639,26 +647,52 @@ The instruction_rich field should contain the original instruction text enhanced
 
 	sb.WriteString(`<INSTRUCTIONS>
 1. PLACEHOLDER RULES:
-   - Insert {{ingredient:UUID}} placeholders where ingredients are mentioned (UUID = ingredient's unique identifier)
-   - Insert {{timer:N}} placeholders where timing is mentioned (N = timer index within that instruction)
-   - Preserve the original instruction text and language
-   - Placeholders should replace or augment the text they reference
+   - Placeholders must REPLACE the text they reference, NOT be added alongside it
+   - Preserve the original instruction language and meaning
+   - The result must read naturally as a single sentence without duplicated information
 
 2. INGREDIENT PLACEHOLDERS:
-   - Use the ingredient UUID from the ingredient list above (36-character UUID format like 550e8400-e29b-41d4-a716-446655440000)
-   - Example: If ingredient with UUID "550e8400-e29b-41d4-a716-446655440000" is "chicken breast", replace "chicken breast" with "{{ingredient:550e8400-e29b-41d4-a716-446655440000}}"
+   - {{ingredient:UUID}} must REPLACE the ingredient name in the text
+   - Use the 36-character UUID from the ingredient list above
    - Only use valid UUIDs that exist in the ingredient list
+   - Keep surrounding words (articles, prepositions) but remove the ingredient name itself
+   - WRONG: "Voeg de boter {{ingredient:UUID}} toe" (duplicates "boter")
+   - RIGHT: "Voeg de {{ingredient:UUID}} toe" (placeholder replaces "boter")
+   - WRONG: "Add the chicken breast {{ingredient:UUID}}" (duplicates "chicken breast")
+   - RIGHT: "Add the {{ingredient:UUID}}" (placeholder replaces "chicken breast")
 
 3. TIMER PLACEHOLDERS:
-   - Use the timer index from the timer_data for each instruction
-   - Example: If an instruction has timer_data[0], insert {{timer:0}} at the appropriate location
+   - {{timer:N}} must REPLACE the duration text, NOT be added next to it
+   - The timer placeholder already renders as the duration (e.g., {{timer:0}} renders as "10 minuten"), so the original duration text must be removed
    - Only use valid indices that exist in that instruction's timer_data
+   - WRONG: "Bak 10 minuten {{timer:0}} tot ze gaar zijn" (duplicates "10 minuten")
+   - RIGHT: "Bak {{timer:0}} tot ze gaar en mooi bruin zijn" (placeholder replaces "10 minuten")
+   - WRONG: "Simmer for 20 minutes {{timer:0}} until thickened" (duplicates "20 minutes")
+   - RIGHT: "Simmer for {{timer:0}} until thickened" (placeholder replaces "20 minutes")
 
-4. OUTPUT REQUIREMENTS:
+4. COMPLETE TRANSFORMATION EXAMPLES:
+
+   Example 1 - Timer replacement:
+   Input: "Bak de krentenbollen 10 minuten in de oven tot ze goudbruin zijn."
+   Timer data: [0] Duration: 600s, Label: "Bak in oven"
+   Output: "Bak de krentenbollen {{timer:0}} in de oven tot ze goudbruin zijn."
+
+   Example 2 - Ingredient + Timer replacement:
+   Input: "Fruit de ui en knoflook 3 minuten in de boter tot ze glazig zijn."
+   Ingredients: [aaa-...] ui, [bbb-...] knoflook, [ccc-...] boter
+   Timer data: [0] Duration: 180s, Label: "Fruit"
+   Output: "Fruit de {{ingredient:aaa-...}} en {{ingredient:bbb-...}} {{timer:0}} in de {{ingredient:ccc-...}} tot ze glazig zijn."
+
+   Example 3 - Ingredients only (no timer):
+   Input: "Meng het meel, suiker en cacao door elkaar."
+   Ingredients: [aaa-...] meel, [bbb-...] suiker, [ccc-...] cacao
+   Output: "Meng het {{ingredient:aaa-...}}, {{ingredient:bbb-...}} en {{ingredient:ccc-...}} door elkaar."
+
+5. OUTPUT REQUIREMENTS:
    - Return ONLY the JSON object, no additional text
    - Maintain the original language of the recipe
    - Keep step numbers sequential and matching the input
-   - The instruction_rich should be a complete, readable sentence with placeholders integrated naturally
+   - The instruction_rich must read naturally without any duplicated information
 </INSTRUCTIONS>`)
 
 	return sb.String()

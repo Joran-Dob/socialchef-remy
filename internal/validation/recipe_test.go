@@ -51,6 +51,7 @@ func TestValidateRecipe(t *testing.T) {
 			Instructions: []Instruction{
 				{StepNumber: 1, Instruction: "Mix all ingredients in a large bowl until smooth."},
 				{StepNumber: 2, Instruction: "Heat a non-stick pan over medium heat and pour batter."},
+				{StepNumber: 3, Instruction: "Cook until bubbles form on surface, then flip and cook until golden brown."},
 			},
 			CuisineCategories: []string{"American"},
 			MealTypes:         []string{"Breakfast"},

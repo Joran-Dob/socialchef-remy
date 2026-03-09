@@ -58,7 +58,7 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 	}
 
 	req := chatRequest{
-		Model: "openai/gpt-oss-120b",
+		Model: "moonshotai/kimi-k2-instruct-0905",
 		ResponseFormat: struct {
 			Type string `json:"type"`
 		}{Type: "json_object"},
@@ -118,7 +118,7 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 		if len(debugResp.Ingredients) > 0 {
 			fmt.Printf("[DEBUG] Recipe: %s, Servings: %d\n", debugResp.Recipe.RecipeName, debugResp.Recipe.OriginalServings)
 			for i, ing := range debugResp.Ingredients[:min(3, len(debugResp.Ingredients))] {
-				fmt.Printf("[DEBUG] Ingredient %d: %s - original: %s %s, per-serving: %s %s\n",
+				fmt.Printf("[DEBUG] Ingredient %d: %s - original: %s %s, total: %s %s\n",
 					i, ing.Name, ing.OriginalQuantity, ing.OriginalUnit, ing.Quantity, ing.Unit)
 			}
 		}
@@ -174,7 +174,7 @@ func (p *GroqProvider) GenerateCategories(ctx context.Context, prompt string) (*
 	}
 
 	req := chatRequest{
-		Model: "openai/gpt-oss-120b",
+		Model: "moonshotai/kimi-k2-instruct-0905",
 		ResponseFormat: struct {
 			Type string `json:"type"`
 		}{Type: "json_object"},
@@ -290,11 +290,6 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 
 	systemPrompt := ai.BuildPlaceholderPrompt(recipeForPrompt)
 
-	recipeJSON, err := json.Marshal(recipe)
-	if err != nil {
-		return nil, ClassifyError(fmt.Errorf("failed to marshal recipe: %w", err), "groq")
-	}
-
 	type jsonSchemaProperty struct {
 		Type        string                 `json:"type,omitempty"`
 		Items       *jsonSchemaProperty    `json:"items,omitempty"`
@@ -322,7 +317,7 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 	}
 
 	req := chatRequest{
-		Model: "openai/gpt-oss-120b",
+		Model: "moonshotai/kimi-k2-instruct-0905",
 	}
 	req.ResponseFormat.Type = "json_schema"
 	req.ResponseFormat.JSONSchema.Name = "rich_instruction_response"
@@ -358,7 +353,7 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 	req.Messages = append(req.Messages, struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
-	}{Role: "user", Content: string(recipeJSON)})
+	}{Role: "user", Content: "Generate rich instructions with ingredient and timer placeholders for the recipe above."})
 
 	body, _ := json.Marshal(req)
 	httpReq, err := http.NewRequestWithContext(httpclient.WithProvider(ctx, "Groq"), "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewReader(body))
