@@ -379,12 +379,12 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 	}
 	mockGroq.On("GenerateRecipe", ctx, mock.Anything, "Mix flour and sugar, then add eggs.", "instagram").Return(expectedRecipe, nil)
 
-	mockDB.On("GetCuisineCategoriesByUser", ctx, mock.Anything).Return([]string{}, nil)
-	mockDB.On("GetMealTypesByUser", ctx, mock.Anything).Return([]string{}, nil)
-	mockDB.On("GetOccasionsByUser", ctx, mock.Anything).Return([]string{}, nil)
-	mockDB.On("GetDietaryRestrictionsByUser", ctx, mock.Anything).Return([]string{}, nil)
-	mockDB.On("GetEquipmentByUser", ctx, mock.Anything).Return([]string{}, nil)
-	mockGroq.On("GenerateCategories", ctx, mock.Anything).Return(&ai.CategoryAIResponse{
+	mockDB.On("GetCuisineCategoriesByUser", mock.Anything, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetMealTypesByUser", mock.Anything, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetOccasionsByUser", mock.Anything, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetDietaryRestrictionsByUser", mock.Anything, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetEquipmentByUser", mock.Anything, mock.Anything).Return([]string{}, nil)
+	mockGroq.On("GenerateCategories", mock.Anything, mock.Anything).Return(&ai.CategoryAIResponse{
 		CuisineCategories:   []string{"Dessert"},
 		MealTypes:           []string{"Snack"},
 		Occasions:           []string{"Party"},
@@ -554,12 +554,12 @@ func TestHandleProcessRecipe_OutputValidationFails(t *testing.T) {
 		},
 	}, nil)
 
-	mockDB.On("GetCuisineCategoriesByUser", ctx, mock.Anything).Return([]string{}, nil)
-	mockDB.On("GetMealTypesByUser", ctx, mock.Anything).Return([]string{}, nil)
-	mockDB.On("GetOccasionsByUser", ctx, mock.Anything).Return([]string{}, nil)
-	mockDB.On("GetDietaryRestrictionsByUser", ctx, mock.Anything).Return([]string{}, nil)
-	mockDB.On("GetEquipmentByUser", ctx, mock.Anything).Return([]string{}, nil)
-	mockGroq.On("GenerateCategories", ctx, mock.Anything).Return(&ai.CategoryAIResponse{}, nil)
+	mockDB.On("GetCuisineCategoriesByUser", mock.Anything, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetMealTypesByUser", mock.Anything, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetOccasionsByUser", mock.Anything, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetDietaryRestrictionsByUser", mock.Anything, mock.Anything).Return([]string{}, nil)
+	mockDB.On("GetEquipmentByUser", mock.Anything, mock.Anything).Return([]string{}, nil)
+	mockGroq.On("GenerateCategories", mock.Anything, mock.Anything).Return(&ai.CategoryAIResponse{}, nil)
 
 	mockGroq.On("GenerateRichInstructions", ctx, mock.Anything).Return(&recipeservice.RichInstructionResponse{
 		Instructions: []recipeservice.RichInstruction{

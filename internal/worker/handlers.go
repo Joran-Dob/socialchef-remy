@@ -23,6 +23,8 @@ import (
 	"github.com/socialchef/remy/internal/services/recipe"
 	"github.com/socialchef/remy/internal/services/scraper"
 	"github.com/socialchef/remy/internal/services/storage"
+	sentrylib "github.com/socialchef/remy/internal/sentry"
+	"github.com/socialchef/remy/internal/utils"
 	"github.com/socialchef/remy/internal/validation"
 )
 
@@ -299,11 +301,13 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Generating categories with AI...")
 
 	categoryService := ai.NewCategoryService(p.db, p.groq)
-	categories, err := categoryService.SuggestCategories(ctx, ai.RecipeInfo{
-		Name:        recipe.RecipeName,
-		Description: recipe.Description,
-		Ingredients: extractIngredientNames(recipe.Ingredients),
-	}, userID)
+	categories, err := utils.WithRetry(ctx, func(ctx context.Context) (*ai.CategorySuggestions, error) {
+		return categoryService.SuggestCategories(ctx, ai.RecipeInfo{
+			Name:        recipe.RecipeName,
+			Description: recipe.Description,
+			Ingredients: extractIngredientNames(recipe.Ingredients),
+		}, userID)
+	}, utils.DefaultRetryConfig())
 	if err == nil {
 		recipe.CuisineCategories = categories.CuisineCategories
 		recipe.MealTypes = categories.MealTypes
@@ -311,7 +315,11 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		recipe.DietaryRestrictions = categories.DietaryRestrictions
 		recipe.Equipment = categories.Equipment
 	} else {
-		slog.Error("Failed to generate categories", "error", err, "recipe_name", recipe.RecipeName)
+		slog.Error("Category generation failed after retries", "error", err, "recipe_name", recipe.RecipeName)
+		sentrylib.CaptureError(err, map[string]string{
+			"recipe_name": recipe.RecipeName,
+			"component":   "category_generation",
+		})
 	}
 
 	validationConfig := validation.RecipeOutputValidationConfig{
@@ -436,14 +444,25 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	}
 
 	// Save categories
+	cuisineSaved := 0
 	for _, cat := range recipe.CuisineCategories {
 		catID, err := p.db.GetOrCreateCuisineCategory(ctx, cat)
 		if err == nil {
-			p.db.AddRecipeCuisineCategory(ctx, generated.AddRecipeCuisineCategoryParams{
+			err = p.db.AddRecipeCuisineCategory(ctx, generated.AddRecipeCuisineCategoryParams{
 				RecipeID:          savedRecipe.ID,
 				CuisineCategoryID: catID,
 			})
+			if err == nil {
+				cuisineSaved++
+			}
 		}
+	}
+	if cuisineSaved == 0 {
+		slog.Error("No cuisine categories persisted for recipe", "recipe_id", savedRecipe.ID, "recipe_name", recipe.RecipeName)
+		sentrylib.CaptureError(fmt.Errorf("no cuisine categories persisted for recipe %s", recipe.RecipeName), map[string]string{
+			"recipe_name": recipe.RecipeName,
+			"component":   "category_persistence",
+		})
 	}
 
 	for _, mt := range recipe.MealTypes {
