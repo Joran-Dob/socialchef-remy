@@ -72,7 +72,7 @@ func CaptureWithContext(ctx context.Context, err error) {
 	if err == nil {
 		return
 	}
-	
+
 	hub := sentry.GetHubFromContext(ctx)
 	if hub != nil {
 		hub.CaptureException(err)

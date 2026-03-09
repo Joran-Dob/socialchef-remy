@@ -269,12 +269,14 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 	for _, inst := range recipe.Instructions {
 		var timers []ai.Timer
 		for _, td := range inst.TimerData {
-			timers = append(timers, ai.Timer{
-				DurationSeconds: td.DurationSeconds,
-				Label:           td.Label,
-				Type:            td.Type,
-				Category:        td.Category,
-			})
+			if td.DurationSeconds > 0 {
+				timers = append(timers, ai.Timer{
+					DurationSeconds: td.DurationSeconds,
+					Label:           td.Label,
+					Type:            td.Type,
+					Category:        td.Category,
+				})
+			}
 		}
 		recipeForPrompt.Instructions = append(recipeForPrompt.Instructions, ai.InstructionForPrompt{
 			StepNumber:  inst.StepNumber,

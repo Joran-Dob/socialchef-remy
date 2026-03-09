@@ -15,12 +15,14 @@ import (
 	"github.com/socialchef/remy/internal/services/search"
 	"github.com/socialchef/remy/internal/worker"
 )
+
 type Server struct {
 	cfg         *config.Config
 	db          *generated.Queries
 	asynqClient *asynq.Client
 	search      *search.Client
 }
+
 func NewServer(cfg *config.Config, db *generated.Queries, asynqClient *asynq.Client, searchClient *search.Client) *Server {
 	return &Server{
 		cfg:         cfg,

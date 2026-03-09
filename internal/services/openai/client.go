@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/socialchef/remy/internal/metrics"
+	"github.com/socialchef/remy/internal/services/ai"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"github.com/socialchef/remy/internal/services/ai"
 )
 
 type Client struct {
@@ -115,8 +115,6 @@ var (
 func NewClient(apiKey string) *Client {
 	return &Client{apiKey: apiKey}
 }
-
-
 
 func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, platform string) (*Recipe, error) {
 	return generateRecipeWithOpenAI(ctx, c.apiKey, description, transcript, platform)

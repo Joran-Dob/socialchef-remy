@@ -69,7 +69,7 @@ func TestTranscribeVideo(t *testing.T) {
 
 func TestTranscribeVideo_FetchError(t *testing.T) {
 	client := NewClient("test-api-key")
-	
+
 	// Use an invalid URL to trigger fetch error
 	_, err := client.TranscribeVideo(context.Background(), "http://invalid-url-that-does-not-exist")
 	if err == nil {
@@ -111,7 +111,7 @@ func TestTranscribeVideo_OpenAIError(t *testing.T) {
 
 func TestOpenAIProvider(t *testing.T) {
 	expectedTranscript := "This is a test transcript."
-	
+
 	// Mock OpenAI server
 	openAIServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify request

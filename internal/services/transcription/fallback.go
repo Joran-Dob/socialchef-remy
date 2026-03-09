@@ -49,11 +49,11 @@ func (f *FallbackProvider) Transcribe(ctx context.Context, audioPath string) (st
 				"primary_error", err.Error(),
 				"fallback_error", fallbackErr.Error(),
 				"audio_path", audioPath)
-return "", errors.NewTranscriptionError(
-"both primary and secondary providers failed",
-"PROVIDER_FALLBACK_FAILED",
-err,
-)
+			return "", errors.NewTranscriptionError(
+				"both primary and secondary providers failed",
+				"PROVIDER_FALLBACK_FAILED",
+				err,
+			)
 		}
 	}
 

@@ -102,7 +102,6 @@ func TestExtractAudio_ContextCancellation(t *testing.T) {
 		t.Skip("ffmpeg not available")
 	}
 
-
 	videoPath := filepath.Join(t.TempDir(), "test-video.mp4")
 
 	// Create a test video file

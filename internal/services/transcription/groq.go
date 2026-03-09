@@ -97,5 +97,3 @@ func (p *GroqProvider) Transcribe(ctx context.Context, audioPath string) (string
 
 	return transResp.Text, nil
 }
-
-

@@ -97,4 +97,3 @@ func (p *OpenAIProvider) Transcribe(ctx context.Context, audioPath string) (stri
 
 	return transResp.Text, nil
 }
-

@@ -8,10 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"net/http"
-	"github.com/google/uuid"
-
 )
 
 type Client struct {
@@ -75,9 +74,9 @@ func (c *Client) GetPublicURL(bucket, path string) string {
 }
 
 type ExistingImageResponse struct {
-	ID           string `json:"id"`
-	ContentHash  string `json:"content_hash"`
-	StoragePath  string `json:"storage_path"`
+	ID          string `json:"id"`
+	ContentHash string `json:"content_hash"`
+	StoragePath string `json:"storage_path"`
 }
 
 func (c *Client) GetImageByHash(ctx context.Context, hash string) (*ExistingImageResponse, error) {

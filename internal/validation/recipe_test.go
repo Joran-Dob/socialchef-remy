@@ -44,9 +44,9 @@ func TestValidateRecipe(t *testing.T) {
 			PrepTime:    intPtr(10),
 			CookingTime: intPtr(15),
 			Ingredients: []Ingredient{
-			{Name: "Flour", Quantity: "2", Unit: "cups"},
-			{Name: "Milk", Quantity: "1.5", Unit: "cups"},
-			{Name: "Egg", Quantity: "1", Unit: "large"},
+				{Name: "Flour", Quantity: "2", Unit: "cups"},
+				{Name: "Milk", Quantity: "1.5", Unit: "cups"},
+				{Name: "Egg", Quantity: "1", Unit: "large"},
 			},
 			Instructions: []Instruction{
 				{StepNumber: 1, Instruction: "Mix all ingredients in a large bowl until smooth."},
@@ -70,7 +70,7 @@ func TestValidateRecipe(t *testing.T) {
 			RecipeName:  "N/A",
 			Description: "TBD",
 			Ingredients: []Ingredient{
-			{Name: "unknown", Quantity: "", Unit: ""},
+				{Name: "unknown", Quantity: "", Unit: ""},
 			},
 			Instructions: []Instruction{
 				{StepNumber: 1, Instruction: "follow recipe"},
@@ -102,7 +102,7 @@ func TestValidateRecipe(t *testing.T) {
 			RecipeName:  "Simple Toast",
 			Description: "Toast bread.",
 			Ingredients: []Ingredient{
-			{Name: "Bread", Quantity: "1", Unit: "slice"},
+				{Name: "Bread", Quantity: "1", Unit: "slice"},
 			},
 			Instructions: []Instruction{
 				{StepNumber: 1, Instruction: "Toast it."},

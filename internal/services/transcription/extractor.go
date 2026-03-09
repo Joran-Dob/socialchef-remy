@@ -28,7 +28,6 @@ func ExtractAudio(ctx context.Context, videoPath string) (audioPath string, err 
 		"-y", audioPath,
 	)
 
-
 	// Run the command
 	if err := cmd.Run(); err != nil {
 		// Clean up the temp file if the command failed

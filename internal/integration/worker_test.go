@@ -29,7 +29,6 @@ func TestWorker_HandleProcessRecipe_InvalidPayload(t *testing.T) {
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
-
 	err := processor.HandleProcessRecipe(context.Background(), task)
 	if err == nil {
 		t.Error("expected error for invalid payload, got nil")

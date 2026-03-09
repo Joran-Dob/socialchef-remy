@@ -3,10 +3,10 @@ package transcription
 import (
 	"context"
 	"fmt"
+	"github.com/socialchef/remy/internal/errors"
 	"io"
 	"net/http"
 	"os"
-	"github.com/socialchef/remy/internal/errors"
 )
 
 // ProviderAdapter adapts a TranscriptionProvider to implement the TranscriptionClient interface
