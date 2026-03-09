@@ -203,6 +203,26 @@ When analyzing ingredients:
 6. Separate each ingredient into original_quantity, original_unit, quantity, unit, and name
 7. For ingredients without a specific quantity, use null for both quantities and appropriate units (e.g., "to taste", "as needed")
 8. Remove any preparation instructions from the ingredient name (e.g., "diced" or "chopped")
+
+9. CRITICAL - Properly separate quantity, unit, and name to avoid duplication:
+   - "original_quantity" should be JUST the numeric amount (e.g., "2", "1/2", "1")
+   - "original_unit" should be the measurement unit (e.g., "stuk", "heads", "g", "ml", "cups")
+   - "name" should be the ingredient ONLY, without quantity or unit (e.g., "onion", "garlic", "lemon")
+   
+   CORRECT examples:
+   - "2 onions" → original_quantity: "2", original_unit: "", name: "onion"
+   - "2 heads garlic" → original_quantity: "2", original_unit: "heads", name: "garlic"
+   - "1/2 lemon" → original_quantity: "1/2", original_unit: "", name: "lemon"
+   - "1 tbsp olive oil" → original_quantity: "1", original_unit: "tbsp", name: "olive oil"
+   - "500g flour" → original_quantity: "500", original_unit: "g", name: "flour"
+   
+   INCORRECT examples (avoid this):
+   - "2 onions" → original_quantity: "2 onions", original_unit: "", name: "yellow onions" (duplicates "onions")
+   - "2 heads" → original_quantity: "2", original_unit: "heads", name: "garlic heads" (duplicates "heads")
+   
+10. Use singular form for the ingredient name when possible:
+    - "onion" instead of "onions"
+    - "garlic" instead of "garlics"
 9. Check each ingredient against the criteria for each dietary category
 10. Consider common ingredients that might violate certain restrictions (e.g., flour often contains gluten, sauces may contain dairy or gluten)
 11. If an ingredient is ambiguous, assume it does not fit restrictive diets unless specified otherwise
