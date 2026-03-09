@@ -151,7 +151,7 @@ Respond with ONLY a JSON object (no additional text):
 	}
 
 	if model == "" {
-		model = "llama-3.3-70b-versatile"
+		model = "openai/gpt-oss-120b"
 	}
 
 	resp, err := groqClient.Chat(ctx, model, messages, "json_object")

@@ -27,7 +27,7 @@ The processing pipeline follows these steps:
 Recipe generation supports multiple AI providers with automatic fallback:
 
 ### Providers
-- **Groq** (default): Uses `llama-3.3-70b-versatile` model
+- **Groq** (default): Uses `openai/gpt-oss-120b` model
 - **Cerebras**: Uses `gpt-oss-120b` model
 - **OpenAI**: Uses `gpt-4o` model
 

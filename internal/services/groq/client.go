@@ -82,7 +82,7 @@ func (c *Client) GenerateCategories(ctx context.Context, prompt string) (*ai.Cat
 	}
 
 	req := chatRequest{
-		Model: "llama-3.3-70b-versatile",
+		Model: "openai/gpt-oss-120b",
 		ResponseFormat: struct {
 			Type string `json:"type"`
 		}{Type: "json_object"},
@@ -183,7 +183,7 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 	}
 
 	req := chatRequest{
-		Model: "llama-3.3-70b-versatile",
+		Model: "openai/gpt-oss-120b",
 		ResponseFormat: struct {
 			Type string `json:"type"`
 		}{Type: "json_object"},

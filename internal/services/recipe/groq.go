@@ -58,7 +58,7 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 	}
 
 	req := chatRequest{
-		Model: "llama-3.3-70b-versatile",
+		Model: "openai/gpt-oss-120b",
 		ResponseFormat: struct {
 			Type string `json:"type"`
 		}{Type: "json_object"},
@@ -174,7 +174,7 @@ func (p *GroqProvider) GenerateCategories(ctx context.Context, prompt string) (*
 	}
 
 	req := chatRequest{
-		Model: "llama-3.3-70b-versatile",
+		Model: "openai/gpt-oss-120b",
 		ResponseFormat: struct {
 			Type string `json:"type"`
 		}{Type: "json_object"},
@@ -307,7 +307,7 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 	}
 
 	req := chatRequest{
-		Model: "llama-3.3-70b-versatile",
+		Model: "openai/gpt-oss-120b",
 		ResponseFormat: struct {
 			Type string `json:"type"`
 		}{Type: "json_object"},
