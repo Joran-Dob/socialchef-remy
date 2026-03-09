@@ -139,7 +139,7 @@ ONLY USE these metric units for the "unit" field:
 - Volume: ml (milliliters), L (liters)
 - Temperature: °C (Celsius)
 - Length: cm (centimeters), mm (millimeters)
-- Count-based: piece, whole, slice, clove, sprig, pinch
+- Count-based: LEAVE EMPTY (do not use "piece", "whole", etc. - just the number)
 
 CONVERSION EXAMPLES - Always convert like this:
 - "1 cup flour" → quantity: 120, unit: "g"
@@ -164,108 +164,90 @@ const ingredientAnalysisSection = `<INGREDIENT_ANALYSIS>
 
 When analyzing ingredients:
 1. ALWAYS provide BOTH the original quantities (as stated in the recipe) AND total quantities for the complete recipe:
-   - original_quantity: The exact quantity as stated in the source recipe (can be in any unit)
-   - original_unit: The exact unit as stated in the source recipe (can be imperial)
+   - original_quantity: The exact quantity as stated in the source recipe (just the number or descriptive amount)
+   - original_unit: The exact unit as stated in the source recipe (can be imperial), OR empty if no meaningful unit
    - quantity: The TOTAL quantity for all servings combined - MUST BE METRIC
-   - unit: The unit for the adjusted quantity - MUST BE METRIC (g, ml, etc.)
+   - unit: The unit for the adjusted quantity - MUST BE METRIC (g, ml, etc.), OR empty for count-based items
    
 2. For quantities, ALWAYS return the TOTAL amount as stated in the recipe (do NOT divide by serving size):
    - Return the total quantity for all servings combined
    - Example: If recipe has 8 servings and uses 2 cups flour:
      * Return the total quantity: 2 cups = 480g (this is the TOTAL for all 8 servings)
-     * Result: original_quantity: 2, original_unit: cups, quantity: 480, unit: g
-   - For count-based ingredients (e.g., eggs, sausages, chicken breasts):
-     * Keep as count/pieces - return the total number in the recipe
-     * Example: 4 sausages for 4 servings = original_quantity: 4, quantity: 4
-   - For baked goods, return total amounts used in the full recipe
-   - For main dishes, return total amounts for the complete recipe
-   - For very large quantities, use appropriate larger units (e.g., convert grams to kilograms if needed)
+     * Result: original_quantity: "2", original_unit: "cups", quantity: 480, unit: "g"
 
-3. Use appropriate units based on ingredient type:
-   - Count-based items: Use "piece", "whole", "slice", etc.
-   - Weight-based items: Use metric weights (g, mg, kg)
-   - Volume-based items: Use metric volumes (ml, L)
-
-4. MANDATORY metric conversions:
-   - Weight: Use grams (g) or milligrams (mg)
-     * Convert ounces to grams (1 oz = 28.35g)
-     * Convert pounds to grams (1 lb = 453.6g)
-   - Volume: Use milliliters (ml) or liters (L)
-     * Convert cups to milliliters (1 cup = 240ml)
-     * Convert tablespoons to milliliters (1 tbsp = 15ml)
-     * Convert teaspoons to milliliters (1 tsp = 5ml)
-     * Convert fluid ounces to milliliters (1 fl oz = 29.57ml)
-   - Temperature: Use Celsius (°C) in all instructions
-     * Convert Fahrenheit to Celsius ((°F - 32) × 5/9)
-   - Length: Use centimeters (cm) or millimeters (mm)
-     * Convert inches to centimeters (1 inch = 2.54cm)
-
-5. Use these preferred units for adjusted quantities:
-   - Count-based items (eggs, sausages, chicken breasts): piece, whole, slice
-   - Flour, sugar, grains: grams (g)
-   - Liquids: milliliters (ml)
-   - Spices and small quantities: grams (g) or milligrams (mg)
-   - Fresh produce: grams (g) or piece/whole for count-based items
-   - Meat and protein: grams (g) or piece/whole for count-based items
-   - Butter and oils: grams (g) or milliliters (ml)
-
-6. Separate each ingredient into original_quantity, original_unit, quantity, unit, and name
-7. For ingredients without a specific quantity, use null for both quantities and appropriate units (e.g., "to taste", "as needed")
-8. Remove any preparation instructions from the ingredient name (e.g., "diced" or "chopped")
-
-9. CRITICAL - Properly separate quantity, unit, and name to avoid duplication:
-   - "original_quantity" should be JUST the numeric amount (e.g., "2", "1/2", "1")
-   - "original_unit" should be the measurement unit (e.g., "stuk", "heads", "g", "ml", "cups")
-   - "name" should be the ingredient ONLY, without quantity or unit (e.g., "onion", "garlic", "lemon")
+3. MANDATORY - How to handle original_quantity and original_unit:
    
-   CORRECT examples:
-   - "2 onions" → original_quantity: "2", original_unit: "", name: "onion"
-   - "2 heads garlic" → original_quantity: "2", original_unit: "heads", name: "garlic"
-   - "1/2 lemon" → original_quantity: "1/2", original_unit: "", name: "lemon"
-   - "1 tbsp olive oil" → original_quantity: "1", original_unit: "tbsp", name: "olive oil"
-   - "500g flour" → original_quantity: "500", original_unit: "g", name: "flour"
+   A. For count-based items (eggs, apples, sausages, chicken breasts):
+      - original_quantity: Just the number (e.g., "2", "4", "1/2")
+      - original_unit: LEAVE EMPTY (do NOT use "piece", "stuk", "pieces", etc.)
+      - WHY: The number alone is clear, adding "piece" is redundant
+      - Examples:
+        * "2 kippenbouten" → original_quantity: "2", original_unit: "", name: "kippenbout"
+        * "4 eieren" → original_quantity: "4", original_unit: "", name: "ei"
+        * "1/2 citroen" → original_quantity: "1/2", original_unit: "", name: "citroen"
+        * "2 pieces chicken" → original_quantity: "2", original_unit: "", name: "chicken" (REMOVE "pieces")
+        * "3 stuks worst" → original_quantity: "3", original_unit: "", name: "worst" (REMOVE "stuks")
    
-   INCORRECT examples (avoid this):
-   - "2 onions" → original_quantity: "2 onions", original_unit: "", name: "yellow onions" (duplicates "onions")
-   - "2 heads" → original_quantity: "2", original_unit: "heads", name: "garlic heads" (duplicates "heads")
+   B. For weight-based items:
+      - original_quantity: The number (e.g., "500", "200")
+      - original_unit: The weight unit (e.g., "g", "kg", "oz", "lb")
+      - Examples:
+        * "500g bloem" → original_quantity: "500", original_unit: "g", name: "bloem"
+        * "1 lb gehakt" → original_quantity: "1", original_unit: "lb", name: "gehakt"
    
-10. Use singular form for the ingredient name when possible:
-    - "onion" instead of "onions"
-    - "garlic" instead of "garlics"
+   C. For volume-based items:
+      - original_quantity: The number (e.g., "1", "2")
+      - original_unit: The volume unit (e.g., "cup", "tbsp", "ml", "L")
+      - Examples:
+        * "1 cup melk" → original_quantity: "1", original_unit: "cup", name: "melk"
+        * "2 el olie" → original_quantity: "2", original_unit: "el", name: "olie"
+   
+   D. For container-based items (where container adds meaning):
+      - original_quantity: The number
+      - original_unit: The container type (e.g., "bollen", "heads", "tenen")
+      - Examples:
+        * "2 bollen knoflook" → original_quantity: "2", original_unit: "bollen", name: "knoflook"
+        * "3 tenen knoflook" → original_quantity: "3", original_unit: "tenen", name: "knoflook"
+   
+   E. For vague/descriptive amounts:
+      - original_quantity: The descriptive text in the ORIGINAL language
+      - original_unit: LEAVE EMPTY
+      - Examples:
+        * "handvol basilicum" → original_quantity: "handvol", original_unit: "", name: "basilicum"
+        * "snufje zout" → original_quantity: "snufje", original_unit: "", name: "zout"
+        * "naar smaak" → original_quantity: "naar smaak", original_unit: "", name: "zout"
+        * "scheutje olie" → original_quantity: "scheutje", original_unit: "", name: "olie"
 
-11. AVOID semantic duplication between unit and ingredient name:
-    - When the unit word is already implied by the ingredient itself, leave unit EMPTY (but keep the quantity!)
-    - The QUANTITY must ALWAYS be present - never remove the number
-    - Examples:
-      * "1 granaatappel" → original_quantity: "1", original_unit: "", name: "granaatappel"
-        (unit is empty, but quantity "1" is preserved!)
-      * "3 tomaten" → original_quantity: "3", original_unit: "", name: "tomaat"
-        (unit is empty, but quantity "3" is preserved!)
-      * "1 citroen" → original_quantity: "1", original_unit: "", name: "citroen"
-         (unit is empty, but quantity "1" is preserved!)
-    - This is different from "2 bollen knoflook" where "bollen" (heads) is a container/measurement
+4. MANDATORY metric conversions for quantity/unit fields:
+   - Weight: Convert to grams (g)
+     * 1 oz = 28.35g
+     * 1 lb = 453.6g
+   - Volume: Convert to milliliters (ml)
+     * 1 cup = 240ml
+     * 1 tbsp = 15ml
+     * 1 tsp = 5ml
+   - Count-based: Keep the count number, leave unit empty
 
-12. EVERY ingredient MUST have a quantity - never leave quantity empty/null:
-    - If a specific amount is mentioned: use that (e.g., "50g", "2", "1/2")
-    - If no amount is mentioned but it's required: use "1" as default
-    - For vague amounts: use descriptive text in original_quantity (e.g., "handful", "to taste", "pinch")
-    - IMPORTANT: Keep the NUMBER but REMOVE generic count words:
-      * "2 stuks kip" → original_quantity: "2", original_unit: "", name: "kip" (REMOVE "stuks", keep "2")
-      * "2 pieces chicken" → original_quantity: "2", original_unit: "", name: "chicken" (REMOVE "pieces", keep "2")
-      * "3 eieren" → original_quantity: "3", original_unit: "", name: "ei"
-      * "1 snufje zout" → original_quantity: "snufje", original_unit: "", name: "zout" ("snufje" is meaningful, goes in quantity)
-    - Examples:
-      * "granaatappelpitten" (no amount) → original_quantity: "1", original_unit: "", name: "granaatappelpitten"
-      * "handvol basilicum" (Dutch) → original_quantity: "handvol", original_unit: "", name: "basilicum"
-      * "zout naar smaak" (Dutch) → original_quantity: "naar smaak", original_unit: "", name: "zout"
-    - NEVER output an ingredient without any quantity information
+5. Remove preparation instructions from ingredient name:
+   - "2 ui, gesneden" → name: "ui" (remove ", gesneden")
+   - "3 teentjes knoflook, geperst" → name: "knoflook" (remove "teentjes" and ", geperst")
 
-13. Check each ingredient against the criteria for each dietary category
-14. Consider common ingredients that might violate certain restrictions (e.g., flour often contains gluten, sauces may contain dairy or gluten)
-15. If an ingredient is ambiguous, assume it does not fit restrictive diets unless specified otherwise
-16. For calorie and nutrition estimation, consider the caloric density and nutritional content of main ingredients
-17. When scaling down sauces or marinades, maintain a practical minimum quantity needed for the cooking method
-18. For spices and seasonings, scale down proportionally but ensure quantities remain practical for flavor
+6. Use singular form for ingredient name:
+   - "ui" not "uinen"
+   - "tomaat" not "tomaten"
+   - "kip" not "kippen"
+
+7. EVERY ingredient MUST have a quantity:
+   - If amount mentioned: use it
+   - If no amount: use "1" as default
+   - NEVER leave quantity empty/null
+
+8. Check each ingredient against the criteria for each dietary category
+9. Consider common ingredients that might violate certain restrictions (e.g., flour often contains gluten, sauces may contain dairy or gluten)
+10. If an ingredient is ambiguous, assume it does not fit restrictive diets unless specified otherwise
+11. For calorie and nutrition estimation, consider the caloric density and nutritional content of main ingredients
+12. When scaling down sauces or marinades, maintain a practical minimum quantity needed for the cooking method
+13. For spices and seasonings, scale down proportionally but ensure quantities remain practical for flavor
 </INGREDIENT_ANALYSIS>`
 
 const languageHandlingSection = `<LANGUAGE_HANDLING>
