@@ -12,32 +12,20 @@ fi
 
 ENV="${1:-dev}"
 
-# Check for JWT_SIGNING_KEY override first
-if [ -n "$JWT_SIGNING_KEY" ]; then
-    JWT_SECRET="$JWT_SIGNING_KEY"
-    echo "Using JWT_SIGNING_KEY override"
-fi
-
 if [ "$ENV" = "dev" ]; then
-    # Use JWT_SIGNING_KEY if set, otherwise fall back to DEV_SUPABASE_JWT_SECRET
-    if [ -z "$JWT_SECRET" ]; then
-        JWT_SECRET="$DEV_SUPABASE_JWT_SECRET"
-    fi
+    JWT_SECRET="$DEV_SUPABASE_JWT_SECRET"
     SUPABASE_BASE_URL="$DEV_SUPABASE_URL"
     USER_ID="$DEV_USER_ID"
     if [ -z "$JWT_SECRET" ] || [ -z "$SUPABASE_BASE_URL" ] || [ -z "$USER_ID" ]; then
-        echo "Error: DEV_SUPABASE_JWT_SECRET (or JWT_SIGNING_KEY), DEV_SUPABASE_URL and DEV_USER_ID must be set in .env.bruno for dev"
+        echo "Error: DEV_SUPABASE_JWT_SECRET, DEV_SUPABASE_URL and DEV_USER_ID must be set in .env.bruno for dev"
         exit 1
     fi
 elif [ "$ENV" = "production" ]; then
-    # Use JWT_SIGNING_KEY if set, otherwise fall back to SUPABASE_JWT_SECRET
-    if [ -z "$JWT_SECRET" ]; then
-        JWT_SECRET="$SUPABASE_JWT_SECRET"
-    fi
+    JWT_SECRET="$SUPABASE_JWT_SECRET"
     SUPABASE_BASE_URL="$SUPABASE_URL"
     USER_ID="${SUPABASE_USER_ID:-60399ada-5092-4665-b002-e0fc0345cb1b}"
     if [ -z "$JWT_SECRET" ] || [ -z "$SUPABASE_BASE_URL" ]; then
-        echo "Error: SUPABASE_JWT_SECRET (or JWT_SIGNING_KEY) and SUPABASE_URL must be set in .env.bruno for production"
+        echo "Error: SUPABASE_JWT_SECRET and SUPABASE_URL must be set in .env.bruno for production"
         exit 1
     fi
 else
