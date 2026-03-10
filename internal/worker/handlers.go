@@ -18,12 +18,12 @@ import (
 	"github.com/pgvector/pgvector-go"
 	"github.com/socialchef/remy/internal/db/generated"
 	"github.com/socialchef/remy/internal/errors"
+	sentrylib "github.com/socialchef/remy/internal/sentry"
 	"github.com/socialchef/remy/internal/services/ai"
 	"github.com/socialchef/remy/internal/services/groq"
 	"github.com/socialchef/remy/internal/services/recipe"
 	"github.com/socialchef/remy/internal/services/scraper"
 	"github.com/socialchef/remy/internal/services/storage"
-	sentrylib "github.com/socialchef/remy/internal/sentry"
 	"github.com/socialchef/remy/internal/utils"
 	"github.com/socialchef/remy/internal/validation"
 )
@@ -65,6 +65,11 @@ type DBQueries interface {
 	GetOccasionsByUser(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	GetDietaryRestrictionsByUser(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	GetEquipmentByUser(ctx context.Context, userID pgtype.UUID) ([]string, error)
+	CreateBulkImportJob(ctx context.Context, arg generated.CreateBulkImportJobParams) (generated.BulkImportJob, error)
+	GetBulkImportJobByJobID(ctx context.Context, jobID string) (generated.BulkImportJob, error)
+	UpdateBulkImportJobStatus(ctx context.Context, arg generated.UpdateBulkImportJobStatusParams) error
+	UpdateImportJobWithBulkID(ctx context.Context, arg generated.UpdateImportJobWithBulkIDParams) error
+	IncrementBulkImportCounters(ctx context.Context, arg generated.IncrementBulkImportCountersParams) error
 }
 
 type InstagramScraper interface {
@@ -157,12 +162,40 @@ func parseUUID(s string) pgtype.UUID {
 func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task) error {
 	start := time.Now()
 	var status = "success"
+	var payload ProcessRecipePayload
+
 	defer func() {
 		duration := time.Since(start).Seconds()
 		p.metrics.RecordJob(ctx, "process_recipe", status, duration)
+
+		if payload.BulkJobID != "" {
+			successCount := int32(0)
+			failedCount := int32(0)
+			if status == "success" {
+				successCount = 1
+			} else {
+				failedCount = 1
+			}
+			if err := p.db.IncrementBulkImportCounters(ctx, generated.IncrementBulkImportCountersParams{
+				JobID:        payload.BulkJobID,
+				SuccessCount: pgtype.Int4{Int32: successCount, Valid: true},
+				FailedCount:  pgtype.Int4{Int32: failedCount, Valid: true},
+			}); err != nil {
+				slog.Error("Failed to increment bulk import counters", "error", err, "bulk_job_id", payload.BulkJobID)
+			}
+
+			job, err := p.db.GetBulkImportJobByJobID(ctx, payload.BulkJobID)
+			if err == nil && job.ProcessedCount.Int32+1 >= job.TotalUrls {
+				if err := p.db.UpdateBulkImportJobStatus(ctx, generated.UpdateBulkImportJobStatusParams{
+					JobID:  payload.BulkJobID,
+					Status: "COMPLETED",
+				}); err != nil {
+					slog.Error("Failed to complete bulk import job", "error", err, "bulk_job_id", payload.BulkJobID)
+				}
+			}
+		}
 	}()
 
-	var payload ProcessRecipePayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		status = "failure"
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
@@ -982,5 +1015,92 @@ func (p *RecipeProcessor) HandleInstagramRetry(ctx context.Context, t *asynq.Tas
 	// This is a placeholder for the retry logic
 	slog.Info("Instagram retry processed", "job_id", jobID, "url", url)
 
+	return nil
+}
+
+// HandleProcessBulkImport handles bulk import jobs by fanning out individual recipe tasks
+func (p *RecipeProcessor) HandleProcessBulkImport(ctx context.Context, t *asynq.Task) error {
+	start := time.Now()
+	var status = "success"
+	defer func() {
+		duration := time.Since(start).Seconds()
+		p.metrics.RecordJob(ctx, "process_bulk_import", status, duration)
+	}()
+
+	var payload ProcessBulkImportPayload
+	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+		status = "failure"
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	bulkJobID := payload.BulkJobID
+	userID := payload.UserID
+	urls := payload.URLs
+
+	slog.Info("Processing bulk import", "bulk_job_id", bulkJobID, "url_count", len(urls))
+
+	if err := p.db.UpdateBulkImportJobStatus(ctx, generated.UpdateBulkImportJobStatusParams{
+		JobID:  bulkJobID,
+		Status: "EXECUTING",
+	}); err != nil {
+		slog.Error("Failed to update bulk import status", "error", err, "bulk_job_id", bulkJobID)
+	}
+
+	for _, url := range urls {
+		job, err := p.db.GetBulkImportJobByJobID(ctx, bulkJobID)
+		if err != nil {
+			slog.Error("Failed to check bulk import status", "error", err, "bulk_job_id", bulkJobID)
+			continue
+		}
+		if job.Status == "CANCELED" {
+			slog.Info("Bulk import was canceled, stopping", "bulk_job_id", bulkJobID)
+			break
+		}
+
+		id := uuid.New().String()
+		jobID := uuid.New().String()
+
+		origin := "instagram"
+		if strings.Contains(url, "tiktok") {
+			origin = "tiktok"
+		}
+
+		_, err = p.db.CreateImportJob(ctx, generated.CreateImportJobParams{
+			ID:     parseUUID(id),
+			JobID:  jobID,
+			UserID: parseUUID(userID),
+			Url:    url,
+			Origin: origin,
+			Status: "QUEUED",
+		})
+		if err != nil {
+			slog.Error("Failed to create import job for bulk", "error", err, "bulk_job_id", bulkJobID, "url", url)
+			continue
+		}
+
+		if err := p.db.UpdateImportJobWithBulkID(ctx, generated.UpdateImportJobWithBulkIDParams{
+			JobID:     jobID,
+			BulkJobID: pgtype.Text{String: bulkJobID, Valid: true},
+		}); err != nil {
+			slog.Error("Failed to link import job to bulk job", "error", err, "job_id", jobID, "bulk_job_id", bulkJobID)
+		}
+
+		recipeTask, err := NewProcessRecipeTask(ProcessRecipePayload{
+			JobID:     jobID,
+			URL:       url,
+			UserID:    userID,
+			BulkJobID: bulkJobID,
+		})
+		if err != nil {
+			slog.Error("Failed to create recipe task", "error", err, "job_id", jobID)
+			continue
+		}
+
+		if _, err := p.asynqClient.Enqueue(recipeTask); err != nil {
+			slog.Error("Failed to enqueue recipe task", "error", err, "job_id", jobID)
+		}
+	}
+
+	slog.Info("Bulk import fan-out completed", "bulk_job_id", bulkJobID, "url_count", len(urls))
 	return nil
 }

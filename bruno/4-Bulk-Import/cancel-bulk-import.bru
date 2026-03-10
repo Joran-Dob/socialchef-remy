@@ -1,0 +1,23 @@
+meta {
+  name: Cancel Bulk Import
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{baseUrl}}/api/bulk-import/{{lastBulkJobId}}
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  test("Status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  
+  test("Response has bulk_job_id and status", function() {
+    expect(res.body).to.have.property('bulk_job_id');
+    expect(res.body).to.have.property('status');
+    expect(res.body.status).to.equal('CANCELED');
+  });
+}

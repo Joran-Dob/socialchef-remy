@@ -193,9 +193,6 @@ func (c *Config) validate() error {
 	if c.SupabaseURL == "" {
 		return fmt.Errorf("SUPABASE_URL is required")
 	}
-	if c.SupabaseJWTSecret == "" {
-		return fmt.Errorf("SUPABASE_JWT_SECRET is required")
-	}
 	if c.RedisURL == "" {
 		return fmt.Errorf("REDIS_URL is required")
 	}

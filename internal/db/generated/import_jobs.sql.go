@@ -16,7 +16,7 @@ INSERT INTO recipe_import_jobs (
     id, job_id, user_id, url, origin, status
 ) VALUES (
     $1, $2, $3, $4, $5, $6
-) RETURNING id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at
+) RETURNING id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at, bulk_job_id
 `
 
 type CreateImportJobParams struct {
@@ -52,6 +52,7 @@ func (q *Queries) CreateImportJob(ctx context.Context, arg CreateImportJobParams
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BulkJobID,
 	)
 	return i, err
 }
@@ -79,7 +80,7 @@ func (q *Queries) DeleteStaleImportJobs(ctx context.Context) error {
 }
 
 const getImportJob = `-- name: GetImportJob :one
-SELECT id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at FROM recipe_import_jobs WHERE id = $1
+SELECT id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at, bulk_job_id FROM recipe_import_jobs WHERE id = $1
 `
 
 func (q *Queries) GetImportJob(ctx context.Context, id pgtype.UUID) (RecipeImportJob, error) {
@@ -99,12 +100,13 @@ func (q *Queries) GetImportJob(ctx context.Context, id pgtype.UUID) (RecipeImpor
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BulkJobID,
 	)
 	return i, err
 }
 
 const getImportJobByJobID = `-- name: GetImportJobByJobID :one
-SELECT id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at FROM recipe_import_jobs WHERE job_id = $1
+SELECT id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at, bulk_job_id FROM recipe_import_jobs WHERE job_id = $1
 `
 
 func (q *Queries) GetImportJobByJobID(ctx context.Context, jobID string) (RecipeImportJob, error) {
@@ -124,12 +126,13 @@ func (q *Queries) GetImportJobByJobID(ctx context.Context, jobID string) (Recipe
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BulkJobID,
 	)
 	return i, err
 }
 
 const getImportJobsByUser = `-- name: GetImportJobsByUser :many
-SELECT id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at FROM recipe_import_jobs WHERE user_id = $1 ORDER BY created_at DESC
+SELECT id, job_id, user_id, url, origin, status, progress_step, progress_message, result, error, completed_at, created_at, updated_at, bulk_job_id FROM recipe_import_jobs WHERE user_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) GetImportJobsByUser(ctx context.Context, userID pgtype.UUID) ([]RecipeImportJob, error) {
@@ -155,6 +158,7 @@ func (q *Queries) GetImportJobsByUser(ctx context.Context, userID pgtype.UUID) (
 			&i.CompletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.BulkJobID,
 		); err != nil {
 			return nil, err
 		}

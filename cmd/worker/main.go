@@ -129,6 +129,7 @@ func main() {
 	mux.HandleFunc(worker.TypeGenerateEmbedding, processor.HandleGenerateEmbedding)
 	mux.HandleFunc(worker.TypeGenerateRichInstructions, processor.HandleGenerateRichInstructions)
 	mux.HandleFunc(worker.TypeCleanupJobs, processor.HandleCleanupJobs)
+	mux.HandleFunc(worker.TypeProcessBulkImport, processor.HandleProcessBulkImport)
 
 	// Handle shutdown
 	sigChan := make(chan os.Signal, 1)

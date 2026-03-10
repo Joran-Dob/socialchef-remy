@@ -202,6 +202,31 @@ func (m *MockDB) GetEquipmentByUser(ctx context.Context, userID pgtype.UUID) ([]
 	return args.Get(0).([]string), args.Error(1)
 }
 
+func (m *MockDB) CreateBulkImportJob(ctx context.Context, arg generated.CreateBulkImportJobParams) (generated.BulkImportJob, error) {
+	args := m.Called(ctx, arg)
+	return args.Get(0).(generated.BulkImportJob), args.Error(1)
+}
+
+func (m *MockDB) GetBulkImportJobByJobID(ctx context.Context, jobID string) (generated.BulkImportJob, error) {
+	args := m.Called(ctx, jobID)
+	return args.Get(0).(generated.BulkImportJob), args.Error(1)
+}
+
+func (m *MockDB) UpdateBulkImportJobStatus(ctx context.Context, arg generated.UpdateBulkImportJobStatusParams) error {
+	args := m.Called(ctx, arg)
+	return args.Error(0)
+}
+
+func (m *MockDB) UpdateImportJobWithBulkID(ctx context.Context, arg generated.UpdateImportJobWithBulkIDParams) error {
+	args := m.Called(ctx, arg)
+	return args.Error(0)
+}
+
+func (m *MockDB) IncrementBulkImportCounters(ctx context.Context, arg generated.IncrementBulkImportCountersParams) error {
+	args := m.Called(ctx, arg)
+	return args.Error(0)
+}
+
 type MockInstagramScraper struct {
 	mock.Mock
 }

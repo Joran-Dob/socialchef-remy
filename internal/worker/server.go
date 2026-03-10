@@ -30,6 +30,10 @@ func NewServer(redisURL string) *asynq.Server {
 		rdb,
 		asynq.Config{
 			Concurrency: 10,
+			Queues: map[string]int{
+				"default":     10,
+				"bulk_import": 1,
+			},
 		},
 	)
 }

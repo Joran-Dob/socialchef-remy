@@ -1,0 +1,43 @@
+meta {
+  name: Bulk Import Recipes
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/bulk-import
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "urls": [
+      "https://www.instagram.com/p/DUk7aliglK1/",
+      "https://www.instagram.com/p/DTDncSBgrTd/",
+      "https://www.instagram.com/p/DTgTW1FkrXr/"
+    ]
+  }
+}
+
+script:post-response {
+  test("Status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+  
+  test("Response has bulk_job_id", function() {
+    expect(res.body).to.have.property('bulk_job_id');
+    expect(res.body.bulk_job_id).to.be.a('string');
+  });
+  
+  test("Response has correct total_urls", function() {
+    expect(res.body).to.have.property('total_urls');
+    expect(res.body.total_urls).to.equal(3);
+  });
+  
+  test("Response status is QUEUED", function() {
+    expect(res.body.status).to.equal('QUEUED');
+  });
+  
+  bru.setVar("lastBulkJobId", res.body.bulk_job_id);
+}

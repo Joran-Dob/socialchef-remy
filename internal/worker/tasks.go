@@ -15,18 +15,20 @@ const (
 
 // Task type constants
 const (
-	TypeProcessRecipe             = "process:recipe"
-	TypeGenerateEmbedding         = "generate:embedding"
-	TypeGenerateRichInstructions  = "generate:rich-instructions"
-	TypeCleanupJobs               = "cleanup:jobs"
-	TypeInstagramRetry            = "instagram:retry"
+	TypeProcessRecipe            = "process:recipe"
+	TypeGenerateEmbedding        = "generate:embedding"
+	TypeGenerateRichInstructions = "generate:rich-instructions"
+	TypeCleanupJobs              = "cleanup:jobs"
+	TypeInstagramRetry           = "instagram:retry"
+	TypeProcessBulkImport        = "process:bulk-import"
 )
 
 // ProcessRecipePayload is the payload for recipe processing tasks
 type ProcessRecipePayload struct {
-	JobID  string `json:"job_id"`
-	URL    string `json:"url"`
-	UserID string `json:"user_id"`
+	JobID     string `json:"job_id"`
+	URL       string `json:"url"`
+	UserID    string `json:"user_id"`
+	BulkJobID string `json:"bulk_job_id,omitempty"`
 }
 
 // GenerateEmbeddingPayload is the payload for embedding tasks
@@ -43,6 +45,13 @@ type GenerateRichInstructionsPayload struct {
 type InstagramRetryPayload struct {
 	JobID string `json:"job_id"`
 	URL   string `json:"url"`
+}
+
+// ProcessBulkImportPayload is the payload for bulk import tasks
+type ProcessBulkImportPayload struct {
+	BulkJobID string   `json:"bulk_job_id"`
+	URLs      []string `json:"urls"`
+	UserID    string   `json:"user_id"`
 }
 
 // NewProcessRecipeTask creates a new process recipe task
@@ -84,4 +93,18 @@ func NewInstagramRetryTask(payload InstagramRetryPayload) (*asynq.Task, error) {
 		return nil, err
 	}
 	return asynq.NewTask(TypeInstagramRetry, data), nil
+}
+
+// NewProcessBulkImportTask creates a new bulk import task with low priority
+func NewProcessBulkImportTask(payload ProcessBulkImportPayload) (*asynq.Task, error) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return asynq.NewTask(TypeProcessBulkImport, data, asynq.Queue("bulk_import")), nil
+}
+
+// Queue returns an asynq Queue option
+func Queue(name string) asynq.Option {
+	return asynq.Queue(name)
 }

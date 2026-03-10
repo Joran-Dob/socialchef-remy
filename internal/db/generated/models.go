@@ -139,6 +139,20 @@ func (ns NullSocialMediaPlatform) Value() (driver.Value, error) {
 	return string(ns.SocialMediaPlatform), nil
 }
 
+type BulkImportJob struct {
+	ID             pgtype.UUID
+	JobID          string
+	UserID         pgtype.UUID
+	TotalUrls      int32
+	ProcessedCount pgtype.Int4
+	SuccessCount   pgtype.Int4
+	FailedCount    pgtype.Int4
+	Status         string
+	Summary        []byte
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+}
+
 type CuisineCategory struct {
 	ID        pgtype.UUID
 	Name      string
@@ -246,6 +260,7 @@ type RecipeImportJob struct {
 	CompletedAt     pgtype.Timestamptz
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
+	BulkJobID       pgtype.Text
 }
 
 type RecipeIngredient struct {

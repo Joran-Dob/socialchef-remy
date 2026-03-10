@@ -130,6 +130,10 @@ func main() {
 		r.Post("/api/v1/search", apiServer.HandleSearch)
 		r.Post("/api/v1/search/semantic", apiServer.HandleSearchSemantic)
 		r.Post("/api/v1/search/by-name", apiServer.HandleSearchByName)
+		r.Post("/api/bulk-import", apiServer.HandleBulkImportRecipe)
+		r.Get("/api/bulk-import/{bulkJobID}", apiServer.HandleBulkImportStatus)
+		r.Get("/api/bulk-imports", apiServer.HandleListUserBulkImports)
+		r.Delete("/api/bulk-import/{bulkJobID}", apiServer.HandleCancelBulkImport)
 	})
 
 	// Start server

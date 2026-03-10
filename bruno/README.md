@@ -43,6 +43,7 @@ bruno/
 ├── 1-Recipe/           # Recipe import endpoints
 ├── 2-Embedding/        # Embedding generation
 ├── 3-Search/           # Search endpoints
+├── 4-Bulk-Import/      # Bulk import endpoints
 ├── environments/
 │   ├── local.bru      # Local development
 │   └── fly.bru        # Production (fly.io)
@@ -72,6 +73,10 @@ No manual token management required!
 | `/api/v1/search` | POST | Yes | Hybrid search (delegates to semantic) |
 | `/api/v1/search/semantic` | POST | Yes | Semantic/vector search |
 | `/api/v1/search/by-name` | POST | Yes | Text search on recipe names |
+| `/api/bulk-import` | POST | Yes | Bulk import recipes from URLs |
+| `/api/bulk-import/{id}` | GET | Yes | Get bulk import job status |
+| `/api/bulk-imports` | GET | Yes | List user's bulk import jobs |
+| `/api/bulk-import/{id}` | DELETE | Yes | Cancel pending bulk import |
 
 ## Troubleshooting
 

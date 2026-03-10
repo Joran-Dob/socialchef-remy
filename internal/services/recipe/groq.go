@@ -112,18 +112,6 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 
 	content := chatResp.Choices[0].Message.Content
 
-	// Debug logging for ingredient quantities
-	var debugResp recipeResponseOuter
-	if err := json.Unmarshal([]byte(content), &debugResp); err == nil {
-		if len(debugResp.Ingredients) > 0 {
-			fmt.Printf("[DEBUG] Recipe: %s, Servings: %d\n", debugResp.Recipe.RecipeName, debugResp.Recipe.OriginalServings)
-			for i, ing := range debugResp.Ingredients[:min(3, len(debugResp.Ingredients))] {
-				fmt.Printf("[DEBUG] Ingredient %d: %s - original: %s %s, total: %s %s\n",
-					i, ing.Name, ing.OriginalQuantity, ing.OriginalUnit, ing.Quantity, ing.Unit)
-			}
-		}
-	}
-
 	var raw recipeResponseOuter
 	if err := json.Unmarshal([]byte(content), &raw); err != nil {
 		return nil, err
