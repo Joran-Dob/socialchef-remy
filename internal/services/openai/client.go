@@ -185,7 +185,7 @@ func generateRecipeWithOpenAI(ctx context.Context, apiKey, description, transcri
 }
 
 func generateEmbeddingWithOpenAI(ctx context.Context, apiKey, text string) ([]float32, error) {
-	embedding, err := callOpenAIEmbedding(ctx, apiKey, "text-embedding-3-large", text)
+	embedding, err := callOpenAIEmbedding(ctx, apiKey, "text-embedding-ada-002", text)
 	if err != nil {
 		return nil, err
 	}
