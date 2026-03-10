@@ -228,28 +228,57 @@ func (q *Queries) SearchRecipesByName(ctx context.Context, arg SearchRecipesByNa
 }
 
 const searchRecipesHybrid = `-- name: SearchRecipesHybrid :many
-SELECT  FROM search_recipes($1, $2, $3, $4, $5)
+SELECT
+    r.id,
+    r.recipe_name,
+    r.description,
+    COALESCE(
+        array_agg(DISTINCT cc.name) FILTER (WHERE cc.name IS NOT NULL),
+        ARRAY[]::text[]
+    ) as cuisine_categories,
+    COALESCE(
+        array_agg(DISTINCT mt.name) FILTER (WHERE mt.name IS NOT NULL),
+        ARRAY[]::text[]
+    ) as meal_types,
+    -- Vector similarity score (0-1)
+    CAST(1 - (r.embedding <=> $2::vector) AS float8) as vector_similarity,
+    -- Text search score (0-1)
+    COALESCE(ts_rank(r.search_vector, plainto_tsquery('english', $3)), 0) as text_rank,
+    -- Combined hybrid score
+    (
+        0.7 * CAST(1 - (r.embedding <=> $2::vector) AS float8) +
+        0.3 * COALESCE(ts_rank(r.search_vector, plainto_tsquery('english', $3)), 0)
+    ) as hybrid_score
+FROM recipes r
+LEFT JOIN recipe_cuisine_categories rcc ON r.id = rcc.recipe_id
+LEFT JOIN cuisine_categories cc ON rcc.cuisine_category_id = cc.id
+LEFT JOIN recipe_meal_types rmt ON r.id = rmt.recipe_id
+LEFT JOIN meal_types mt ON rmt.meal_type_id = mt.id
+WHERE r.embedding IS NOT NULL
+GROUP BY r.id, r.recipe_name, r.description, r.embedding, r.search_vector
+ORDER BY hybrid_score DESC
+LIMIT $1
 `
 
 type SearchRecipesHybridParams struct {
-	SearchRecipes   interface{}
-	SearchRecipes_2 interface{}
-	SearchRecipes_3 interface{}
-	SearchRecipes_4 interface{}
-	SearchRecipes_5 interface{}
+	Limit          int32
+	Column2        pgvector.Vector
+	PlaintoTsquery string
 }
 
 type SearchRecipesHybridRow struct {
+	ID                pgtype.UUID
+	RecipeName        string
+	Description       pgtype.Text
+	CuisineCategories interface{}
+	MealTypes         interface{}
+	VectorSimilarity  float64
+	TextRank          interface{}
+	HybridScore       int32
 }
 
 func (q *Queries) SearchRecipesHybrid(ctx context.Context, arg SearchRecipesHybridParams) ([]SearchRecipesHybridRow, error) {
-	rows, err := q.db.Query(ctx, searchRecipesHybrid,
-		arg.SearchRecipes,
-		arg.SearchRecipes_2,
-		arg.SearchRecipes_3,
-		arg.SearchRecipes_4,
-		arg.SearchRecipes_5,
-	)
+	rows, err := q.db.Query(ctx, searchRecipesHybrid, arg.Limit, arg.Column2, arg.PlaintoTsquery)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +286,16 @@ func (q *Queries) SearchRecipesHybrid(ctx context.Context, arg SearchRecipesHybr
 	var items []SearchRecipesHybridRow
 	for rows.Next() {
 		var i SearchRecipesHybridRow
-		if err := rows.Scan(); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.RecipeName,
+			&i.Description,
+			&i.CuisineCategories,
+			&i.MealTypes,
+			&i.VectorSimilarity,
+			&i.TextRank,
+			&i.HybridScore,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

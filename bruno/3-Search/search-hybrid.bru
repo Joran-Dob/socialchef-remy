@@ -10,20 +10,11 @@ post {
   auth: inherit
 }
 
-body {
+body:json {
   {
-    "query": "pasta carbonara",
+    "query": "krentenbollen",
     "limit": 10
   }
-}
-
-docs {
-  # Hybrid Search (Semantic + Text)
-
-  This endpoint performs hybrid search combining semantic (vector) and
-  text-based search for recipes.
-  
-  Currently delegates to semantic search as the underlying implementation.
 }
 
 script:post-response {
@@ -50,4 +41,13 @@ script:post-response {
       expect(res.body[0].meal_types).to.be.an('array');
     }
   });
+}
+
+docs {
+  # Hybrid Search (Semantic + Text)
+  
+  This endpoint performs hybrid search combining semantic (vector) and
+  text-based search for recipes.
+  
+  Currently delegates to semantic search as the underlying implementation.
 }

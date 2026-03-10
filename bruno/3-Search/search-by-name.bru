@@ -10,17 +10,11 @@ post {
   auth: inherit
 }
 
-body {
+body:json {
   {
-    "query": "carbonara",
+    "query": "pannenkoeken",
     "limit": 10
   }
-}
-
-docs {
-  # Search by Recipe Name
-
-  This endpoint performs text-based search on recipe names using ILIKE pattern matching.
 }
 
 script:post-response {
@@ -47,4 +41,10 @@ script:post-response {
       expect(res.body[0].meal_types).to.be.an('array');
     }
   });
+}
+
+docs {
+  # Search by Recipe Name
+  
+  This endpoint performs text-based search on recipe names using ILIKE pattern matching.
 }
