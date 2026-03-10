@@ -13,6 +13,7 @@ import (
 type DBQueries interface {
 	SearchRecipesByEmbedding(ctx context.Context, arg generated.SearchRecipesByEmbeddingParams) ([]generated.SearchRecipesByEmbeddingRow, error)
 	SearchRecipesByName(ctx context.Context, arg generated.SearchRecipesByNameParams) ([]generated.SearchRecipesByNameRow, error)
+	SearchRecipesHybrid(ctx context.Context, arg generated.SearchRecipesHybridParams) ([]generated.SearchRecipesHybridRow, error)
 }
 
 // OpenAIClient defines the interface for generating embeddings
@@ -94,6 +95,36 @@ func (c *Client) SearchByName(ctx context.Context, query string, limit int32) ([
 			ID:                pgUUIDToString(r.ID),
 			RecipeName:        r.RecipeName,
 			Description:       r.Description.String,
+			CuisineCategories: interfaceToStringSlice(r.CuisineCategories),
+			MealTypes:         interfaceToStringSlice(r.MealTypes),
+		}
+	}
+
+	return searchResults, nil
+}
+
+func (c *Client) SearchHybrid(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
+	embedding, err := c.openai.GenerateEmbedding(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate query embedding: %w", err)
+	}
+
+	results, err := c.db.SearchRecipesHybrid(ctx, generated.SearchRecipesHybridParams{
+		Limit:          limit,
+		Column2:        pgvector.NewVector(embedding),
+		PlaintoTsquery: query,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to search recipes: %w", err)
+	}
+
+	searchResults := make([]SearchResult, len(results))
+	for i, r := range results {
+		searchResults[i] = SearchResult{
+			ID:                pgUUIDToString(r.ID),
+			RecipeName:        r.RecipeName,
+			Description:       r.Description.String,
+			Similarity:        float64(r.HybridScore),
 			CuisineCategories: interfaceToStringSlice(r.CuisineCategories),
 			MealTypes:         interfaceToStringSlice(r.MealTypes),
 		}
