@@ -42,7 +42,7 @@ bruno/
 ├── 0-Health/           # Health check (no auth)
 ├── 1-Recipe/           # Recipe import endpoints
 ├── 2-Embedding/        # Embedding generation
-├── 3-Search/           # Search endpoints (not exposed yet)
+├── 3-Search/           # Search endpoints
 ├── environments/
 │   ├── local.bru      # Local development
 │   └── fly.bru        # Production (fly.io)
@@ -69,9 +69,9 @@ No manual token management required!
 | `/api/recipe-status` | GET | Yes | Check import job status |
 | `/api/user-import-status` | GET | Yes | List user import jobs |
 | `/api/generate-embedding` | POST | Yes | Queue embedding generation |
-| `/api/search` | POST | Yes | Hybrid search *(not exposed)* |
-| `/api/search-semantic` | POST | Yes | Semantic search *(not exposed)* |
-| `/api/search-by-name` | POST | Yes | Name search *(not exposed)* |
+| `/api/v1/search` | POST | Yes | Hybrid search (delegates to semantic) |
+| `/api/v1/search/semantic` | POST | Yes | Semantic/vector search |
+| `/api/v1/search/by-name` | POST | Yes | Text search on recipe names |
 
 ## Troubleshooting
 
@@ -82,13 +82,13 @@ Create `.env.bruno` file from template with your Supabase credentials.
 Token may be invalid. The collection will auto-refresh on next request.
 
 ### 404 on search endpoints
-These endpoints exist in code but routes aren't registered yet. Update `cmd/server/main.go` to expose them.
+Make sure the server is running and the routes are registered in `cmd/server/main.go`.
 
 ## Notes
 
 - Health check is public (no JWT required)
 - All other endpoints require valid JWT token
-- Search endpoints are prepared but not exposed in current router config
+- Search endpoints are now fully functional with category arrays populated
 
 
 ## Known Issues

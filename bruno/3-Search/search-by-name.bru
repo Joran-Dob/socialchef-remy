@@ -5,28 +5,46 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/api/search-by-name
+  url: {{baseUrl}}/api/v1/search/by-name
   body: json
   auth: inherit
 }
 
 body {
   {
-    "name": "carbonara"
+    "query": "carbonara",
+    "limit": 10
   }
 }
 
 docs {
   # Search by Recipe Name
 
-  **NOT EXPOSED IN ROUTER** - Handlers exist in internal/api/search_handlers.go
-  but routes are not registered in cmd/server/main.go
-
-  This endpoint performs text-based search on recipe names.
+  This endpoint performs text-based search on recipe names using ILIKE pattern matching.
 }
 
 script:post-response {
-  test("Status is 200 or 404", function() {
-    expect(res.status).to.be.oneOf([200, 404]);
+  test("Status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  
+  test("Response is array", function() {
+    expect(res.body).to.be.an('array');
+  });
+  
+  test("Results have required fields", function() {
+    if (res.body.length > 0) {
+      expect(res.body[0]).to.have.property('id');
+      expect(res.body[0]).to.have.property('recipe_name');
+      expect(res.body[0]).to.have.property('cuisine_categories');
+      expect(res.body[0]).to.have.property('meal_types');
+    }
+  });
+  
+  test("Category arrays are populated", function() {
+    if (res.body.length > 0) {
+      expect(res.body[0].cuisine_categories).to.be.an('array');
+      expect(res.body[0].meal_types).to.be.an('array');
+    }
   });
 }
