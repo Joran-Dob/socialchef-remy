@@ -103,6 +103,38 @@ func (c *Client) SearchByName(ctx context.Context, query string, limit int32) ([
 	return searchResults, nil
 }
 
+// SearchTwoPhase first tries exact text matches, then falls back to vector
+// search if not enough high-confidence results are found
+func (c *Client) SearchTwoPhase(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
+	// Phase 1: High-weight text search (exact matches with zero vector contribution)
+	results, err := c.db.SearchRecipesHybrid(ctx, generated.SearchRecipesHybridParams{
+		Limit:          limit,
+		Column2:        pgvector.NewVector(make([]float32, 1536)), // Zero vector (no vector contribution)
+		PlaintoTsquery: query,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to search recipes: %w", err)
+	}
+
+	// Check if we have good exact matches (similarity > 0.8)
+	goodMatches := 0
+	for _, r := range results {
+		// Calculate text-only score
+		textScore := 0.3 * interfaceToFloat64(r.TextRank)
+		if textScore >= 0.24 { // 0.8 * 0.3
+			goodMatches++
+		}
+	}
+
+	// If we have good exact matches, return them
+	if goodMatches >= 3 {
+		return c.convertHybridRows(results), nil
+	}
+
+	// Phase 2: Full hybrid search with vector contribution
+	return c.SearchHybrid(ctx, query, limit)
+}
+
 func (c *Client) SearchHybrid(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
 	embedding, err := c.openai.GenerateEmbedding(ctx, query)
 	if err != nil {
@@ -130,7 +162,43 @@ func (c *Client) SearchHybrid(ctx context.Context, query string, limit int32) ([
 		}
 	}
 
+	// Apply diversity - limit to 3 per cuisine
+	searchResults = c.diversifyResults(searchResults, 3)
+
+	// Trim to requested limit
+	if int(limit) < len(searchResults) {
+		searchResults = searchResults[:limit]
+	}
+
 	return searchResults, nil
+}
+
+// diversifyResults ensures diversity in search results by cuisine
+// It limits the number of results per primary cuisine to prevent all results
+// being from the same cuisine type
+func (c *Client) diversifyResults(results []SearchResult, maxPerCategory int) []SearchResult {
+	if maxPerCategory <= 0 {
+		maxPerCategory = 3 // Default: max 3 per cuisine
+	}
+
+	categoryCount := make(map[string]int)
+	diversified := make([]SearchResult, 0, len(results))
+
+	for _, r := range results {
+		// Get primary cuisine (first one)
+		primaryCuisine := "Unknown"
+		if len(r.CuisineCategories) > 0 {
+			primaryCuisine = r.CuisineCategories[0]
+		}
+
+		// Check if we've hit the limit for this category
+		if categoryCount[primaryCuisine] < maxPerCategory {
+			diversified = append(diversified, r)
+			categoryCount[primaryCuisine]++
+		}
+	}
+
+	return diversified
 }
 
 // pgUUIDToString converts a pgtype.UUID to a string
