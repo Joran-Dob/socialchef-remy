@@ -306,3 +306,83 @@ func (q *Queries) SearchRecipesHybrid(ctx context.Context, arg SearchRecipesHybr
 	}
 	return items, nil
 }
+
+const searchRecipesHybridWithFilters = `-- name: SearchRecipesHybridWithFilters :many
+SELECT
+    r.id,
+    r.recipe_name,
+    r.description,
+    COALESCE(array_agg(DISTINCT cc.name) FILTER (WHERE cc.name IS NOT NULL), ARRAY[]::text[]) as cuisine_categories,
+    COALESCE(array_agg(DISTINCT mt.name) FILTER (WHERE mt.name IS NOT NULL), ARRAY[]::text[]) as meal_types,
+    CAST(1 - (r.embedding <=> $2::vector) AS float8) as vector_similarity,
+    COALESCE(ts_rank(r.search_vector, plainto_tsquery('english', $3)), 0) as text_rank,
+    CAST(0.7 * CAST(1 - (r.embedding <=> $2::vector) AS float8) + 0.3 * COALESCE(ts_rank(r.search_vector, plainto_tsquery('english', $3)), 0) AS float8) as hybrid_score
+FROM recipes r
+LEFT JOIN recipe_cuisine_categories rcc ON r.id = rcc.recipe_id
+LEFT JOIN cuisine_categories cc ON rcc.cuisine_category_id = cc.id
+LEFT JOIN recipe_meal_types rmt ON r.id = rmt.recipe_id
+LEFT JOIN meal_types mt ON rmt.meal_type_id = mt.id
+WHERE r.embedding IS NOT NULL
+  AND ($4::text[] IS NULL OR cc.name = ANY($4))
+  AND ($5::text[] IS NULL OR mt.name = ANY($5))
+  AND ($6 = 0 OR r.total_time <= $6)
+GROUP BY r.id, r.recipe_name, r.description, r.embedding, r.search_vector
+ORDER BY hybrid_score DESC
+LIMIT $1
+`
+
+type SearchRecipesHybridWithFiltersParams struct {
+	Limit          int32
+	Column2        pgvector.Vector
+	PlaintoTsquery string
+	Column4        []string
+	Column5        []string
+	Column6        interface{}
+}
+
+type SearchRecipesHybridWithFiltersRow struct {
+	ID                pgtype.UUID
+	RecipeName        string
+	Description       pgtype.Text
+	CuisineCategories interface{}
+	MealTypes         interface{}
+	VectorSimilarity  float64
+	TextRank          interface{}
+	HybridScore       float64
+}
+
+func (q *Queries) SearchRecipesHybridWithFilters(ctx context.Context, arg SearchRecipesHybridWithFiltersParams) ([]SearchRecipesHybridWithFiltersRow, error) {
+	rows, err := q.db.Query(ctx, searchRecipesHybridWithFilters,
+		arg.Limit,
+		arg.Column2,
+		arg.PlaintoTsquery,
+		arg.Column4,
+		arg.Column5,
+		arg.Column6,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchRecipesHybridWithFiltersRow
+	for rows.Next() {
+		var i SearchRecipesHybridWithFiltersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RecipeName,
+			&i.Description,
+			&i.CuisineCategories,
+			&i.MealTypes,
+			&i.VectorSimilarity,
+			&i.TextRank,
+			&i.HybridScore,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

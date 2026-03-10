@@ -45,6 +45,22 @@ func NewClient(db DBQueries, openai OpenAIClient) *Client {
 	}
 }
 
+// Search determines the search intent and routes to the appropriate method
+func (c *Client) Search(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
+	intent := c.classifier.Classify(query)
+
+	switch intent {
+	case IntentByIngredient:
+		return c.SearchByIngredient(ctx, query, limit)
+	case IntentSimilarTo:
+		return c.SearchSemantic(ctx, query, limit)
+	case IntentByName:
+		return c.SearchByName(ctx, query, limit)
+	default:
+		return c.SearchHybrid(ctx, query, limit)
+	}
+}
+
 // SearchSemantic performs semantic (vector) search using embeddings
 func (c *Client) SearchSemantic(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
 	// Generate embedding for the query
