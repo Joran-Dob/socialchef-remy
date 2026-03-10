@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
@@ -20,36 +22,43 @@ type contextKey string
 
 const UserIDKey contextKey = "userID"
 
+type JWKSKey struct {
+	Kty string `json:"kty"`
+	Alg string `json:"alg"`
+	Use string `json:"use"`
+	Kid string `json:"kid"`
+	N   string `json:"n,omitempty"`
+	E   string `json:"e,omitempty"`
+	Crv string `json:"crv,omitempty"`
+	X   string `json:"x,omitempty"`
+	Y   string `json:"y,omitempty"`
+}
+
+type JWKSResponse struct {
+	Keys []JWKSKey `json:"keys"`
+}
+
 type JWKSManager struct {
 	url             string
-	keys            map[string]*rsa.PublicKey
+	rsaKeys         map[string]*rsa.PublicKey
+	ecKeys          map[string]*ecdsa.PublicKey
 	mu              sync.RWMutex
 	expiresAt       time.Time
 	refreshInterval time.Duration
 }
 
-type JWKSResponse struct {
-	Keys []struct {
-		Kty string `json:"kty"`
-		Alg string `json:"alg"`
-		Use string `json:"use"`
-		Kid string `json:"kid"`
-		N   string `json:"n"`
-		E   string `json:"e"`
-	} `json:"keys"`
-}
-
 func NewJWKSManager(supabaseURL string) *JWKSManager {
 	return &JWKSManager{
 		url:             supabaseURL + "/auth/v1/jwks",
-		keys:            make(map[string]*rsa.PublicKey),
+		rsaKeys:         make(map[string]*rsa.PublicKey),
+		ecKeys:          make(map[string]*ecdsa.PublicKey),
 		refreshInterval: 1 * time.Hour,
 	}
 }
 
-func (j *JWKSManager) GetKey(kid string) (*rsa.PublicKey, error) {
+func (j *JWKSManager) GetRSAKey(kid string) (*rsa.PublicKey, error) {
 	j.mu.RLock()
-	key, exists := j.keys[kid]
+	key, exists := j.rsaKeys[kid]
 	expired := time.Now().After(j.expiresAt)
 	j.mu.RUnlock()
 
@@ -60,20 +69,52 @@ func (j *JWKSManager) GetKey(kid string) (*rsa.PublicKey, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
-	if key, exists := j.keys[kid]; exists && time.Now().Before(j.expiresAt) {
+	if key, exists := j.rsaKeys[kid]; exists && time.Now().Before(j.expiresAt) {
 		return key, nil
 	}
 
 	if err := j.refresh(); err != nil {
-		if key, exists := j.keys[kid]; exists {
+		if key, exists := j.rsaKeys[kid]; exists {
 			return key, nil
 		}
 		return nil, err
 	}
 
-	key, exists = j.keys[kid]
+	key, exists = j.rsaKeys[kid]
 	if !exists {
-		return nil, fmt.Errorf("key with kid %s not found", kid)
+		return nil, fmt.Errorf("RSA key with kid %s not found", kid)
+	}
+
+	return key, nil
+}
+
+func (j *JWKSManager) GetECKey(kid string) (*ecdsa.PublicKey, error) {
+	j.mu.RLock()
+	key, exists := j.ecKeys[kid]
+	expired := time.Now().After(j.expiresAt)
+	j.mu.RUnlock()
+
+	if exists && !expired {
+		return key, nil
+	}
+
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if key, exists := j.ecKeys[kid]; exists && time.Now().Before(j.expiresAt) {
+		return key, nil
+	}
+
+	if err := j.refresh(); err != nil {
+		if key, exists := j.ecKeys[kid]; exists {
+			return key, nil
+		}
+		return nil, err
+	}
+
+	key, exists = j.ecKeys[kid]
+	if !exists {
+		return nil, fmt.Errorf("EC key with kid %s not found", kid)
 	}
 
 	return key, nil
@@ -95,21 +136,33 @@ func (j *JWKSManager) refresh() error {
 		return fmt.Errorf("failed to decode JWKS: %w", err)
 	}
 
-	newKeys := make(map[string]*rsa.PublicKey)
+	newRSAKeys := make(map[string]*rsa.PublicKey)
+	newECKeys := make(map[string]*ecdsa.PublicKey)
+
 	for _, key := range jwks.Keys {
 		if key.Use != "" && key.Use != "sig" {
 			continue
 		}
 
-		pubKey, err := parseRSAPublicKey(key.N, key.E)
-		if err != nil {
-			continue
-		}
+		switch key.Kty {
+		case "RSA":
+			pubKey, err := parseRSAPublicKey(key.N, key.E)
+			if err != nil {
+				continue
+			}
+			newRSAKeys[key.Kid] = pubKey
 
-		newKeys[key.Kid] = pubKey
+		case "EC":
+			pubKey, err := parseECPublicKey(key.Crv, key.X, key.Y)
+			if err != nil {
+				continue
+			}
+			newECKeys[key.Kid] = pubKey
+		}
 	}
 
-	j.keys = newKeys
+	j.rsaKeys = newRSAKeys
+	j.ecKeys = newECKeys
 	j.expiresAt = time.Now().Add(j.refreshInterval)
 	return nil
 }
@@ -131,6 +184,36 @@ func parseRSAPublicKey(nStr, eStr string) (*rsa.PublicKey, error) {
 	return &rsa.PublicKey{
 		N: n,
 		E: e,
+	}, nil
+}
+
+func parseECPublicKey(crv, xStr, yStr string) (*ecdsa.PublicKey, error) {
+	var curve elliptic.Curve
+	switch crv {
+	case "P-256":
+		curve = elliptic.P256()
+	case "P-384":
+		curve = elliptic.P384()
+	case "P-521":
+		curve = elliptic.P521()
+	default:
+		return nil, fmt.Errorf("unsupported curve: %s", crv)
+	}
+
+	xBytes, err := base64.RawURLEncoding.DecodeString(xStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode X: %w", err)
+	}
+
+	yBytes, err := base64.RawURLEncoding.DecodeString(yStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode Y: %w", err)
+	}
+
+	return &ecdsa.PublicKey{
+		Curve: curve,
+		X:     new(big.Int).SetBytes(xBytes),
+		Y:     new(big.Int).SetBytes(yBytes),
 	}, nil
 }
 
@@ -165,10 +248,22 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 
 					kid, ok := token.Header["kid"].(string)
 					if !ok {
-						return nil, fmt.Errorf("RS256 token missing kid header")
+						return nil, fmt.Errorf("RSA token missing kid header")
 					}
 
-					return jwksManager.GetKey(kid)
+					return jwksManager.GetRSAKey(kid)
+
+				case *jwt.SigningMethodECDSA:
+					if jwksManager == nil {
+						return nil, fmt.Errorf("JWKS not configured")
+					}
+
+					kid, ok := token.Header["kid"].(string)
+					if !ok {
+						return nil, fmt.Errorf("ECDSA token missing kid header")
+					}
+
+					return jwksManager.GetECKey(kid)
 
 				case *jwt.SigningMethodHMAC:
 					if cfg.SupabaseJWTSecret == "" {
