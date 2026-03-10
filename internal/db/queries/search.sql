@@ -25,19 +25,25 @@ SELECT
         ARRAY[]::text[]
     ) as meal_types,
     r.created_at,
-    r.updated_at
+    r.updated_at,
+    COALESCE(similarity(r.recipe_name, $1), 0) as name_similarity
 FROM recipes r
 LEFT JOIN recipe_cuisine_categories rcc ON r.id = rcc.recipe_id
 LEFT JOIN cuisine_categories cc ON rcc.cuisine_category_id = cc.id
 LEFT JOIN recipe_meal_types rmt ON r.id = rmt.recipe_id
 LEFT JOIN meal_types mt ON rmt.meal_type_id = mt.id
-WHERE r.recipe_name ILIKE '%' || $1 || '%'
+WHERE 
+    r.recipe_name ILIKE '%' || $1 || '%'
+    OR r.recipe_name % $1
+    OR similarity(r.recipe_name, $1) > 0.3
 GROUP BY
     r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time,
     r.total_time, r.original_serving_size, r.difficulty_rating, r.focused_diet,
     r.estimated_calories, r.origin, r.url, r.language, r.created_by,
     r.owner_id, r.thumbnail_id, r.created_at, r.updated_at
-ORDER BY r.created_at DESC
+ORDER BY 
+    similarity(r.recipe_name, $1) DESC,
+    r.created_at DESC
 LIMIT $2;
 
 -- Note: SearchRecipesHybrid uses database function that sqlc can't introspect.

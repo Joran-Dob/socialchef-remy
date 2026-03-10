@@ -115,6 +115,66 @@ func (q *Queries) SearchRecipesByEmbedding(ctx context.Context, arg SearchRecipe
 	return items, nil
 }
 
+const searchRecipesByIngredient = `-- name: SearchRecipesByIngredient :many
+SELECT
+    r.id,
+    r.recipe_name,
+    r.description,
+    COALESCE(array_agg(DISTINCT cc.name) FILTER (WHERE cc.name IS NOT NULL), ARRAY[]::text[]) as cuisine_categories,
+    COALESCE(array_agg(DISTINCT mt.name) FILTER (WHERE mt.name IS NOT NULL), ARRAY[]::text[]) as meal_types,
+    r.ingredient_names
+FROM recipes r
+LEFT JOIN recipe_cuisine_categories rcc ON r.id = rcc.recipe_id
+LEFT JOIN cuisine_categories cc ON rcc.cuisine_category_id = cc.id
+LEFT JOIN recipe_meal_types rmt ON r.id = rmt.recipe_id
+LEFT JOIN meal_types mt ON rmt.meal_type_id = mt.id
+WHERE $1 = ANY(r.ingredient_names)
+GROUP BY r.id, r.recipe_name, r.description, r.ingredient_names
+ORDER BY r.created_at DESC
+LIMIT $2
+`
+
+type SearchRecipesByIngredientParams struct {
+	IngredientNames []string
+	Limit           int32
+}
+
+type SearchRecipesByIngredientRow struct {
+	ID                pgtype.UUID
+	RecipeName        string
+	Description       pgtype.Text
+	CuisineCategories interface{}
+	MealTypes         interface{}
+	IngredientNames   []string
+}
+
+func (q *Queries) SearchRecipesByIngredient(ctx context.Context, arg SearchRecipesByIngredientParams) ([]SearchRecipesByIngredientRow, error) {
+	rows, err := q.db.Query(ctx, searchRecipesByIngredient, arg.IngredientNames, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchRecipesByIngredientRow
+	for rows.Next() {
+		var i SearchRecipesByIngredientRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RecipeName,
+			&i.Description,
+			&i.CuisineCategories,
+			&i.MealTypes,
+			&i.IngredientNames,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchRecipesByName = `-- name: SearchRecipesByName :many
 SELECT
     r.id,
@@ -142,25 +202,31 @@ SELECT
         ARRAY[]::text[]
     ) as meal_types,
     r.created_at,
-    r.updated_at
+    r.updated_at,
+    COALESCE(similarity(r.recipe_name, $1), 0) as name_similarity
 FROM recipes r
 LEFT JOIN recipe_cuisine_categories rcc ON r.id = rcc.recipe_id
 LEFT JOIN cuisine_categories cc ON rcc.cuisine_category_id = cc.id
 LEFT JOIN recipe_meal_types rmt ON r.id = rmt.recipe_id
 LEFT JOIN meal_types mt ON rmt.meal_type_id = mt.id
-WHERE r.recipe_name ILIKE '%' || $1 || '%'
+WHERE 
+    r.recipe_name ILIKE '%' || $1 || '%'
+    OR r.recipe_name % $1
+    OR similarity(r.recipe_name, $1) > 0.3
 GROUP BY
     r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time,
     r.total_time, r.original_serving_size, r.difficulty_rating, r.focused_diet,
     r.estimated_calories, r.origin, r.url, r.language, r.created_by,
     r.owner_id, r.thumbnail_id, r.created_at, r.updated_at
-ORDER BY r.created_at DESC
+ORDER BY 
+    similarity(r.recipe_name, $1) DESC,
+    r.created_at DESC
 LIMIT $2
 `
 
 type SearchRecipesByNameParams struct {
-	Column1 pgtype.Text
-	Limit   int32
+	Similarity string
+	Limit      int32
 }
 
 type SearchRecipesByNameRow struct {
@@ -184,10 +250,11 @@ type SearchRecipesByNameRow struct {
 	MealTypes           interface{}
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
+	NameSimilarity      interface{}
 }
 
 func (q *Queries) SearchRecipesByName(ctx context.Context, arg SearchRecipesByNameParams) ([]SearchRecipesByNameRow, error) {
-	rows, err := q.db.Query(ctx, searchRecipesByName, arg.Column1, arg.Limit)
+	rows, err := q.db.Query(ctx, searchRecipesByName, arg.Similarity, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -216,6 +283,7 @@ func (q *Queries) SearchRecipesByName(ctx context.Context, arg SearchRecipesByNa
 			&i.MealTypes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.NameSimilarity,
 		); err != nil {
 			return nil, err
 		}
