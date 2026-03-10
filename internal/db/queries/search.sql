@@ -86,6 +86,8 @@ SELECT
     r.id,
     r.recipe_name,
     r.description,
+    r.thumbnail_id,
+    r.owner_id,
     COALESCE(
         array_agg(DISTINCT cc.name) FILTER (WHERE cc.name IS NOT NULL),
         ARRAY[]::text[]
@@ -97,7 +99,7 @@ SELECT
     -- Vector similarity score (0-1)
     CAST(1 - (r.embedding <=> $2::vector) AS float8) as vector_similarity,
     -- Text search score (0-1)
-    COALESCE(ts_rank(r.search_vector, plainto_tsquery('english', $3)), 0) as text_rank,
+    CAST(COALESCE(ts_rank(r.search_vector, plainto_tsquery('english', $3)), 0) as float8) as text_similarity,
     -- Combined hybrid score
     CAST(
         0.7 * CAST(1 - (r.embedding <=> $2::vector) AS float8) +
@@ -110,7 +112,7 @@ LEFT JOIN cuisine_categories cc ON rcc.cuisine_category_id = cc.id
 LEFT JOIN recipe_meal_types rmt ON r.id = rmt.recipe_id
 LEFT JOIN meal_types mt ON rmt.meal_type_id = mt.id
 WHERE r.embedding IS NOT NULL
-GROUP BY r.id, r.recipe_name, r.description, r.embedding, r.search_vector
+GROUP BY r.id, r.recipe_name, r.description, r.thumbnail_id, r.owner_id, r.embedding, r.search_vector
 ORDER BY hybrid_score DESC
 LIMIT $1;
 -- name: SearchRecipesHybridWithFilters :many

@@ -46,7 +46,7 @@ func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, results
 	for i := range candidates {
 		if i < len(scores) {
 			llmScore := float64(scores[i]) / 10.0
-			candidates[i].Similarity = 0.6*candidates[i].Similarity + 0.4*llmScore
+			candidates[i].HybridScore = 0.6*candidates[i].HybridScore + 0.4*llmScore
 		}
 	}
 
@@ -86,6 +86,6 @@ func parseScores(response string, expectedCount int) []int {
 
 func sortResultsBySimilarity(results []SearchResult) {
 	sort.Slice(results, func(i, j int) bool {
-		return results[i].Similarity > results[j].Similarity
+		return results[i].HybridScore > results[j].HybridScore
 	})
 }

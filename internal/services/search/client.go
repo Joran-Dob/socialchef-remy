@@ -25,7 +25,11 @@ type SearchResult struct {
 	ID                string   `json:"id"`
 	RecipeName        string   `json:"recipe_name"`
 	Description       string   `json:"description,omitempty"`
-	Similarity        float64  `json:"similarity,omitempty"`
+	ThumbnailID       string   `json:"thumbnail_id,omitempty"`
+	OwnerID           string   `json:"owner_id,omitempty"`
+	VectorSimilarity  float64  `json:"vector_similarity,omitempty"`
+	TextSimilarity    float64  `json:"text_similarity,omitempty"`
+	HybridScore       float64  `json:"hybrid_score,omitempty"`
 	CuisineCategories []string `json:"cuisine_categories,omitempty"`
 	MealTypes         []string `json:"meal_types,omitempty"`
 }
@@ -83,7 +87,7 @@ func (c *Client) SearchSemantic(ctx context.Context, query string, limit int32) 
 			ID:                pgUUIDToString(r.ID),
 			RecipeName:        r.RecipeName,
 			Description:       r.Description.String,
-			Similarity:        r.Similarity,
+			VectorSimilarity:  r.Similarity,
 			CuisineCategories: interfaceToStringSlice(r.CuisineCategories),
 			MealTypes:         interfaceToStringSlice(r.MealTypes),
 		}
@@ -150,7 +154,7 @@ func (c *Client) SearchTwoPhase(ctx context.Context, query string, limit int32) 
 
 	goodMatches := 0
 	for _, r := range results {
-		textScore := 0.3 * interfaceToFloat64(r.TextRank)
+		textScore := 0.3 * r.TextSimilarity
 		if textScore >= 0.24 {
 			goodMatches++
 		}
@@ -190,7 +194,11 @@ func (c *Client) SearchHybrid(ctx context.Context, query string, limit int32) ([
 			ID:                pgUUIDToString(r.ID),
 			RecipeName:        r.RecipeName,
 			Description:       r.Description.String,
-			Similarity:        r.HybridScore,
+			ThumbnailID:       pgUUIDToString(r.ThumbnailID),
+			OwnerID:           pgUUIDToString(r.OwnerID),
+			VectorSimilarity:  r.VectorSimilarity,
+			TextSimilarity:    r.TextSimilarity,
+			HybridScore:       r.HybridScore,
 			CuisineCategories: interfaceToStringSlice(r.CuisineCategories),
 			MealTypes:         interfaceToStringSlice(r.MealTypes),
 		}
@@ -240,7 +248,11 @@ func (c *Client) convertHybridRows(rows []generated.SearchRecipesHybridRow) []Se
 			ID:                pgUUIDToString(r.ID),
 			RecipeName:        r.RecipeName,
 			Description:       r.Description.String,
-			Similarity:        r.HybridScore,
+			ThumbnailID:       pgUUIDToString(r.ThumbnailID),
+			OwnerID:           pgUUIDToString(r.OwnerID),
+			VectorSimilarity:  r.VectorSimilarity,
+			TextSimilarity:    r.TextSimilarity,
+			HybridScore:       r.HybridScore,
 			CuisineCategories: interfaceToStringSlice(r.CuisineCategories),
 			MealTypes:         interfaceToStringSlice(r.MealTypes),
 		}

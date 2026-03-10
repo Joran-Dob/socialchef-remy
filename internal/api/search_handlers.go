@@ -50,7 +50,7 @@ func (s *Server) HandleSearch(w http.ResponseWriter, r *http.Request) {
 	if req.MinSimilarity > 0 {
 		idx := 0
 		for _, r := range results {
-			if r.Similarity >= req.MinSimilarity {
+			if r.HybridScore >= req.MinSimilarity {
 				results[idx] = r
 				idx++
 			}
