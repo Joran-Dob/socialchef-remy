@@ -93,9 +93,10 @@ SELECT
     -- Text search score (0-1)
     COALESCE(ts_rank(r.search_vector, plainto_tsquery('english', $3)), 0) as text_rank,
     -- Combined hybrid score
-    (
+    CAST(
         0.7 * CAST(1 - (r.embedding <=> $2::vector) AS float8) +
         0.3 * COALESCE(ts_rank(r.search_vector, plainto_tsquery('english', $3)), 0)
+        AS float8
     ) as hybrid_score
 FROM recipes r
 LEFT JOIN recipe_cuisine_categories rcc ON r.id = rcc.recipe_id

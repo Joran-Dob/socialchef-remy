@@ -124,7 +124,7 @@ func (c *Client) SearchHybrid(ctx context.Context, query string, limit int32) ([
 			ID:                pgUUIDToString(r.ID),
 			RecipeName:        r.RecipeName,
 			Description:       r.Description.String,
-			Similarity:        float64(r.HybridScore),
+			Similarity:        r.HybridScore,
 			CuisineCategories: interfaceToStringSlice(r.CuisineCategories),
 			MealTypes:         interfaceToStringSlice(r.MealTypes),
 		}
