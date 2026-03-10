@@ -20,6 +20,8 @@ type chatRequest struct {
 	Model          string          `json:"model"`
 	Messages       []chatMessage   `json:"messages"`
 	ResponseFormat *responseFormat `json:"response_format,omitempty"`
+	MaxTokens      int             `json:"max_tokens,omitempty"`
+	Temperature    float64         `json:"temperature,omitempty"`
 }
 
 type chatMessage struct {
@@ -50,7 +52,7 @@ type embeddingResponse struct {
 	} `json:"data"`
 }
 
-func callOpenAIChat(ctx context.Context, apiKey, model, systemPrompt, userContent string, jsonMode bool) (string, error) {
+func callOpenAIChat(ctx context.Context, apiKey, model, systemPrompt, userContent string, jsonMode bool, maxTokens int, temperature float64) (string, error) {
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime).Seconds()
@@ -65,6 +67,8 @@ func callOpenAIChat(ctx context.Context, apiKey, model, systemPrompt, userConten
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userContent},
 		},
+		MaxTokens:   maxTokens,
+		Temperature: temperature,
 	}
 	if jsonMode {
 		req.ResponseFormat = &responseFormat{Type: "json_object"}

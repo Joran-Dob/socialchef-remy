@@ -126,7 +126,7 @@ func (c *Client) GenerateEmbedding(ctx context.Context, text string) ([]float32,
 
 // Complete sends a completion request to OpenAI for general text completion
 func (c *Client) Complete(ctx context.Context, prompt string) (string, error) {
-	content, err := callOpenAIChat(ctx, c.apiKey, "gpt-4o-mini", "", prompt, false)
+	content, err := callOpenAIChat(ctx, c.apiKey, "gpt-4o-mini", "", prompt, false, 100, 0.3)
 	if err != nil {
 		return "", err
 	}
@@ -149,7 +149,7 @@ func generateRecipeWithOpenAI(ctx context.Context, apiKey, description, transcri
 		userContent += "\n\nVideo Transcript:\n" + transcript
 	}
 
-	content, err := callOpenAIChat(ctx, apiKey, "gpt-3.5-turbo-1106", systemPrompt, userContent, true)
+	content, err := callOpenAIChat(ctx, apiKey, "gpt-3.5-turbo-1106", systemPrompt, userContent, true, 0, 0)
 	if err != nil {
 		return nil, err
 	}

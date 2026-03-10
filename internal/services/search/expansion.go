@@ -3,7 +3,6 @@ package search
 import (
 	"context"
 	"fmt"
-	"strings"
 )
 
 // QueryExpander expands search queries with synonyms and related terms
@@ -16,7 +15,7 @@ func NewQueryExpander(openai OpenAIClient) *QueryExpander {
 	return &QueryExpander{openai: openai}
 }
 
-// ExpandQuery uses OpenAI to expand the query with synonyms and related terms
+// ExpandQuery uses OpenAI to expand the query with synonyms
 func (e *QueryExpander) ExpandQuery(ctx context.Context, query string) (string, error) {
 	prompt := fmt.Sprintf(`Expand this recipe search query with synonyms and related terms.
 Original query: "%s"
@@ -31,15 +30,9 @@ Result: "krentenbollen, Dutch currant buns, rozijnen broodjes, currant bread rol
 
 	expanded, err := e.openai.Complete(ctx, prompt)
 	if err != nil {
-		// Return original on error
-		return query, nil
+		return query, err // Return original on error
 	}
 
 	// Combine original with expanded
-	expandedTerms := strings.TrimSpace(expanded)
-	if expandedTerms == "" {
-		return query, nil
-	}
-
-	return query + " " + expandedTerms, nil
+	return query + " " + expanded, nil
 }
