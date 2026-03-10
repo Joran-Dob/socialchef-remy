@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
@@ -34,7 +35,8 @@ func (s *Server) HandleSearch(w http.ResponseWriter, r *http.Request) {
 
 	results, err := s.search.SearchHybrid(r.Context(), req.Query, limit)
 	if err != nil {
-		http.Error(w, "Failed to perform search", http.StatusInternalServerError)
+		slog.Error("SearchHybrid failed", "error", err, "query", req.Query)
+		http.Error(w, "Failed to perform search: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
