@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
-
+	"strings"
 	"time"
 
 	"github.com/socialchef/remy/internal/metrics"
@@ -124,6 +124,18 @@ func (c *Client) GenerateEmbedding(ctx context.Context, text string) ([]float32,
 	return generateEmbeddingWithOpenAI(ctx, c.apiKey, text)
 }
 
+// Complete sends a completion request to OpenAI for general text completion
+func (c *Client) Complete(ctx context.Context, prompt string) (string, error) {
+	content, err := callOpenAIChat(ctx, c.apiKey, "gpt-4o-mini", "", prompt, false)
+	if err != nil {
+		return "", err
+	}
+	if content == "" {
+		return "", ErrNoResponse
+	}
+	return strings.TrimSpace(content), nil
+}
+
 func generateRecipeWithOpenAI(ctx context.Context, apiKey, description, transcript, platform string) (*Recipe, error) {
 	startTime := time.Now()
 	defer func() {
@@ -173,7 +185,7 @@ func generateRecipeWithOpenAI(ctx context.Context, apiKey, description, transcri
 }
 
 func generateEmbeddingWithOpenAI(ctx context.Context, apiKey, text string) ([]float32, error) {
-	embedding, err := callOpenAIEmbedding(ctx, apiKey, "text-embedding-ada-002", text)
+	embedding, err := callOpenAIEmbedding(ctx, apiKey, "text-embedding-3-large", text)
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,11 @@ type SearchRequest struct {
 	Query         string  `json:"query"`
 	Limit         int32   `json:"limit,omitempty"`
 	MinSimilarity float64 `json:"min_similarity,omitempty"`
+	// Filter fields
+	Cuisine    []string `json:"cuisine,omitempty"`
+	MealType   []string `json:"meal_type,omitempty"`
+	MaxTime    int32    `json:"max_time,omitempty"` // minutes
+	Difficulty []string `json:"difficulty,omitempty"`
 }
 
 // HandleSearch performs hybrid search (semantic + text)

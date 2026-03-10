@@ -44,6 +44,7 @@ CREATE TABLE recipes (
     thumbnail_id UUID REFERENCES recipe_images(id),
     embedding vector(1536),
     search_vector tsvector,
+    ingredient_names text[],
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

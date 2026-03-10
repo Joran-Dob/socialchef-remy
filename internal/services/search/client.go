@@ -33,15 +33,17 @@ type SearchResult struct {
 
 // Client provides search functionality
 type Client struct {
-	db     DBQueries
-	openai OpenAIClient
+	db         DBQueries
+	openai     OpenAIClient
+	classifier *QueryClassifier
 }
 
 // NewClient creates a new search client
 func NewClient(db DBQueries, openai OpenAIClient) *Client {
 	return &Client{
-		db:     db,
-		openai: openai,
+		db:         db,
+		openai:     openai,
+		classifier: NewQueryClassifier(),
 	}
 }
 
