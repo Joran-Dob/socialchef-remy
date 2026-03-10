@@ -9,19 +9,18 @@ import (
 	"github.com/socialchef/remy/internal/db/generated"
 )
 
-// DBQueries defines the database operations needed for search
 type DBQueries interface {
 	SearchRecipesByEmbedding(ctx context.Context, arg generated.SearchRecipesByEmbeddingParams) ([]generated.SearchRecipesByEmbeddingRow, error)
 	SearchRecipesByName(ctx context.Context, arg generated.SearchRecipesByNameParams) ([]generated.SearchRecipesByNameRow, error)
 	SearchRecipesHybrid(ctx context.Context, arg generated.SearchRecipesHybridParams) ([]generated.SearchRecipesHybridRow, error)
+	SearchRecipesByIngredient(ctx context.Context, arg generated.SearchRecipesByIngredientParams) ([]generated.SearchRecipesByIngredientRow, error)
 }
 
-// OpenAIClient defines the interface for generating embeddings
 type OpenAIClient interface {
 	GenerateEmbedding(ctx context.Context, text string) ([]float32, error)
+	Complete(ctx context.Context, prompt string) (string, error)
 }
 
-// SearchResult represents a recipe search result
 type SearchResult struct {
 	ID                string   `json:"id"`
 	RecipeName        string   `json:"recipe_name"`
@@ -31,23 +30,24 @@ type SearchResult struct {
 	MealTypes         []string `json:"meal_types,omitempty"`
 }
 
-// Client provides search functionality
 type Client struct {
 	db         DBQueries
 	openai     OpenAIClient
 	classifier *QueryClassifier
+	reranker   *CrossEncoderReranker
+	expander   *QueryExpander
 }
 
-// NewClient creates a new search client
 func NewClient(db DBQueries, openai OpenAIClient) *Client {
 	return &Client{
 		db:         db,
 		openai:     openai,
 		classifier: NewQueryClassifier(),
+		reranker:   NewCrossEncoderReranker(openai),
+		expander:   NewQueryExpander(openai),
 	}
 }
 
-// Search determines the search intent and routes to the appropriate method
 func (c *Client) Search(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
 	intent := c.classifier.Classify(query)
 
@@ -63,15 +63,12 @@ func (c *Client) Search(ctx context.Context, query string, limit int32) ([]Searc
 	}
 }
 
-// SearchSemantic performs semantic (vector) search using embeddings
 func (c *Client) SearchSemantic(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
-	// Generate embedding for the query
 	embedding, err := c.openai.GenerateEmbedding(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate query embedding: %w", err)
 	}
 
-	// Search using the embedding
 	results, err := c.db.SearchRecipesByEmbedding(ctx, generated.SearchRecipesByEmbeddingParams{
 		Limit:   limit,
 		Column2: pgvector.NewVector(embedding),
@@ -80,7 +77,6 @@ func (c *Client) SearchSemantic(ctx context.Context, query string, limit int32) 
 		return nil, fmt.Errorf("failed to search recipes: %w", err)
 	}
 
-	// Convert to SearchResult
 	searchResults := make([]SearchResult, len(results))
 	for i, r := range results {
 		searchResults[i] = SearchResult{
@@ -96,7 +92,6 @@ func (c *Client) SearchSemantic(ctx context.Context, query string, limit int32) 
 	return searchResults, nil
 }
 
-// SearchByName performs text-based search on recipe names
 func (c *Client) SearchByName(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
 	results, err := c.db.SearchRecipesByName(ctx, generated.SearchRecipesByNameParams{
 		Similarity: query,
@@ -106,7 +101,6 @@ func (c *Client) SearchByName(ctx context.Context, query string, limit int32) ([
 		return nil, fmt.Errorf("failed to search recipes by name: %w", err)
 	}
 
-	// Convert to SearchResult
 	searchResults := make([]SearchResult, len(results))
 	for i, r := range results {
 		searchResults[i] = SearchResult{
@@ -121,40 +115,62 @@ func (c *Client) SearchByName(ctx context.Context, query string, limit int32) ([
 	return searchResults, nil
 }
 
-// SearchTwoPhase first tries exact text matches, then falls back to vector
-// search if not enough high-confidence results are found
+func (c *Client) SearchByIngredient(ctx context.Context, ingredient string, limit int32) ([]SearchResult, error) {
+	results, err := c.db.SearchRecipesByIngredient(ctx, generated.SearchRecipesByIngredientParams{
+		IngredientNames: []string{ingredient},
+		Limit:           limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to search recipes by ingredient: %w", err)
+	}
+
+	searchResults := make([]SearchResult, len(results))
+	for i, r := range results {
+		searchResults[i] = SearchResult{
+			ID:                pgUUIDToString(r.ID),
+			RecipeName:        r.RecipeName,
+			Description:       r.Description.String,
+			CuisineCategories: interfaceToStringSlice(r.CuisineCategories),
+			MealTypes:         interfaceToStringSlice(r.MealTypes),
+		}
+	}
+
+	return searchResults, nil
+}
+
 func (c *Client) SearchTwoPhase(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
-	// Phase 1: High-weight text search (exact matches with zero vector contribution)
 	results, err := c.db.SearchRecipesHybrid(ctx, generated.SearchRecipesHybridParams{
 		Limit:          limit,
-		Column2:        pgvector.NewVector(make([]float32, 1536)), // Zero vector (no vector contribution)
+		Column2:        pgvector.NewVector(make([]float32, 1536)),
 		PlaintoTsquery: query,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to search recipes: %w", err)
 	}
 
-	// Check if we have good exact matches (similarity > 0.8)
 	goodMatches := 0
 	for _, r := range results {
-		// Calculate text-only score
 		textScore := 0.3 * interfaceToFloat64(r.TextRank)
-		if textScore >= 0.24 { // 0.8 * 0.3
+		if textScore >= 0.24 {
 			goodMatches++
 		}
 	}
 
-	// If we have good exact matches, return them
 	if goodMatches >= 3 {
 		return c.convertHybridRows(results), nil
 	}
 
-	// Phase 2: Full hybrid search with vector contribution
 	return c.SearchHybrid(ctx, query, limit)
 }
 
 func (c *Client) SearchHybrid(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
-	embedding, err := c.openai.GenerateEmbedding(ctx, query)
+	// Expand query
+	expandedQuery, err := c.expander.ExpandQuery(ctx, query)
+	if err != nil {
+		expandedQuery = query // Fallback to original
+	}
+
+	embedding, err := c.openai.GenerateEmbedding(ctx, expandedQuery)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate query embedding: %w", err)
 	}
@@ -180,36 +196,34 @@ func (c *Client) SearchHybrid(ctx context.Context, query string, limit int32) ([
 		}
 	}
 
-	// Apply diversity - limit to 3 per cuisine
 	searchResults = c.diversifyResults(searchResults, 3)
 
-	// Trim to requested limit
-	if int(limit) < len(searchResults) {
-		searchResults = searchResults[:limit]
+	rerankedResults, err := c.reranker.Rerank(ctx, query, searchResults, int(limit))
+	if err != nil {
+		return searchResults, nil
 	}
 
-	return searchResults, nil
+	if int(limit) < len(rerankedResults) {
+		rerankedResults = rerankedResults[:limit]
+	}
+
+	return rerankedResults, nil
 }
 
-// diversifyResults ensures diversity in search results by cuisine
-// It limits the number of results per primary cuisine to prevent all results
-// being from the same cuisine type
 func (c *Client) diversifyResults(results []SearchResult, maxPerCategory int) []SearchResult {
 	if maxPerCategory <= 0 {
-		maxPerCategory = 3 // Default: max 3 per cuisine
+		maxPerCategory = 3
 	}
 
 	categoryCount := make(map[string]int)
 	diversified := make([]SearchResult, 0, len(results))
 
 	for _, r := range results {
-		// Get primary cuisine (first one)
 		primaryCuisine := "Unknown"
 		if len(r.CuisineCategories) > 0 {
 			primaryCuisine = r.CuisineCategories[0]
 		}
 
-		// Check if we've hit the limit for this category
 		if categoryCount[primaryCuisine] < maxPerCategory {
 			diversified = append(diversified, r)
 			categoryCount[primaryCuisine]++
@@ -234,12 +248,10 @@ func (c *Client) convertHybridRows(rows []generated.SearchRecipesHybridRow) []Se
 	return results
 }
 
-// pgUUIDToString converts a pgtype.UUID to a string
 func pgUUIDToString(u pgtype.UUID) string {
 	if !u.Valid {
 		return ""
 	}
-	// Convert [16]byte to UUID string format
 	return fmt.Sprintf("%x-%x-%x-%x-%x",
 		u.Bytes[0:4], u.Bytes[4:6], u.Bytes[6:8], u.Bytes[8:10], u.Bytes[10:16])
 }

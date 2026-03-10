@@ -140,6 +140,7 @@ CREATE TABLE recipe_import_jobs (
 -- Indexes
 CREATE INDEX idx_recipes_origin ON recipes(origin);
 CREATE INDEX idx_recipes_recipe_name ON recipes(recipe_name);
+CREATE INDEX idx_recipes_ingredients ON recipes USING gin(ingredient_names);
 CREATE INDEX idx_recipe_ingredients_recipe_id ON recipe_ingredients(recipe_id);
 CREATE INDEX idx_recipe_instructions_recipe_id ON recipe_instructions(recipe_id);
 CREATE INDEX idx_recipe_instructions_timer_data ON recipe_instructions USING GIN (timer_data);

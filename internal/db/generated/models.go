@@ -201,6 +201,7 @@ type Recipe struct {
 	ThumbnailID         pgtype.UUID
 	Embedding           *pgvector_go.Vector
 	SearchVector        interface{}
+	IngredientNames     []string
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
 }
