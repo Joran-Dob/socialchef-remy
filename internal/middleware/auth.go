@@ -40,6 +40,7 @@ type JWKSResponse struct {
 
 type JWKSManager struct {
 	url             string
+	apiKey          string
 	rsaKeys         map[string]*rsa.PublicKey
 	ecKeys          map[string]*ecdsa.PublicKey
 	mu              sync.RWMutex
@@ -47,9 +48,10 @@ type JWKSManager struct {
 	refreshInterval time.Duration
 }
 
-func NewJWKSManager(supabaseURL string) *JWKSManager {
+func NewJWKSManager(supabaseURL, apiKey string) *JWKSManager {
 	return &JWKSManager{
-		url:             supabaseURL + "/auth/v1/jwks",
+		url:             supabaseURL + "/auth/v1/.well-known/jwks.json",
+		apiKey:          apiKey,
 		rsaKeys:         make(map[string]*rsa.PublicKey),
 		ecKeys:          make(map[string]*ecdsa.PublicKey),
 		refreshInterval: 1 * time.Hour,
@@ -121,7 +123,17 @@ func (j *JWKSManager) GetECKey(kid string) (*ecdsa.PublicKey, error) {
 }
 
 func (j *JWKSManager) refresh() error {
-	resp, err := http.Get(j.url)
+	req, err := http.NewRequest("GET", j.url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if j.apiKey != "" {
+		req.Header.Set("apikey", j.apiKey)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch JWKS: %w", err)
 	}
@@ -220,7 +232,7 @@ func parseECPublicKey(crv, xStr, yStr string) (*ecdsa.PublicKey, error) {
 func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	var jwksManager *JWKSManager
 	if cfg.SupabaseURL != "" {
-		jwksManager = NewJWKSManager(cfg.SupabaseURL)
+		jwksManager = NewJWKSManager(cfg.SupabaseURL, cfg.SupabaseAnonKey)
 	}
 
 	return func(next http.Handler) http.Handler {

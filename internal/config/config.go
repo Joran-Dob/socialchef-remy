@@ -14,6 +14,7 @@ type Config struct {
 	DatabaseURL string
 
 	SupabaseURL            string
+	SupabaseAnonKey        string
 	SupabaseJWTSecret      string
 	SupabaseServiceRoleKey string
 
@@ -58,6 +59,7 @@ func Load() (*Config, error) {
 		ServiceVersion:           os.Getenv("SERVICE_VERSION"),
 		DatabaseURL:              os.Getenv("DATABASE_URL"),
 		SupabaseURL:              os.Getenv("SUPABASE_URL"),
+		SupabaseAnonKey:          os.Getenv("SUPABASE_ANON_KEY"),
 		SupabaseJWTSecret:        os.Getenv("SUPABASE_JWT_SECRET"),
 		SupabaseServiceRoleKey:   os.Getenv("SUPABASE_SERVICE_ROLE_KEY"),
 		RedisURL:                 os.Getenv("REDIS_URL"),
