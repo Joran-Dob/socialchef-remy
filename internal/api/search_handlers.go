@@ -8,8 +8,9 @@ import (
 
 // SearchRequest represents a request to search recipes
 type SearchRequest struct {
-	Query string `json:"query"`
-	Limit int32  `json:"limit,omitempty"`
+	Query         string  `json:"query"`
+	Limit         int32   `json:"limit,omitempty"`
+	MinSimilarity float64 `json:"min_similarity,omitempty"`
 }
 
 // HandleSearch performs hybrid search (semantic + text)
@@ -38,6 +39,18 @@ func (s *Server) HandleSearch(w http.ResponseWriter, r *http.Request) {
 		slog.Error("SearchHybrid failed", "error", err, "query", req.Query)
 		http.Error(w, "Failed to perform search: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Filter results below minimum similarity threshold
+	if req.MinSimilarity > 0 {
+		idx := 0
+		for _, r := range results {
+			if r.Similarity >= req.MinSimilarity {
+				results[idx] = r
+				idx++
+			}
+		}
+		results = results[:idx]
 	}
 
 	w.Header().Set("Content-Type", "application/json")
