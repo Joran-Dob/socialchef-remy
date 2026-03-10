@@ -81,8 +81,8 @@ func (c *Client) SearchSemantic(ctx context.Context, query string, limit int32) 
 // SearchByName performs text-based search on recipe names
 func (c *Client) SearchByName(ctx context.Context, query string, limit int32) ([]SearchResult, error) {
 	results, err := c.db.SearchRecipesByName(ctx, generated.SearchRecipesByNameParams{
-		Column1: pgtype.Text{String: query, Valid: true},
-		Limit:   limit,
+		Similarity: query,
+		Limit:      limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to search recipes by name: %w", err)
@@ -201,6 +201,21 @@ func (c *Client) diversifyResults(results []SearchResult, maxPerCategory int) []
 	return diversified
 }
 
+func (c *Client) convertHybridRows(rows []generated.SearchRecipesHybridRow) []SearchResult {
+	results := make([]SearchResult, len(rows))
+	for i, r := range rows {
+		results[i] = SearchResult{
+			ID:                pgUUIDToString(r.ID),
+			RecipeName:        r.RecipeName,
+			Description:       r.Description.String,
+			Similarity:        r.HybridScore,
+			CuisineCategories: interfaceToStringSlice(r.CuisineCategories),
+			MealTypes:         interfaceToStringSlice(r.MealTypes),
+		}
+	}
+	return results
+}
+
 // pgUUIDToString converts a pgtype.UUID to a string
 func pgUUIDToString(u pgtype.UUID) string {
 	if !u.Valid {
@@ -228,4 +243,17 @@ func interfaceToStringSlice(v interface{}) []string {
 		return result
 	}
 	return []string{}
+}
+
+func interfaceToFloat64(v interface{}) float64 {
+	if v == nil {
+		return 0
+	}
+	if f, ok := v.(float64); ok {
+		return f
+	}
+	if f, ok := v.(float32); ok {
+		return float64(f)
+	}
+	return 0
 }
