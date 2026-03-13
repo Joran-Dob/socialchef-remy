@@ -327,7 +327,7 @@ LEFT JOIN cuisine_categories cc ON rcc.cuisine_category_id = cc.id
 LEFT JOIN recipe_meal_types rmt ON r.id = rmt.recipe_id
 LEFT JOIN meal_types mt ON rmt.meal_type_id = mt.id
 LEFT JOIN social_media_owners smo ON r.owner_id = smo.id
-LEFT JOIN recipe_images ri ON r.id = ri.recipe_id AND ri.image_type = 'thumbnail'
+LEFT JOIN recipe_images ri ON r.id = ri.recipe_id AND ri.image_type = 'full'
 LEFT JOIN stored_images si ON ri.stored_image_id = si.id
 WHERE r.embedding IS NOT NULL
 GROUP BY r.id, r.recipe_name, r.description, r.owner_id, smo.username, si.storage_path, r.embedding, r.search_vector
