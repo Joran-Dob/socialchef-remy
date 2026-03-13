@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pgvector/pgvector-go"
+	"github.com/socialchef/remy/internal/config"
 	"github.com/socialchef/remy/internal/db/generated"
 )
 
@@ -39,15 +40,17 @@ type SearchResult struct {
 type Client struct {
 	db         DBQueries
 	openai     OpenAIClient
+	cfg        *config.Config
 	classifier *QueryClassifier
 	reranker   *CrossEncoderReranker
 	expander   *QueryExpander
 }
 
-func NewClient(db DBQueries, openai OpenAIClient) *Client {
+func NewClient(db DBQueries, openai OpenAIClient, cfg *config.Config) *Client {
 	return &Client{
 		db:         db,
 		openai:     openai,
+		cfg:        cfg,
 		classifier: NewQueryClassifier(),
 		reranker:   NewCrossEncoderReranker(openai),
 		expander:   NewQueryExpander(openai),
@@ -197,7 +200,7 @@ func (c *Client) SearchHybrid(ctx context.Context, query string, limit int32) ([
 			RecipeName:        r.RecipeName,
 			Description:       r.Description.String,
 			ThumbnailID:       pgUUIDToString(r.ThumbnailID),
-			ThumbnailURL:      buildThumbnailURL(r.ThumbnailStoragePath.String),
+			ThumbnailURL:      c.buildThumbnailURL(r.ThumbnailStoragePath.String),
 			OwnerID:           pgUUIDToString(r.OwnerID),
 			OwnerUsername:     r.OwnerUsername.String,
 			VectorSimilarity:  r.VectorSimilarity,
@@ -304,15 +307,9 @@ func interfaceToFloat64(v interface{}) float64 {
 	return 0
 }
 
-// buildThumbnailURL constructs the public URL for a thumbnail from its storage path
-// TODO: Make supabaseURL and bucket configurable
-func buildThumbnailURL(storagePath string) string {
-	if storagePath == "" {
+func (c *Client) buildThumbnailURL(storagePath string) string {
+	if storagePath == "" || c.cfg == nil {
 		return ""
 	}
-	// Format: https://<project-ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
-	// You need to update this with your actual Supabase URL and bucket name
-	supabaseURL := "https://your-project-ref.supabase.co"
-	bucket := "recipe-images"
-	return fmt.Sprintf("%s/storage/v1/object/public/%s/%s", supabaseURL, bucket, storagePath)
+	return fmt.Sprintf("%s/storage/v1/object/public/%s/%s", c.cfg.SupabaseURL, c.cfg.RecipeStorageBucket, storagePath)
 }

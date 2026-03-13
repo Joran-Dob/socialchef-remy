@@ -82,7 +82,7 @@ func main() {
 	// Initialize OpenAI client for search
 	openaiClient := openai.NewClient(cfg.OpenAIKey)
 	// Initialize search client
-	searchClient := search.NewClient(queries, openaiClient)
+	searchClient := search.NewClient(queries, openaiClient, cfg)
 
 	// API handlers
 	apiServer := api.NewServer(cfg, queries, asynqClient, searchClient)

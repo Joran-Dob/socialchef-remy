@@ -17,6 +17,7 @@ type Config struct {
 	SupabaseAnonKey        string
 	SupabaseJWTSecret      string
 	SupabaseServiceRoleKey string
+	RecipeStorageBucket    string
 
 	RedisURL string
 
@@ -62,6 +63,7 @@ func Load() (*Config, error) {
 		SupabaseAnonKey:          os.Getenv("SUPABASE_ANON_KEY"),
 		SupabaseJWTSecret:        os.Getenv("SUPABASE_JWT_SECRET"),
 		SupabaseServiceRoleKey:   os.Getenv("SUPABASE_SERVICE_ROLE_KEY"),
+		RecipeStorageBucket:      os.Getenv("RECIPE_STORAGE_BUCKET"),
 		RedisURL:                 os.Getenv("REDIS_URL"),
 		OpenAIKey:                os.Getenv("OPENAI_API_KEY"),
 		GroqKey:                  os.Getenv("GROQ_API_KEY"),
@@ -94,6 +96,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.Port == "" {
 		cfg.Port = "8080"
+	}
+	if cfg.RecipeStorageBucket == "" {
+		cfg.RecipeStorageBucket = "recipes"
 	}
 
 	// Set transcription defaults
