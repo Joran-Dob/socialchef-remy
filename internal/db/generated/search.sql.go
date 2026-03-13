@@ -300,9 +300,8 @@ SELECT
     r.id,
     r.recipe_name,
     r.description,
-    r.thumbnail_id,
     r.owner_id,
-    p.username as owner_username,
+    smo.username as owner_username,
     si.storage_path as thumbnail_storage_path,
     COALESCE(
         array_agg(DISTINCT cc.name) FILTER (WHERE cc.name IS NOT NULL),
@@ -327,10 +326,11 @@ LEFT JOIN recipe_cuisine_categories rcc ON r.id = rcc.recipe_id
 LEFT JOIN cuisine_categories cc ON rcc.cuisine_category_id = cc.id
 LEFT JOIN recipe_meal_types rmt ON r.id = rmt.recipe_id
 LEFT JOIN meal_types mt ON rmt.meal_type_id = mt.id
-LEFT JOIN profiles p ON r.owner_id = p.id
-LEFT JOIN stored_images si ON r.thumbnail_id = si.id
+LEFT JOIN social_media_owners smo ON r.owner_id = smo.id
+LEFT JOIN recipe_images ri ON r.id = ri.recipe_id AND ri.image_type = 'thumbnail'
+LEFT JOIN stored_images si ON ri.stored_image_id = si.id
 WHERE r.embedding IS NOT NULL
-GROUP BY r.id, r.recipe_name, r.description, r.thumbnail_id, r.owner_id, p.username, si.storage_path, r.embedding, r.search_vector
+GROUP BY r.id, r.recipe_name, r.description, r.owner_id, smo.username, si.storage_path, r.embedding, r.search_vector
 ORDER BY hybrid_score DESC
 LIMIT $1
 `
@@ -345,7 +345,6 @@ type SearchRecipesHybridRow struct {
 	ID                   pgtype.UUID
 	RecipeName           string
 	Description          pgtype.Text
-	ThumbnailID          pgtype.UUID
 	OwnerID              pgtype.UUID
 	OwnerUsername        pgtype.Text
 	ThumbnailStoragePath pgtype.Text
@@ -369,7 +368,6 @@ func (q *Queries) SearchRecipesHybrid(ctx context.Context, arg SearchRecipesHybr
 			&i.ID,
 			&i.RecipeName,
 			&i.Description,
-			&i.ThumbnailID,
 			&i.OwnerID,
 			&i.OwnerUsername,
 			&i.ThumbnailStoragePath,
