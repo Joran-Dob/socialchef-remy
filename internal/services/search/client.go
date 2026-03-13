@@ -26,7 +26,9 @@ type SearchResult struct {
 	RecipeName        string   `json:"recipe_name"`
 	Description       string   `json:"description,omitempty"`
 	ThumbnailID       string   `json:"thumbnail_id,omitempty"`
+	ThumbnailURL      string   `json:"thumbnail_url,omitempty"`
 	OwnerID           string   `json:"owner_id,omitempty"`
+	OwnerUsername     string   `json:"owner_username,omitempty"`
 	VectorSimilarity  float64  `json:"vector_similarity,omitempty"`
 	TextSimilarity    float64  `json:"text_similarity,omitempty"`
 	HybridScore       float64  `json:"hybrid_score,omitempty"`
@@ -195,7 +197,9 @@ func (c *Client) SearchHybrid(ctx context.Context, query string, limit int32) ([
 			RecipeName:        r.RecipeName,
 			Description:       r.Description.String,
 			ThumbnailID:       pgUUIDToString(r.ThumbnailID),
+			ThumbnailURL:      buildThumbnailURL(r.ThumbnailStoragePath.String),
 			OwnerID:           pgUUIDToString(r.OwnerID),
+			OwnerUsername:     r.OwnerUsername.String,
 			VectorSimilarity:  r.VectorSimilarity,
 			TextSimilarity:    r.TextSimilarity,
 			HybridScore:       r.HybridScore,
@@ -298,4 +302,17 @@ func interfaceToFloat64(v interface{}) float64 {
 		return float64(f)
 	}
 	return 0
+}
+
+// buildThumbnailURL constructs the public URL for a thumbnail from its storage path
+// TODO: Make supabaseURL and bucket configurable
+func buildThumbnailURL(storagePath string) string {
+	if storagePath == "" {
+		return ""
+	}
+	// Format: https://<project-ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
+	// You need to update this with your actual Supabase URL and bucket name
+	supabaseURL := "https://your-project-ref.supabase.co"
+	bucket := "recipe-images"
+	return fmt.Sprintf("%s/storage/v1/object/public/%s/%s", supabaseURL, bucket, storagePath)
 }
