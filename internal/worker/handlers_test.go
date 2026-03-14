@@ -77,6 +77,26 @@ func (m *MockDB) UpdateInstructionRich(ctx context.Context, arg generated.Update
 	return args.Error(0)
 }
 
+func (m *MockDB) CreateInstructionIngredient(ctx context.Context, arg generated.CreateInstructionIngredientParams) (generated.InstructionIngredient, error) {
+	args := m.Called(ctx, arg)
+	return args.Get(0).(generated.InstructionIngredient), args.Error(1)
+}
+
+func (m *MockDB) GetInstructionIngredientsByInstruction(ctx context.Context, instructionID pgtype.UUID) ([]generated.InstructionIngredient, error) {
+	args := m.Called(ctx, instructionID)
+	return args.Get(0).([]generated.InstructionIngredient), args.Error(1)
+}
+
+func (m *MockDB) GetInstructionIngredientsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]generated.InstructionIngredient, error) {
+	args := m.Called(ctx, recipeID)
+	return args.Get(0).([]generated.InstructionIngredient), args.Error(1)
+}
+
+func (m *MockDB) DeleteInstructionIngredientsByInstruction(ctx context.Context, instructionID pgtype.UUID) error {
+	args := m.Called(ctx, instructionID)
+	return args.Error(0)
+}
+
 func (m *MockDB) CreateNutrition(ctx context.Context, arg generated.CreateNutritionParams) (generated.RecipeNutrition, error) {
 	args := m.Called(ctx, arg)
 	return args.Get(0).(generated.RecipeNutrition), args.Error(1)
@@ -603,4 +623,389 @@ func TestHandleProcessRecipe_OutputValidationFails(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Recipe validation failed")
+}
+
+func TestSaveInstructionIngredients(t *testing.T) {
+	ctx := context.Background()
+
+	instructionID1 := parseUUID("00000000-0000-0000-0000-000000000001")
+	instructionID2 := parseUUID("00000000-0000-0000-0000-000000000002")
+	ingredientID1 := parseUUID("00000000-0000-0000-0000-000000000001")
+	ingredientID2 := parseUUID("00000000-0000-0000-0000-000000000002")
+	ingredientID3 := parseUUID("00000000-0000-0000-0000-000000000003")
+
+	tests := []struct {
+		name               string
+		savedInstructions  []generated.RecipeInstruction
+		savedIngredientIDs []string
+		ingredients        []recipeservice.Ingredient
+		recipeInstructions []recipeservice.Instruction
+		expectCreateCall   bool
+		expectCreateParams []generated.CreateInstructionIngredientParams
+		expectError        bool
+		description        string
+	}{
+		{
+			name: "HappyPath",
+			savedInstructions: []generated.RecipeInstruction{
+				{ID: instructionID1, StepNumber: 1},
+				{ID: instructionID2, StepNumber: 2},
+			},
+			savedIngredientIDs: []string{ingredientID1.String(), ingredientID2.String()},
+			ingredients: []recipeservice.Ingredient{
+				{Name: "milk"},
+				{Name: "eggs"},
+			},
+			recipeInstructions: []recipeservice.Instruction{
+				{
+					StepNumber: 1,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "milk", QuantityUsed: "300ml"},
+					},
+				},
+				{
+					StepNumber: 2,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "eggs", QuantityUsed: "2"},
+					},
+				},
+			},
+			expectCreateCall: true,
+			expectCreateParams: []generated.CreateInstructionIngredientParams{
+				{
+					InstructionID: instructionID1,
+					IngredientID:  ingredientID1,
+					StepQuantity:  pgtype.Text{String: "300ml", Valid: true},
+				},
+				{
+					InstructionID: instructionID2,
+					IngredientID:  ingredientID2,
+					StepQuantity:  pgtype.Text{String: "2", Valid: true},
+				},
+			},
+			expectError: false,
+			description: "Valid step-ingredient mappings, all ingredients found",
+		},
+		{
+			name: "UnknownIngredient",
+			savedInstructions: []generated.RecipeInstruction{
+				{ID: instructionID1, StepNumber: 1},
+			},
+			savedIngredientIDs: []string{ingredientID1.String()},
+			ingredients: []recipeservice.Ingredient{
+				{Name: "milk"},
+			},
+			recipeInstructions: []recipeservice.Instruction{
+				{
+					StepNumber: 1,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "milk", QuantityUsed: "300ml"},
+						{IngredientName: "unknown_sauce", QuantityUsed: "50ml"},
+					},
+				},
+			},
+			expectCreateCall: true,
+			expectCreateParams: []generated.CreateInstructionIngredientParams{
+				{
+					InstructionID: instructionID1,
+					IngredientID:  ingredientID1,
+					StepQuantity:  pgtype.Text{String: "300ml", Valid: true},
+				},
+			},
+			expectError: false,
+			description: "AI returns ingredient not in list, should skip and log",
+		},
+		{
+			name: "DuplicateIngredients",
+			savedInstructions: []generated.RecipeInstruction{
+				{ID: instructionID1, StepNumber: 1},
+			},
+			savedIngredientIDs: []string{ingredientID1.String()},
+			ingredients: []recipeservice.Ingredient{
+				{Name: "milk"},
+			},
+			recipeInstructions: []recipeservice.Instruction{
+				{
+					StepNumber: 1,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "milk", QuantityUsed: "200ml"},
+						{IngredientName: "milk", QuantityUsed: "100ml"},
+					},
+				},
+			},
+			expectCreateCall: true,
+			expectCreateParams: []generated.CreateInstructionIngredientParams{
+				{
+					InstructionID: instructionID1,
+					IngredientID:  ingredientID1,
+					StepQuantity:  pgtype.Text{String: "200ml + 100ml", Valid: true},
+				},
+			},
+			expectError: false,
+			description: "Same ingredient appears twice in same step, should combine quantities",
+		},
+		{
+			name: "EmptyIngredientsUsed",
+			savedInstructions: []generated.RecipeInstruction{
+				{ID: instructionID1, StepNumber: 1},
+				{ID: instructionID2, StepNumber: 2},
+			},
+			savedIngredientIDs: []string{ingredientID1.String(), ingredientID2.String()},
+			ingredients: []recipeservice.Ingredient{
+				{Name: "milk"},
+				{Name: "eggs"},
+			},
+			recipeInstructions: []recipeservice.Instruction{
+				{
+					StepNumber: 1,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "milk", QuantityUsed: "300ml"},
+					},
+				},
+				{
+					StepNumber:      2,
+					IngredientsUsed: []recipeservice.StepIngredient{},
+				},
+			},
+			expectCreateCall: true,
+			expectCreateParams: []generated.CreateInstructionIngredientParams{
+				{
+					InstructionID: instructionID1,
+					IngredientID:  ingredientID1,
+					StepQuantity:  pgtype.Text{String: "300ml", Valid: true},
+				},
+			},
+			expectError: false,
+			description: "Step with no ingredients, should handle gracefully",
+		},
+		{
+			name: "QuantityMismatch",
+			savedInstructions: []generated.RecipeInstruction{
+				{ID: instructionID1, StepNumber: 1},
+			},
+			savedIngredientIDs: []string{ingredientID1.String()},
+			ingredients: []recipeservice.Ingredient{
+				{Name: "milk"},
+			},
+			recipeInstructions: []recipeservice.Instruction{
+				{
+					StepNumber: 1,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "milk", QuantityUsed: "100ml"},
+					},
+				},
+			},
+			expectCreateCall: true,
+			expectCreateParams: []generated.CreateInstructionIngredientParams{
+				{
+					InstructionID: instructionID1,
+					IngredientID:  ingredientID1,
+					StepQuantity:  pgtype.Text{String: "100ml", Valid: true},
+				},
+			},
+			expectError: false,
+			description: "Step quantities don't sum to total, should log warning",
+		},
+		{
+			name: "CaseInsensitiveMatching",
+			savedInstructions: []generated.RecipeInstruction{
+				{ID: instructionID1, StepNumber: 1},
+			},
+			savedIngredientIDs: []string{ingredientID1.String()},
+			ingredients: []recipeservice.Ingredient{
+				{Name: "milk"},
+			},
+			recipeInstructions: []recipeservice.Instruction{
+				{
+					StepNumber: 1,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "Milk", QuantityUsed: "300ml"},
+					},
+				},
+			},
+			expectCreateCall: true,
+			expectCreateParams: []generated.CreateInstructionIngredientParams{
+				{
+					InstructionID: instructionID1,
+					IngredientID:  ingredientID1,
+					StepQuantity:  pgtype.Text{String: "300ml", Valid: true},
+				},
+			},
+			expectError: false,
+			description: "Milk should match ingredient milk",
+		},
+		{
+			name: "EmptyQuantity",
+			savedInstructions: []generated.RecipeInstruction{
+				{ID: instructionID1, StepNumber: 1},
+			},
+			savedIngredientIDs: []string{ingredientID1.String()},
+			ingredients: []recipeservice.Ingredient{
+				{Name: "salt"},
+			},
+			recipeInstructions: []recipeservice.Instruction{
+				{
+					StepNumber: 1,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "salt", QuantityUsed: ""},
+					},
+				},
+			},
+			expectCreateCall: true,
+			expectCreateParams: []generated.CreateInstructionIngredientParams{
+				{
+					InstructionID: instructionID1,
+					IngredientID:  ingredientID1,
+					StepQuantity:  pgtype.Text{Valid: false},
+				},
+			},
+			expectError: false,
+			description: "QuantityUsed is empty string, should store as NULL",
+		},
+		{
+			name:               "EmptyInputs",
+			savedInstructions:  []generated.RecipeInstruction{},
+			savedIngredientIDs: []string{},
+			ingredients:        []recipeservice.Ingredient{},
+			recipeInstructions: []recipeservice.Instruction{},
+			expectCreateCall:   false,
+			expectCreateParams: []generated.CreateInstructionIngredientParams{},
+			expectError:        false,
+			description:        "All empty inputs, should return early with no error",
+		},
+		{
+			name: "DuplicateWithEmptyQuantity",
+			savedInstructions: []generated.RecipeInstruction{
+				{ID: instructionID1, StepNumber: 1},
+			},
+			savedIngredientIDs: []string{ingredientID1.String()},
+			ingredients: []recipeservice.Ingredient{
+				{Name: "pepper"},
+			},
+			recipeInstructions: []recipeservice.Instruction{
+				{
+					StepNumber: 1,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "pepper", QuantityUsed: ""},
+						{IngredientName: "pepper", QuantityUsed: "1 tsp"},
+					},
+				},
+			},
+			expectCreateCall: true,
+			expectCreateParams: []generated.CreateInstructionIngredientParams{
+				{
+					InstructionID: instructionID1,
+					IngredientID:  ingredientID1,
+					StepQuantity:  pgtype.Text{String: "1 tsp", Valid: true},
+				},
+			},
+			expectError: false,
+			description: "Duplicate ingredients where first has empty quantity, should use non-empty quantity",
+		},
+		{
+			name: "MultipleStepsWithMixedIngredients",
+			savedInstructions: []generated.RecipeInstruction{
+				{ID: instructionID1, StepNumber: 1},
+				{ID: instructionID2, StepNumber: 2},
+			},
+			savedIngredientIDs: []string{ingredientID1.String(), ingredientID2.String(), ingredientID3.String()},
+			ingredients: []recipeservice.Ingredient{
+				{Name: "milk"},
+				{Name: "flour"},
+				{Name: "eggs"},
+			},
+			recipeInstructions: []recipeservice.Instruction{
+				{
+					StepNumber: 1,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "milk", QuantityUsed: "200ml"},
+						{IngredientName: "flour", QuantityUsed: "100g"},
+					},
+				},
+				{
+					StepNumber: 2,
+					IngredientsUsed: []recipeservice.StepIngredient{
+						{IngredientName: "eggs", QuantityUsed: "2"},
+						{IngredientName: "milk", QuantityUsed: "50ml"},
+					},
+				},
+			},
+			expectCreateCall: true,
+			expectCreateParams: []generated.CreateInstructionIngredientParams{
+				{
+					InstructionID: instructionID1,
+					IngredientID:  ingredientID1,
+					StepQuantity:  pgtype.Text{String: "200ml", Valid: true},
+				},
+				{
+					InstructionID: instructionID1,
+					IngredientID:  ingredientID2,
+					StepQuantity:  pgtype.Text{String: "100g", Valid: true},
+				},
+				{
+					InstructionID: instructionID2,
+					IngredientID:  ingredientID3,
+					StepQuantity:  pgtype.Text{String: "2", Valid: true},
+				},
+				{
+					InstructionID: instructionID2,
+					IngredientID:  ingredientID1,
+					StepQuantity:  pgtype.Text{String: "50ml", Valid: true},
+				},
+			},
+			expectError: false,
+			description: "Multiple steps with shared and unique ingredients",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockDB := new(MockDB)
+			p := &RecipeProcessor{db: mockDB}
+
+			if tt.expectCreateCall && len(tt.expectCreateParams) > 0 {
+				mockDB.On("CreateInstructionIngredient", ctx, mock.Anything).Return(generated.InstructionIngredient{}, nil).Times(len(tt.expectCreateParams))
+			}
+
+			err := p.saveInstructionIngredients(ctx, tt.savedInstructions, tt.savedIngredientIDs, tt.ingredients, tt.recipeInstructions)
+
+			if tt.expectError {
+				assert.Error(t, err, "Expected error for test case: %s", tt.description)
+			} else {
+				assert.NoError(t, err, "Unexpected error for test case: %s", tt.description)
+			}
+
+			if tt.expectCreateCall {
+				mockDB.AssertExpectations(t)
+
+				if len(tt.expectCreateParams) > 0 {
+					mockDB.AssertCalled(t, "CreateInstructionIngredient", ctx, mock.Anything)
+					for _, call := range mockDB.Calls {
+						if call.Method == "CreateInstructionIngredient" {
+							params := call.Arguments[1].(generated.CreateInstructionIngredientParams)
+
+							found := false
+							for _, expected := range tt.expectCreateParams {
+								if params.InstructionID == expected.InstructionID &&
+									params.IngredientID == expected.IngredientID &&
+									params.StepQuantity.Valid == expected.StepQuantity.Valid {
+									if !expected.StepQuantity.Valid {
+										found = true
+										break
+									}
+									if params.StepQuantity.String == expected.StepQuantity.String {
+										found = true
+										break
+									}
+								}
+							}
+							assert.True(t, found, "CreateInstructionIngredient called with unexpected params: %+v", params)
+						}
+					}
+				}
+			} else {
+				mockDB.AssertNotCalled(t, "CreateInstructionIngredient")
+			}
+		})
+	}
 }

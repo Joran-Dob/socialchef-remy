@@ -125,6 +125,7 @@ func main() {
 		r.Use(middleware.AuthMiddleware(cfg))
 		r.Post("/api/recipe", apiServer.HandleImportRecipe)
 		r.Get("/api/recipe-status", apiServer.HandleJobStatus)
+		r.Get("/api/instruction-ingredients-count", apiServer.HandleGetInstructionIngredientsCount)
 		r.Get("/api/user-import-status", apiServer.HandleUserImportStatus)
 		r.Post("/api/generate-embedding", apiServer.HandleGenerateEmbedding)
 		r.Post("/api/v1/search", apiServer.HandleSearch)

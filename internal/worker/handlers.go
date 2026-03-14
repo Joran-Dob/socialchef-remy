@@ -40,6 +40,7 @@ type DBQueries interface {
 	CreateInstruction(ctx context.Context, arg generated.CreateInstructionParams) (generated.RecipeInstruction, error)
 	UpdateInstructionRich(ctx context.Context, arg generated.UpdateInstructionRichParams) error
 	CreateNutrition(ctx context.Context, arg generated.CreateNutritionParams) (generated.RecipeNutrition, error)
+	CreateInstructionIngredient(ctx context.Context, arg generated.CreateInstructionIngredientParams) (generated.InstructionIngredient, error)
 	GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipeIngredient, error)
 	GetInstructionsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipeInstruction, error)
 	DeleteOldImportJobs(ctx context.Context) error
@@ -596,6 +597,11 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		savedInstructions[i] = savedInst
 	}
 
+	// Step 5: Save instruction-ingredient junction entries
+	if err := p.saveInstructionIngredients(ctx, savedInstructions, savedIngredientIDs, recipe.Ingredients, recipe.Instructions); err != nil {
+		slog.Warn("Failed to save instruction-ingredient junction entries", "error", err, "recipe_name", recipe.RecipeName)
+	}
+
 	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Generating rich instruction formatting...")
 
 	for i := range recipe.Ingredients {
@@ -1102,5 +1108,83 @@ func (p *RecipeProcessor) HandleProcessBulkImport(ctx context.Context, t *asynq.
 	}
 
 	slog.Info("Bulk import fan-out completed", "bulk_job_id", bulkJobID, "url_count", len(urls))
+	return nil
+}
+
+func (p *RecipeProcessor) saveInstructionIngredients(
+	ctx context.Context,
+	savedInstructions []generated.RecipeInstruction,
+	savedIngredientIDs []string,
+	ingredients []recipe.Ingredient,
+	recipeInstructions []recipe.Instruction,
+) error {
+	if len(savedInstructions) == 0 || len(savedIngredientIDs) == 0 || len(ingredients) == 0 {
+		return nil
+	}
+
+	ingredientMap := make(map[string]pgtype.UUID)
+	for i, ing := range ingredients {
+		if i < len(savedIngredientIDs) && savedIngredientIDs[i] != "" {
+			normalizedName := strings.ToLower(strings.TrimSpace(ing.Name))
+			ingredientMap[normalizedName] = parseUUID(savedIngredientIDs[i])
+		}
+	}
+
+	instructionIDMap := make(map[int32]pgtype.UUID)
+	for _, inst := range savedInstructions {
+		instructionIDMap[inst.StepNumber] = inst.ID
+	}
+
+	for _, inst := range recipeInstructions {
+		if len(inst.IngredientsUsed) == 0 {
+			continue
+		}
+
+		instructionID, ok := instructionIDMap[int32(inst.StepNumber)]
+		if !ok {
+			slog.Warn("Instruction not found for step", "step_number", inst.StepNumber)
+			continue
+		}
+
+		deduped := make(map[string]*recipe.StepIngredient)
+		for idx := range inst.IngredientsUsed {
+			su := &inst.IngredientsUsed[idx]
+			normalizedName := strings.ToLower(strings.TrimSpace(su.IngredientName))
+			if normalizedName == "" {
+				continue
+			}
+
+			if existing, found := deduped[normalizedName]; found {
+				if su.QuantityUsed != "" {
+					if existing.QuantityUsed != "" {
+						existing.QuantityUsed = existing.QuantityUsed + " + " + su.QuantityUsed
+					} else {
+						existing.QuantityUsed = su.QuantityUsed
+					}
+				}
+			} else {
+				deduped[normalizedName] = su
+			}
+		}
+
+		for normalizedName, usage := range deduped {
+			ingredientID, found := ingredientMap[normalizedName]
+			if !found {
+				slog.Warn("Unknown ingredient in step", "ingredient", usage.IngredientName, "step", inst.StepNumber)
+				continue
+			}
+
+			_, err := p.db.CreateInstructionIngredient(ctx, generated.CreateInstructionIngredientParams{
+				InstructionID: instructionID,
+				IngredientID:  ingredientID,
+				StepQuantity:  pgtype.Text{String: usage.QuantityUsed, Valid: usage.QuantityUsed != ""},
+			})
+			if err != nil {
+				slog.Error("Failed to create instruction-ingredient junction", "error", err, "step", inst.StepNumber, "ingredient", usage.IngredientName)
+				continue
+			}
+		}
+	}
+
 	return nil
 }

@@ -68,6 +68,7 @@ No manual token management required!
 | `/health` | GET | No | Health check |
 | `/api/recipe` | POST | Yes | Import recipe from URL |
 | `/api/recipe-status` | GET | Yes | Check import job status |
+| `/api/instruction-ingredients-count` | GET | Yes | Get count of instruction-ingredient linkages for a recipe |
 | `/api/user-import-status` | GET | Yes | List user import jobs |
 | `/api/generate-embedding` | POST | Yes | Queue embedding generation |
 | `/api/v1/search` | POST | Yes | Hybrid search (delegates to semantic) |
@@ -94,6 +95,35 @@ Make sure the server is running and the routes are registered in `cmd/server/mai
 - Health check is public (no JWT required)
 - All other endpoints require valid JWT token
 - Search endpoints are now fully functional with category arrays populated
+
+## Instruction-Ingredient Linking Tests
+
+The collection includes comprehensive tests that verify instruction-ingredient junction entries are created correctly during recipe import:
+
+### Test Files
+- `1-Recipe/import-recipe-verify-ingredients.bru` - Tests single recipe import with database verification
+- `4-Bulk-Import/bulk-import-verify-ingredients.bru` - Tests bulk recipe import with database verification
+
+### How It Works
+1. Import a recipe (single or bulk)
+2. Poll for job completion
+3. Query the `/api/instruction-ingredients-count` endpoint with the recipe_id
+4. Assert that the count is greater than 0, confirming that the instruction_ingredients junction table has been populated
+
+### Important Notes
+These tests use async operations for polling job completion. **Recommended:** Use Bruno Desktop App for these tests as it handles async operations better than the CLI.
+
+### Endpoint
+```
+GET /api/instruction-ingredients-count?recipe_id={recipe_id}
+```
+
+Response:
+```json
+{
+  "count": 15
+}
+```
 
 
 ## Known Issues

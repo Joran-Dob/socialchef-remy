@@ -261,3 +261,17 @@ CREATE INDEX idx_recipe_equipment_recipe_id ON recipe_equipment(recipe_id);
 -- Search Indexes
 CREATE INDEX IF NOT EXISTS recipe_search_idx ON recipes USING GiST (search_vector);
 CREATE INDEX IF NOT EXISTS recipe_embedding_idx ON recipes USING hnsw (embedding vector_cosine_ops);
+
+-- Instruction-Ingredients junction table (temporary addition for sqlc)
+-- TODO: Run `make sync-schema` to sync from migrations
+CREATE TABLE IF NOT EXISTS instruction_ingredients (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    instruction_id UUID NOT NULL REFERENCES recipe_instructions(id) ON DELETE CASCADE,
+    ingredient_id UUID NOT NULL REFERENCES recipe_ingredients(id) ON DELETE CASCADE,
+    step_quantity TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(instruction_id, ingredient_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_instruction_ingredients_instruction_id ON instruction_ingredients(instruction_id);
+CREATE INDEX IF NOT EXISTS idx_instruction_ingredients_ingredient_id ON instruction_ingredients(ingredient_id);

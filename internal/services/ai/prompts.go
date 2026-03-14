@@ -110,6 +110,12 @@ Always format your response as a JSON object with the following structure:
           "type": "",
           "category": ""
         }
+      ],
+      "ingredients_used": [
+        {
+          "ingredient_name": "",
+          "quantity_used": ""
+        }
       ]
     }
   ],
@@ -121,6 +127,8 @@ Always format your response as a JSON object with the following structure:
   },
   "language": ""
 }
+
+NEW: Each instruction now includes an "ingredients_used" array that tracks which ingredients are used in that step and in what quantity.
 </OUTPUT_FORMAT>`
 
 const criticalMetricRequirementSection = `<CRITICAL_METRIC_REQUIREMENT>
@@ -249,6 +257,125 @@ When analyzing ingredients:
 12. When scaling down sauces or marinades, maintain a practical minimum quantity needed for the cooking method
 13. For spices and seasonings, scale down proportionally but ensure quantities remain practical for flavor
 </INGREDIENT_ANALYSIS>`
+
+const stepIngredientGuidelinesSection = `<STEP_INGREDIENT_GUIDELINES>
+CRITICAL TASK: Extract which ingredients are used in EACH instruction step and the quantity used.
+
+For each instruction step, identify:
+1. Which ingredients from the ingredient list are mentioned or implied
+2. What quantity of each ingredient is used in that specific step
+3. Track ingredients that are split across multiple steps (e.g., "half now, half later")
+4. Note when ingredients are reserved for later use (e.g., "save 1 tbsp for garnish")
+
+INGREDIENT MATCHING RULES:
+- Match ingredients by name (case-insensitive)
+- Allow descriptive mentions to map to ingredient names:
+  * "minced garlic" → "garlic"
+  * "chicken breasts" → "chicken breast"
+  * "diced onion" → "onion"
+- Each instruction should list each ingredient only once
+- Steps without ingredient usage should have an empty ingredients_used array
+
+QUANTITY FORMATS:
+- Use exact quantities when stated: "2 tablespoons", "500g", "1 cup"
+- Use descriptive language when appropriate: "a pinch", "to taste", "as desired"
+- Reference remaining amounts: "remaining", "rest of", "leftover from step 1"
+- Track reservations: "1 tablespoon (reserved)", "reserved amount"
+
+SPECIAL CASES:
+- Pre-mixtures (e.g., "the flour mixture"): List individual components with note
+- Pan drippings/sauces: List as separate ingredient if they're being used
+- Garnishes: List in the garnish step, not the preparation step
+- Equipment: Ignore equipment-only mentions (e.g., "remove from pan")
+- Compound preparation: If a step prepares a mixture but doesn't use all ingredients yet, list the ones being prepared
+
+VALIDATION RULE:
+The sum of ingredient quantities used across all steps should equal (or reasonably approximate) the total quantity listed in the ingredients array. If an ingredient is split across steps, ensure the parts add up to the whole.
+</STEP_INGREDIENT_GUIDELINES>`
+
+const stepIngredientExamplesSection = `<STEP_INGREDIENT_EXAMPLES>
+Example 1 - Simple Step with Multiple Ingredients:
+Input Instruction: "Heat 2 tablespoons of olive oil in a large pan. Add 1 diced onion and 3 cloves of minced garlic."
+Output:
+{
+  "step_number": 1,
+  "instruction": "Heat 2 tablespoons of olive oil in a large pan. Add 1 diced onion and 3 cloves of minced garlic.",
+  "ingredients_used": [
+    {"ingredient_name": "olive oil", "quantity_used": "2 tablespoons"},
+    {"ingredient_name": "onion", "quantity_used": "1"},
+    {"ingredient_name": "garlic", "quantity_used": "3 cloves"}
+  ]
+}
+
+Example 2 - Split Ingredient Usage Across Steps:
+Input Instructions:
+Step 1: "Reserve 2 tablespoons of chopped parsley for garnish. Set aside."
+Step 2: "Add the rest of the parsley to the soup along with the lemon juice."
+Step 3: "Garnish with the reserved parsley before serving."
+Output:
+{
+  "instructions": [
+    {
+      "step_number": 1,
+      "instruction": "Reserve 2 tablespoons of chopped parsley for garnish. Set aside.",
+      "ingredients_used": [
+        {"ingredient_name": "parsley", "quantity_used": "2 tablespoons (reserved)"}
+      ]
+    },
+    {
+      "step_number": 2,
+      "instruction": "Add the rest of the parsley to the soup along with the lemon juice.",
+      "ingredients_used": [
+        {"ingredient_name": "parsley", "quantity_used": "remaining"},
+        {"ingredient_name": "lemon juice", "quantity_used": "all"}
+      ]
+    },
+    {
+      "step_number": 3,
+      "instruction": "Garnish with the reserved parsley before serving.",
+      "ingredients_used": [
+        {"ingredient_name": "parsley", "quantity_used": "2 tablespoons (reserved)"}
+      ]
+    }
+  ]
+}
+Note: The sum of parsley used (2 tbsp reserved + remaining + 2 tbsp reserved for garnish) should equal the total amount in the ingredients list.
+
+Example 3 - Multi-Step Recipe with Preparation:
+Input Instructions:
+Step 1: "Preheat oven to 180°C. Line a baking sheet with parchment paper."
+Step 2: "In a large bowl, combine 500g flour, 200g sugar, and 10g baking powder."
+Step 3: "Add 3 eggs, 250ml milk, and 120ml melted butter to the dry ingredients."
+Output:
+{
+  "instructions": [
+    {
+      "step_number": 1,
+      "instruction": "Preheat oven to 180°C. Line a baking sheet with parchment paper.",
+      "ingredients_used": []
+    },
+    {
+      "step_number": 2,
+      "instruction": "In a large bowl, combine 500g flour, 200g sugar, and 10g baking powder.",
+      "ingredients_used": [
+        {"ingredient_name": "flour", "quantity_used": "500g"},
+        {"ingredient_name": "sugar", "quantity_used": "200g"},
+        {"ingredient_name": "baking powder", "quantity_used": "10g"}
+      ]
+    },
+    {
+      "step_number": 3,
+      "instruction": "Add 3 eggs, 250ml milk, and 120ml melted butter to the dry ingredients.",
+      "ingredients_used": [
+        {"ingredient_name": "eggs", "quantity_used": "3"},
+        {"ingredient_name": "milk", "quantity_used": "250ml"},
+        {"ingredient_name": "butter", "quantity_used": "120ml melted"}
+      ]
+    }
+  ]
+}
+Note: The quantities used in steps 2 and 3 sum to the total ingredient amounts: flour 500g + sugar 200g + baking powder 10g + eggs 3 + milk 250ml + butter 120ml.
+</STEP_INGREDIENT_EXAMPLES>`
 
 const languageHandlingSection = `<LANGUAGE_HANDLING>
 CRITICAL: You MUST preserve the original language of the recipe content throughout your entire output.
@@ -394,6 +521,10 @@ func BuildRecipePrompt(platform string) string {
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf(ingredientAnalysisSection, criticalMetricRequirementSection))
 	sb.WriteString("\n\n")
+	sb.WriteString(stepIngredientGuidelinesSection)
+	sb.WriteString("\n\n")
+	sb.WriteString(stepIngredientExamplesSection)
+	sb.WriteString("\n\n")
 	sb.WriteString(languageHandlingSection)
 	sb.WriteString("\n\n")
 	sb.WriteString(instructionsSection)
@@ -429,6 +560,10 @@ This recipe comes from a website. Keep in mind:
 	sb.WriteString(outputFormatSection)
 	sb.WriteString("\n\n")
 	sb.WriteString(fmt.Sprintf(ingredientAnalysisSection, criticalMetricRequirementSection))
+	sb.WriteString("\n\n")
+	sb.WriteString(stepIngredientGuidelinesSection)
+	sb.WriteString("\n\n")
+	sb.WriteString(stepIngredientExamplesSection)
 	sb.WriteString("\n\n")
 	sb.WriteString(languageHandlingSection)
 	sb.WriteString("\n\n")

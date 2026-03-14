@@ -171,22 +171,113 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 		userContent += "\n\nVideo Transcript:\n" + transcript
 	}
 
+	type jsonSchema struct {
+		Name   string                 `json:"name"`
+		Schema map[string]interface{} `json:"schema"`
+		Strict bool                   `json:"strict"`
+	}
+
+	type responseFormat struct {
+		Type       string     `json:"type"`
+		JSONSchema jsonSchema `json:"json_schema"`
+	}
+
 	type chatRequest struct {
 		Model    string `json:"model"`
 		Messages []struct {
 			Role    string `json:"role"`
 			Content string `json:"content"`
 		} `json:"messages"`
-		ResponseFormat struct {
-			Type string `json:"type"`
-		} `json:"response_format"`
+		ResponseFormat responseFormat `json:"response_format"`
+	}
+
+	// JSON Schema for structured recipe output with step-level ingredient extraction
+	recipeJSONSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"recipe": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"recipe_name":           map[string]interface{}{"type": "string"},
+					"description":           map[string]interface{}{"type": "string"},
+					"prep_time":             map[string]interface{}{"type": []string{"integer", "null"}},
+					"cooking_time":          map[string]interface{}{"type": []string{"integer", "null"}},
+					"total_time":            map[string]interface{}{"type": []string{"integer", "null"}},
+					"original_serving_size": map[string]interface{}{"type": []string{"integer", "null"}},
+					"difficulty_rating":     map[string]interface{}{"type": []string{"integer", "null"}},
+					"focused_diet":          map[string]interface{}{"type": "string"},
+					"estimated_calories":    map[string]interface{}{"type": []string{"integer", "null"}},
+				},
+			},
+			"ingredients": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"original_quantity": map[string]interface{}{"type": []string{"string", "number", "null"}},
+						"original_unit":     map[string]interface{}{"type": "string"},
+						"quantity":          map[string]interface{}{"type": []string{"number", "null"}},
+						"unit":              map[string]interface{}{"type": "string"},
+						"name":              map[string]interface{}{"type": "string"},
+					},
+				},
+			},
+			"instructions": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"step_number": map[string]interface{}{"type": "integer"},
+						"instruction": map[string]interface{}{"type": "string"},
+						"timer_data": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"duration_seconds": map[string]interface{}{"type": []string{"integer", "null"}},
+									"duration_text":    map[string]interface{}{"type": "string"},
+									"label":            map[string]interface{}{"type": "string"},
+									"type":             map[string]interface{}{"type": "string"},
+									"category":         map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+						"ingredients_used": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"ingredient_name": map[string]interface{}{"type": "string"},
+									"quantity_used":   map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+			},
+			"nutrition": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"protein": map[string]interface{}{"type": []string{"number", "null"}},
+					"carbs":   map[string]interface{}{"type": []string{"number", "null"}},
+					"fat":     map[string]interface{}{"type": []string{"number", "null"}},
+					"fiber":   map[string]interface{}{"type": []string{"number", "null"}},
+				},
+			},
+			"language": map[string]interface{}{"type": "string"},
+		},
 	}
 
 	req := chatRequest{
 		Model: "openai/gpt-oss-120b",
-		ResponseFormat: struct {
-			Type string `json:"type"`
-		}{Type: "json_object"},
+		ResponseFormat: responseFormat{
+			Type: "json_schema",
+			JSONSchema: jsonSchema{
+				Name:   "recipe_extraction",
+				Schema: recipeJSONSchema,
+				Strict: false, // Use best-effort mode as recommended by Groq
+			},
+		},
 	}
 	req.Messages = append(req.Messages, struct {
 		Role    string `json:"role"`

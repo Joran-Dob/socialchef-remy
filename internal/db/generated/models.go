@@ -171,6 +171,14 @@ type Equipment struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type InstructionIngredient struct {
+	ID            pgtype.UUID
+	InstructionID pgtype.UUID
+	IngredientID  pgtype.UUID
+	StepQuantity  pgtype.Text
+	CreatedAt     pgtype.Timestamptz
+}
+
 type MealType struct {
 	ID        pgtype.UUID
 	Name      string

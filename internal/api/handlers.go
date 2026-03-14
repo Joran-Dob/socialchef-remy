@@ -224,5 +224,37 @@ func (s *Server) HandleGenerateEmbedding(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(map[string]string{"status": "queued"})
 }
+
+type InstructionIngredientsCountResponse struct {
+	Count int `json:"count"`
+}
+
+func (s *Server) HandleGetInstructionIngredientsCount(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	recipeID := r.URL.Query().Get("recipe_id")
+	if recipeID == "" {
+		http.Error(w, "recipe_id is required", http.StatusBadRequest)
+		return
+	}
+
+	ingredients, err := s.db.GetInstructionIngredientsByRecipe(r.Context(), parseUUID(recipeID))
+	if err != nil {
+		slog.Error("Failed to get instruction ingredients", "error", err, "recipe_id", recipeID)
+		http.Error(w, "Failed to get instruction ingredients", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(InstructionIngredientsCountResponse{
+		Count: len(ingredients),
+	})
+}
+

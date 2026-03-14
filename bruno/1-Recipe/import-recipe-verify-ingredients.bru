@@ -1,0 +1,116 @@
+meta {
+  name: Import Recipe and Verify Instruction Ingredients
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/recipe
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "url": "https://www.ah.nl/allerhande/recept/R-R1189426/pannenkoeken-basisrecept"
+  }
+}
+
+script:post-response {
+  test("Status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+
+  test("Response has job_id", function() {
+    expect(res.body).to.have.property('job_id');
+    expect(res.body.job_id).to.be.a('string');
+  });
+
+  bru.setVar("testJobId", res.body.job_id);
+
+  // Poll for job completion
+  const maxAttempts = 30;
+  const pollInterval = 2000;
+  let attempts = 0;
+  let jobComplete = false;
+  let recipeId = null;
+
+  while (attempts < maxAttempts && !jobComplete) {
+    attempts++;
+    console.log(`Polling attempt ${attempts}/${maxAttempts}...`);
+
+    // Wait before polling
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+    // Make a synchronous request to check status
+    const statusReq = new Request({
+      url: bru.getEnvVar("baseUrl") + "/api/recipe-status?job_id=" + bru.getVar("testJobId"),
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + bru.getVar("jwtToken")
+      }
+    });
+
+    const statusRes = await statusReq.send();
+
+    if (statusRes.status === 200) {
+      const statusData = statusRes.body;
+
+      if (statusData.status === "COMPLETED") {
+        jobComplete = true;
+
+        // Get the recipe_id from the import job
+        const jobReq = new Request({
+          url: bru.getEnvVar("baseUrl") + "/api/user-import-status",
+          method: "GET",
+          headers: {
+            "Authorization": "Bearer " + bru.getVar("jwtToken")
+          }
+        });
+
+        const jobRes = await jobReq.send();
+
+        if (jobRes.status === 200) {
+          const jobs = jobRes.body.jobs;
+          const testJob = jobs.find(j => j.id === bru.getVar("testJobId"));
+
+          if (testJob && testJob.recipe_id) {
+            recipeId = testJob.recipe_id;
+            bru.setVar("testRecipeId", recipeId);
+
+            // Verify instruction_ingredients count
+            const countReq = new Request({
+              url: bru.getEnvVar("baseUrl") + "/api/instruction-ingredients-count?recipe_id=" + recipeId,
+              method: "GET",
+              headers: {
+                "Authorization": "Bearer " + bru.getVar("jwtToken")
+              }
+            });
+
+            const countRes = await countReq.send();
+
+            test("Instruction ingredients count endpoint returns 200", function() {
+              expect(countRes.status).to.equal(200);
+            });
+
+            test("Instruction ingredients count is greater than 0", function() {
+              expect(countRes.body).to.have.property('count');
+              expect(countRes.body.count).to.be.greaterThan(0);
+              console.log(`Found ${countRes.body.count} instruction-ingredient linkages`);
+            });
+          }
+        }
+      } else if (statusData.status === "FAILED") {
+        console.error("Job failed:", statusData.error);
+        jobComplete = true;
+        test("Job should not fail", function() {
+          expect(statusData.status).to.not.equal("FAILED");
+        });
+      }
+    }
+  }
+
+  test("Job should complete within poll time", function() {
+    expect(jobComplete).to.be.true;
+  });
+}

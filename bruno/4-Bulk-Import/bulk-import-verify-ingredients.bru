@@ -1,0 +1,119 @@
+meta {
+  name: Bulk Import Recipes and Verify Instruction Ingredients
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/bulk-import
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "urls": [
+      "https://www.instagram.com/p/DUk7aliglK1/",
+      "https://www.instagram.com/p/DTDncSBgrTd/",
+      "https://www.instagram.com/p/DTgTW1FkrXr/"
+    ]
+  }
+}
+
+script:post-response {
+  test("Status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+
+  test("Response has bulk_job_id", function() {
+    expect(res.body).to.have.property('bulk_job_id');
+    expect(res.body.bulk_job_id).to.be.a('string');
+  });
+
+  test("Response has correct total_urls", function() {
+    expect(res.body).to.have.property('total_urls');
+    expect(res.body.total_urls).to.equal(3);
+  });
+
+  test("Response status is QUEUED", function() {
+    expect(res.body.status).to.equal('QUEUED');
+  });
+
+  bru.setVar("testBulkJobId", res.body.bulk_job_id);
+
+  // Poll for bulk job completion
+  const maxAttempts = 60;
+  const pollInterval = 2000;
+  let attempts = 0;
+  let jobComplete = false;
+  let recipeIds = [];
+
+  while (attempts < maxAttempts && !jobComplete) {
+    attempts++;
+    console.log(`Polling bulk job attempt ${attempts}/${maxAttempts}...`);
+
+    // Wait before polling
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+    // Make a synchronous request to check status
+    const statusReq = new Request({
+      url: bru.getEnvVar("baseUrl") + "/api/bulk-import/" + bru.getVar("testBulkJobId"),
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + bru.getVar("jwtToken")
+      }
+    });
+
+    const statusRes = await statusReq.send();
+
+    if (statusRes.status === 200) {
+      const statusData = statusRes.body;
+
+      if (statusData.status === "COMPLETED") {
+        jobComplete = true;
+
+        // Get recipe IDs from the bulk job
+        if (statusData.recipes && Array.isArray(statusData.recipes)) {
+          recipeIds = statusData.recipes.filter(r => r.status === "COMPLETED").map(r => r.recipe_id);
+
+          console.log(`Found ${recipeIds.length} successfully imported recipes`);
+
+          // Verify instruction_ingredients count for each recipe
+          for (const recipeId of recipeIds) {
+            const countReq = new Request({
+              url: bru.getEnvVar("baseUrl") + "/api/instruction-ingredients-count?recipe_id=" + recipeId,
+              method: "GET",
+              headers: {
+                "Authorization": "Bearer " + bru.getVar("jwtToken")
+              }
+            });
+
+            const countRes = await countReq.send();
+
+            const testName = `Recipe ${recipeId.substring(0, 8)}... has instruction ingredients count > 0`;
+            test(testName, function() {
+              expect(countRes.status).to.equal(200);
+              expect(countRes.body).to.have.property('count');
+              expect(countRes.body.count).to.be.greaterThan(0);
+              console.log(`Recipe ${recipeId.substring(0, 8)}...: ${countRes.body.count} instruction-ingredient linkages`);
+            });
+          }
+        }
+      } else if (statusData.status === "FAILED") {
+        console.error("Bulk job failed");
+        jobComplete = true;
+        test("Bulk job should not fail", function() {
+          expect(statusData.status).to.not.equal("FAILED");
+        });
+      }
+    }
+  }
+
+  test("Bulk job should complete within poll time", function() {
+    expect(jobComplete).to.be.true;
+  });
+
+  test("At least one recipe should be imported successfully", function() {
+    expect(recipeIds.length).to.be.greaterThan(0);
+  });
+}
