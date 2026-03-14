@@ -68,6 +68,7 @@ No manual token management required!
 | `/health` | GET | No | Health check |
 | `/api/recipe` | POST | Yes | Import recipe from URL |
 | `/api/recipe-status` | GET | Yes | Check import job status |
+| `/api/recipes/{recipeID}/steps` | GET | Yes | Get recipe steps with ingredients |
 | `/api/instruction-ingredients-count` | GET | Yes | Get count of instruction-ingredient linkages for a recipe |
 | `/api/user-import-status` | GET | Yes | List user import jobs |
 | `/api/generate-embedding` | POST | Yes | Queue embedding generation |

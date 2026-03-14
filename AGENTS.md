@@ -62,13 +62,18 @@ When modifying database schema, **ALWAYS** create migrations in BOTH locations:
 2. **`/Users/jorandob/Documents/Projects/SocialChef/socialchef-supabase/supabase/migrations/`** - For the main Supabase project
 
 ### Migration Naming Convention
+
+Use timestamp format for precise ordering:
 ```
-YYYYMMDD_description.sql
+YYYYMMDDHHMMSS_description.sql
 ```
 
 Examples:
-- `20260310_add_bulk_import_jobs.sql`
-- `20260311_add_user_preferences.sql`
+- `20260310192700_add_bulk_import_jobs.sql`
+- `20260310210000_add_ingredient_names_column.sql`
+- `20260314110000_instruction_ingredients.sql`
+
+**Note**: The timestamp format (YYYYMMDDHHMMSS) ensures correct ordering when multiple migrations are created on the same day. Use the current datetime when creating migrations.
 
 ### Checklist for Schema Changes
 - [ ] Migration file created in `socialchef-remy/supabase/migrations/`

@@ -1,0 +1,102 @@
+meta {
+  name: Get Recipe Steps
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/recipes/{{testRecipeId}}/steps
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  testRecipeId: ec0d7af5-11cb-42d3-9124-c3d0f45a53f6
+}
+
+script:post-response {
+  test("Status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  
+  test("Response has recipe_id", function() {
+    expect(res.body).to.have.property('recipe_id');
+    expect(res.body.recipe_id).to.be.a('string');
+  });
+  
+  test("Response does NOT have recipe_name", function() {
+    expect(res.body).to.not.have.property('recipe_name');
+  });
+  
+  test("Response has total_steps", function() {
+    expect(res.body).to.have.property('total_steps');
+    expect(res.body.total_steps).to.be.a('number');
+  });
+  
+  test("Response has steps array", function() {
+    expect(res.body).to.have.property('steps');
+    expect(res.body.steps).to.be.an('array');
+  });
+  
+  test("Each step has required fields", function() {
+    if (res.body.steps.length > 0) {
+      const firstStep = res.body.steps[0];
+      expect(firstStep).to.have.property('step_number');
+      expect(firstStep.step_number).to.be.a('number');
+      expect(firstStep).to.have.property('instruction_rich');
+      expect(firstStep.instruction_rich).to.be.a('string');
+      expect(firstStep).to.have.property('ingredients');
+      expect(firstStep.ingredients).to.be.an('array');
+      expect(firstStep).to.have.property('timers');
+      expect(firstStep.timers).to.be.an('array');
+    }
+  });
+  
+  test("Ingredients have correct structure with step_quantity", function() {
+    if (res.body.steps.length > 0 && res.body.steps[0].ingredients.length > 0) {
+      const firstIngredient = res.body.steps[0].ingredients[0];
+      expect(firstIngredient).to.have.property('id');
+      expect(firstIngredient.id).to.be.a('string');
+      expect(firstIngredient).to.have.property('name');
+      expect(firstIngredient.name).to.be.a('string');
+      expect(firstIngredient).to.have.property('step_quantity');
+      expect(firstIngredient.step_quantity).to.be.a('string');
+      expect(firstIngredient).to.have.property('total_quantity');
+      expect(firstIngredient.total_quantity).to.be.a('string');
+      expect(firstIngredient).to.have.property('unit');
+      expect(firstIngredient.unit).to.be.a('string');
+    }
+  });
+  
+  test("Timers have correct structure", function() {
+    if (res.body.steps.length > 0 && res.body.steps[0].timers.length > 0) {
+      const firstTimer = res.body.steps[0].timers[0];
+      expect(firstTimer).to.have.property('duration_seconds');
+      expect(firstTimer.duration_seconds).to.be.a('number');
+      expect(firstTimer).to.have.property('duration_text');
+      expect(firstTimer.duration_text).to.be.a('string');
+      expect(firstTimer).to.have.property('label');
+      expect(firstTimer.label).to.be.a('string');
+      expect(firstTimer).to.have.property('type');
+      expect(firstTimer.type).to.be.a('string');
+      expect(firstTimer).to.have.property('category');
+      expect(firstTimer.category).to.be.a('string');
+    }
+  });
+  
+  test("Instruction_rich contains placeholders", function() {
+    if (res.body.steps.length > 0) {
+      const instruction = res.body.steps[0].instruction_rich;
+      // Check for ingredient placeholder
+      if (instruction.includes('{{ingredient:')) {
+        expect(instruction).to.match(/\{\{ingredient:[a-f0-9-]+\}\}/);
+      }
+      // Check for timer placeholder
+      if (instruction.includes('{{timer:')) {
+        expect(instruction).to.match(/\{\{timer:\d+\}\}/);
+      }
+    }
+  });
+  
+  bru.setVar("lastRecipeId", res.body.recipe_id);
+}

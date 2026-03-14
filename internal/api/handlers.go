@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -258,3 +259,123 @@ func (s *Server) HandleGetInstructionIngredientsCount(w http.ResponseWriter, r *
 	})
 }
 
+type Timer struct {
+	DurationSeconds int    `json:"duration_seconds"`
+	DurationText    string `json:"duration_text"`
+	Label           string `json:"label"`
+	Type            string `json:"type"`
+	Category        string `json:"category"`
+}
+
+type StepIngredientDetail struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	StepQuantity  string `json:"step_quantity"`  // from instruction_ingredients
+	TotalQuantity string `json:"total_quantity"` // from recipe_ingredients
+	Unit          string `json:"unit"`           // from recipe_ingredients
+}
+
+type StepDetail struct {
+	StepNumber      int32                  `json:"step_number"`
+	InstructionRich string                 `json:"instruction_rich"`
+	Ingredients     []StepIngredientDetail `json:"ingredients"`
+	Timers          []Timer                `json:"timers"`
+}
+
+type RecipeStepsResponse struct {
+	RecipeID   string       `json:"recipe_id"`
+	TotalSteps int          `json:"total_steps"`
+	Steps      []StepDetail `json:"steps"`
+}
+
+func (s *Server) HandleGetRecipeSteps(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	recipeID := chi.URLParam(r, "recipeID")
+	if recipeID == "" {
+		http.Error(w, "recipe_id is required", http.StatusBadRequest)
+		return
+	}
+
+	recipe, err := s.db.GetRecipe(r.Context(), parseUUID(recipeID))
+	if err != nil {
+		slog.Error("Failed to get recipe", "error", err, "recipe_id", recipeID)
+		http.Error(w, "Recipe not found", http.StatusNotFound)
+		return
+	}
+
+	instructions, err := s.db.GetInstructionsByRecipe(r.Context(), parseUUID(recipeID))
+	if err != nil {
+		slog.Error("Failed to get instructions", "error", err, "recipe_id", recipeID)
+		http.Error(w, "Failed to get instructions", http.StatusInternalServerError)
+		return
+	}
+
+	recipeIngredients, err := s.db.GetIngredientsByRecipe(r.Context(), parseUUID(recipeID))
+	if err != nil {
+		slog.Error("Failed to get recipe ingredients", "error", err, "recipe_id", recipeID)
+		http.Error(w, "Failed to get recipe ingredients", http.StatusInternalServerError)
+		return
+	}
+
+	ingredientMap := make(map[string]generated.RecipeIngredient)
+	for _, ing := range recipeIngredients {
+		ingID := uuid.UUID(ing.ID.Bytes).String()
+		ingredientMap[ingID] = ing
+	}
+
+	steps := make([]StepDetail, 0, len(instructions))
+	for _, inst := range instructions {
+		instIngredients, err := s.db.GetInstructionIngredientsByInstruction(r.Context(), inst.ID)
+		if err != nil {
+			slog.Error("Failed to get instruction ingredients", "error", err, "instruction_id", inst.ID)
+			http.Error(w, "Failed to get instruction ingredients", http.StatusInternalServerError)
+			return
+		}
+
+		ingredients := make([]StepIngredientDetail, 0, len(instIngredients))
+		for _, ii := range instIngredients {
+			ingredientID := uuid.UUID(ii.IngredientID.Bytes).String()
+			recipeIng, ok := ingredientMap[ingredientID]
+			if !ok {
+				slog.Warn("Ingredient not found in recipe ingredients", "ingredient_id", ingredientID)
+				continue
+			}
+
+			ingredients = append(ingredients, StepIngredientDetail{
+				ID:            ingredientID,
+				Name:          recipeIng.Name,
+				StepQuantity:  ii.StepQuantity.String,
+				TotalQuantity: recipeIng.TotalQuantity.String,
+				Unit:          recipeIng.Unit.String,
+			})
+		}
+
+		var timers []Timer
+		if len(inst.TimerData) > 0 {
+			if err := json.Unmarshal(inst.TimerData, &timers); err != nil {
+				slog.Error("Failed to parse timer data", "error", err, "instruction_id", inst.ID)
+			}
+		}
+
+		steps = append(steps, StepDetail{
+			StepNumber:      inst.StepNumber,
+			InstructionRich: inst.InstructionRich.String,
+			Ingredients:     ingredients,
+			Timers:          timers,
+		})
+	}
+
+	response := RecipeStepsResponse{
+		RecipeID:   uuid.UUID(recipe.ID.Bytes).String(),
+		TotalSteps: len(steps),
+		Steps:      steps,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
