@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -390,10 +391,16 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 
 	content := chatResp.Choices[0].Message.Content
 
+	// DEBUG: Log raw response to see what AI returns
+	slog.Debug("Groq raw response", "content_preview", content[:min(len(content), 500)])
+
 	var raw recipeResponse
 	if err := json.Unmarshal([]byte(content), &raw); err != nil {
 		return nil, err
 	}
+
+	// DEBUG: Log parts detection
+	slog.Debug("Groq parts detection", "parts_count", len(raw.Parts), "has_parts", len(raw.Parts) > 0)
 
 	var ingredients []Ingredient
 	var instructions []Instruction

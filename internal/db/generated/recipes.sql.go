@@ -220,23 +220,26 @@ func (q *Queries) GetRecipeParts(ctx context.Context, recipeID pgtype.UUID) ([]R
 }
 
 const getRecipeWithParts = `-- name: GetRecipeWithParts :one
-SELECT r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time, r.total_time, r.original_serving_size, r.difficulty_rating, r.focused_diet, r.estimated_calories, r.origin, r.url, r.language, r.created_by, r.owner_id, r.thumbnail_id, r.embedding, r.search_vector, r.ingredient_names, r.created_at, r.updated_at, 
-       json_agg(json_build_object(
-           'id', p.id,
-           'name', p.name,
-           'display_order', p.display_order,
-           'is_optional', p.is_optional,
-           'ingredients', (
-               SELECT json_agg(i.*) 
-               FROM recipe_ingredients i 
-               WHERE i.part_id = p.id
-           ),
-           'instructions', (
-               SELECT json_agg(ins.* ORDER BY ins.step_number)
-               FROM recipe_instructions ins
-               WHERE ins.part_id = p.id
-           )
-       ) ORDER BY p.display_order) as parts
+SELECT r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time, r.total_time, r.original_serving_size, r.difficulty_rating, r.focused_diet, r.estimated_calories, r.origin, r.url, r.language, r.created_by, r.owner_id, r.thumbnail_id, r.embedding, r.search_vector, r.ingredient_names, r.created_at, r.updated_at,
+       CASE
+           WHEN COUNT(p.id) = 0 THEN NULL
+           ELSE json_agg(json_build_object(
+               'id', p.id,
+               'name', p.name,
+               'display_order', p.display_order,
+               'is_optional', p.is_optional,
+               'ingredients', (
+                   SELECT json_agg(i.*)
+                   FROM recipe_ingredients i
+                   WHERE i.part_id = p.id
+               ),
+               'instructions', (
+                   SELECT json_agg(ins.* ORDER BY ins.step_number)
+                   FROM recipe_instructions ins
+                   WHERE ins.part_id = p.id
+               )
+           ) ORDER BY p.display_order)
+       END as parts
 FROM recipes r
 LEFT JOIN recipe_parts p ON p.recipe_id = r.id
 WHERE r.id = $1
@@ -265,7 +268,7 @@ type GetRecipeWithPartsRow struct {
 	IngredientNames     []string
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
-	Parts               []byte
+	Parts               interface{}
 }
 
 func (q *Queries) GetRecipeWithParts(ctx context.Context, id pgtype.UUID) (GetRecipeWithPartsRow, error) {

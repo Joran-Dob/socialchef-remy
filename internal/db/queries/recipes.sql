@@ -52,23 +52,26 @@ SELECT * FROM recipe_parts WHERE recipe_id = $1 ORDER BY display_order;
 DELETE FROM recipe_parts WHERE recipe_id = $1;
 
 -- name: GetRecipeWithParts :one
-SELECT r.*, 
-       json_agg(json_build_object(
-           'id', p.id,
-           'name', p.name,
-           'display_order', p.display_order,
-           'is_optional', p.is_optional,
-           'ingredients', (
-               SELECT json_agg(i.*) 
-               FROM recipe_ingredients i 
-               WHERE i.part_id = p.id
-           ),
-           'instructions', (
-               SELECT json_agg(ins.* ORDER BY ins.step_number)
-               FROM recipe_instructions ins
-               WHERE ins.part_id = p.id
-           )
-       ) ORDER BY p.display_order) as parts
+SELECT r.*,
+       CASE
+           WHEN COUNT(p.id) = 0 THEN NULL
+           ELSE json_agg(json_build_object(
+               'id', p.id,
+               'name', p.name,
+               'display_order', p.display_order,
+               'is_optional', p.is_optional,
+               'ingredients', (
+                   SELECT json_agg(i.*)
+                   FROM recipe_ingredients i
+                   WHERE i.part_id = p.id
+               ),
+               'instructions', (
+                   SELECT json_agg(ins.* ORDER BY ins.step_number)
+                   FROM recipe_instructions ins
+                   WHERE ins.part_id = p.id
+               )
+           ) ORDER BY p.display_order)
+       END as parts
 FROM recipes r
 LEFT JOIN recipe_parts p ON p.recipe_id = r.id
 WHERE r.id = $1

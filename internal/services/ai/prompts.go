@@ -130,40 +130,53 @@ Always format your response as a JSON object with the following structure:
 
 NEW: Each instruction now includes an "ingredients_used" array that tracks which ingredients are used in that step and in what quantity.
 
-PART DETECTION:
-If the recipe has multiple distinct parts or components (e.g., "For the topping", "For the sauce", "For the crust"), extract them as separate parts. Each part should have:
-- A name (e.g., "Topping", "Sauce", "Crust")
-- Its own list of ingredients
-- Its own list of instructions with step numbers starting from 1
-- Optional: prep_time and cooking_time for that part
-- is_optional: true if the part can be skipped (e.g., garnish)
+PART DETECTION - CRITICAL:
+You MUST detect and extract parts when a recipe has distinct components that are prepared separately and then combined.
 
-Return the recipe in this format when parts are detected:
+COMMON PART PATTERNS TO LOOK FOR:
+- "For the topping" / "Voor de topping" / "Pour la garniture"
+- "For the sauce" / "Voor de saus" / "Pour la sauce"
+- "For the crust" / "Voor het deeg" / "Pour la pâte"
+- "For the filling" / "Voor de vulling" / "Pour la farce"
+- "For the base" / "Voor de bodem" / "Pour la base"
+- Markdown headers like ### or ** introducing a new component
+
+EXAMPLE - Recipe with "Voor de topping:" section:
+The recipe has TWO parts:
+1. "Muffins" - main muffin batter with its ingredients and instructions
+2. "Topping" - the crumble topping with sugar, flour, butter, cinnamon
+
+YOU MUST RETURN:
 {
   "recipe": { ... },
-  "ingredients": [...],  // Top-level ingredients (for simple recipes without parts)
-  "instructions": [...], // Top-level instructions (for simple recipes without parts)
   "parts": [
     {
-      "name": "Topping",
-      "description": "",
+      "name": "Muffins",
       "display_order": 1,
-      "ingredients": [...],
-      "instructions": [...],
-      "prep_time": null,
-      "cooking_time": null,
+      "ingredients": [flour, sugar, eggs, blueberries, ...],
+      "instructions": [mix batter, fold in blueberries, ...],
+      "is_optional": false
+    },
+    {
+      "name": "Topping",
+      "display_order": 2,
+      "ingredients": [sugar, flour, butter, cinnamon, ...],
+      "instructions": [mix topping ingredients until crumbly, ...],
       "is_optional": false
     }
   ],
+  "ingredients": [],
+  "instructions": [],
   "nutrition": { ... },
   "language": ""
 }
 
-IMPORTANT:
-- For recipes WITHOUT distinct parts, return ingredients and instructions at the top level (legacy format)
-- For recipes WITH parts, populate the "parts" array and you may leave top-level ingredients/instructions empty
-- Parts are OPTIONAL - only include them when the recipe clearly has distinct components
-- Each part's instructions should start from step_number 1
+RULES:
+1. If you see "Voor de topping:" or similar section markers -> ALWAYS use parts
+2. Each part gets its own ingredients and instructions arrays
+3. Part instructions start from step_number 1
+4. Put ALL ingredients and instructions into parts, leave top-level arrays empty
+5. Set is_optional: true only for garnish or decorative elements that can be skipped
 </OUTPUT_FORMAT>`
 
 const criticalMetricRequirementSection = `<CRITICAL_METRIC_REQUIREMENT>

@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/socialchef/remy/internal/metrics"
 	"github.com/socialchef/remy/internal/services/ai"
+	"github.com/socialchef/remy/internal/services/recipe"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -18,74 +19,19 @@ type Client struct {
 	apiKey string
 }
 
-type Recipe struct {
-	RecipeName          string
-	Description         string
-	PrepTime            *int
-	CookingTime         *int
-	TotalTime           *int
-	OriginalServings    *int
-	DifficultyRating    *int
-	FocusedDiet         string
-	EstimatedCalories   *int
-	Ingredients         []Ingredient
-	Instructions        []Instruction
-	Nutrition           Nutrition
-	CuisineCategories   []string
-	MealTypes           []string
-	Occasions           []string
-	DietaryRestrictions []string
-	Equipment           []string
-	Language            string
-}
-
-// StringOrNumber can unmarshal from JSON string or number
-type StringOrNumber string
-
-func (s *StringOrNumber) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		*s = ""
-		return nil
-	}
-	// Try unmarshal as string first
-	var str string
-	if err := json.Unmarshal(data, &str); err == nil {
-		*s = StringOrNumber(str)
-		return nil
-	}
-	// Try as number
-	var num float64
-	if err := json.Unmarshal(data, &num); err != nil {
-		return err
-	}
-	*s = StringOrNumber(strconv.FormatFloat(num, 'f', -1, 64))
-	return nil
-}
-
-type Ingredient struct {
-	OriginalQuantity StringOrNumber `json:"original_quantity"`
-	OriginalUnit     string         `json:"original_unit"`
-	Quantity         StringOrNumber `json:"quantity"`
-	Unit             string         `json:"unit"`
-	Name             string         `json:"name"`
-}
-
-type Instruction struct {
-	StepNumber  int    `json:"step_number"`
-	Instruction string `json:"instruction"`
-}
-
-type Nutrition struct {
-	Protein float64 `json:"protein"`
-	Carbs   float64 `json:"carbs"`
-	Fat     float64 `json:"fat"`
-	Fiber   float64 `json:"fiber"`
-}
+// Type aliases for backward compatibility
+type Recipe = recipe.Recipe
+type RecipePart = recipe.RecipePart
+type Ingredient = recipe.Ingredient
+type Instruction = recipe.Instruction
+type Nutrition = recipe.Nutrition
+type StringOrNumber = recipe.StringOrNumber
 
 type recipeResponse struct {
 	Recipe              RecipeResponseInner `json:"recipe"`
 	Ingredients         []Ingredient        `json:"ingredients"`
 	Instructions        []Instruction       `json:"instructions"`
+	Parts               []RecipePart        `json:"parts,omitempty"`
 	Nutrition           Nutrition           `json:"nutrition"`
 	CuisineCategories   []string            `json:"cuisine_categories"`
 	MealTypes           []string            `json:"meal_types"`
@@ -162,6 +108,37 @@ func generateRecipeWithOpenAI(ctx context.Context, apiKey, description, transcri
 		return nil, err
 	}
 
+	var ingredients []Ingredient
+	var instructions []Instruction
+	var parts []RecipePart
+
+	if len(raw.Parts) > 0 {
+		parts = raw.Parts
+		for i := range parts {
+			part := &parts[i]
+			if part.ID == "" {
+				part.ID = uuid.New().String()
+			}
+			if part.DisplayOrder == 0 {
+				part.DisplayOrder = i + 1
+			}
+			for j := range part.Ingredients {
+				if part.Ingredients[j].ID == "" {
+					part.Ingredients[j].ID = uuid.New().String()
+				}
+				part.Ingredients[j].PartID = &part.ID
+			}
+			for j := range part.Instructions {
+				part.Instructions[j].PartID = &part.ID
+			}
+			ingredients = append(ingredients, part.Ingredients...)
+			instructions = append(instructions, part.Instructions...)
+		}
+	} else {
+		ingredients = raw.Ingredients
+		instructions = raw.Instructions
+	}
+
 	return &Recipe{
 		RecipeName:          raw.Recipe.RecipeName,
 		Description:         raw.Recipe.Description,
@@ -172,8 +149,9 @@ func generateRecipeWithOpenAI(ctx context.Context, apiKey, description, transcri
 		DifficultyRating:    raw.Recipe.DifficultyRating,
 		FocusedDiet:         raw.Recipe.FocusedDiet,
 		EstimatedCalories:   raw.Recipe.EstimatedCalories,
-		Ingredients:         raw.Ingredients,
-		Instructions:        raw.Instructions,
+		Ingredients:         ingredients,
+		Instructions:        instructions,
+		Parts:               parts,
 		Nutrition:           raw.Nutrition,
 		CuisineCategories:   raw.CuisineCategories,
 		MealTypes:           raw.MealTypes,

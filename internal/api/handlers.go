@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -418,9 +419,9 @@ func (s *Server) HandleGetRecipe(w http.ResponseWriter, r *http.Request) {
 		response.ThumbnailID = uuid.UUID(result.ThumbnailID.Bytes).String()
 	}
 
-	if len(result.Parts) > 0 && string(result.Parts) != "[null]" {
+	if result.Parts != nil {
 		var parts []RecipePartDetail
-		if err := json.Unmarshal(result.Parts, &parts); err != nil {
+		if err := json.Unmarshal(result.Parts.([]byte), &parts); err != nil {
 			slog.Error("Failed to unmarshal parts", "error", err, "recipe_id", recipeID)
 		} else {
 			response.Parts = parts
@@ -451,7 +452,7 @@ func (s *Server) HandleGetRecipeSteps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hasParts := len(result.Parts) > 0 && string(result.Parts) != "[null]"
+	hasParts := result.Parts != nil
 
 	if hasParts {
 		s.handleGetRecipeStepsWithParts(w, r, recipeID, result)
@@ -555,7 +556,27 @@ func (s *Server) handleGetRecipeStepsWithParts(w http.ResponseWriter, r *http.Re
 		} `json:"ingredients"`
 	}
 
-	if err := json.Unmarshal(result.Parts, &partsData); err != nil {
+	var partsJSON []byte
+	switch v := result.Parts.(type) {
+	case []byte:
+		partsJSON = v
+	case string:
+		partsJSON = []byte(v)
+	case []interface{}, map[string]interface{}:
+		var err error
+		partsJSON, err = json.Marshal(v)
+		if err != nil {
+			slog.Error("Failed to marshal parts", "error", err, "recipe_id", recipeID)
+			http.Error(w, "Failed to process recipe parts", http.StatusInternalServerError)
+			return
+		}
+	default:
+		slog.Error("Unexpected type for parts", "type", fmt.Sprintf("%T", result.Parts), "recipe_id", recipeID)
+		http.Error(w, "Failed to process recipe parts", http.StatusInternalServerError)
+		return
+	}
+
+	if err := json.Unmarshal(partsJSON, &partsData); err != nil {
 		slog.Error("Failed to unmarshal parts", "error", err, "recipe_id", recipeID)
 		http.Error(w, "Failed to process recipe parts", http.StatusInternalServerError)
 		return
