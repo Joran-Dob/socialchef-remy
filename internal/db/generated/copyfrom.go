@@ -30,6 +30,7 @@ func (r *iteratorForCreateIngredients) Next() bool {
 func (r iteratorForCreateIngredients) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].RecipeID,
+		r.rows[0].PartID,
 		r.rows[0].Quantity,
 		r.rows[0].Unit,
 		r.rows[0].OriginalQuantity,
@@ -43,5 +44,5 @@ func (r iteratorForCreateIngredients) Err() error {
 }
 
 func (q *Queries) CreateIngredients(ctx context.Context, arg []CreateIngredientsParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"recipe_ingredients"}, []string{"recipe_id", "quantity", "unit", "original_quantity", "original_unit", "name"}, &iteratorForCreateIngredients{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"recipe_ingredients"}, []string{"recipe_id", "part_id", "quantity", "unit", "original_quantity", "original_unit", "name"}, &iteratorForCreateIngredients{rows: arg})
 }

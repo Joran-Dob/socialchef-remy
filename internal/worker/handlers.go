@@ -71,6 +71,9 @@ type DBQueries interface {
 	UpdateBulkImportJobStatus(ctx context.Context, arg generated.UpdateBulkImportJobStatusParams) error
 	UpdateImportJobWithBulkID(ctx context.Context, arg generated.UpdateImportJobWithBulkIDParams) error
 	IncrementBulkImportCounters(ctx context.Context, arg generated.IncrementBulkImportCountersParams) error
+	// Recipe parts methods
+	CreateRecipePart(ctx context.Context, arg generated.CreateRecipePartParams) (generated.RecipePart, error)
+	GetRecipeParts(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipePart, error)
 }
 
 type InstagramScraper interface {
@@ -539,66 +542,71 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		}
 	}
 
-	savedIngredientIDs := make([]string, len(recipe.Ingredients))
-	for i, ing := range recipe.Ingredients {
-		totalQty := string(ing.Quantity)
+	var savedIngredientIDs []string
+	var savedInstructions []generated.RecipeInstruction
+	var allIngredients []groq.Ingredient
+	var allInstructions []groq.Instruction
 
-		var perServingQty string
-		if recipe.OriginalServings != nil && *recipe.OriginalServings > 0 {
-			if totalNum, err := strconv.ParseFloat(totalQty, 64); err == nil {
-				perServingNum := totalNum / float64(*recipe.OriginalServings)
-				perServingQty = strconv.FormatFloat(perServingNum, 'f', -1, 64)
-			} else {
-				perServingQty = totalQty
+	if recipe.HasParts() {
+		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Saving recipe parts...")
+
+		stepNumber := 1
+		for partIndex, part := range recipe.Parts {
+			var prepTime, cookTime pgtype.Int4
+			if part.PrepTime != nil {
+				prepTime = pgtype.Int4{Int32: int32(*part.PrepTime), Valid: true}
 			}
-		} else {
-			perServingQty = totalQty
-		}
+			if part.CookingTime != nil {
+				cookTime = pgtype.Int4{Int32: int32(*part.CookingTime), Valid: true}
+			}
 
-		savedIng, err := p.db.CreateIngredient(ctx, generated.CreateIngredientParams{
-			RecipeID:         savedRecipe.ID,
-			Quantity:         pgtype.Text{String: perServingQty, Valid: true},
-			TotalQuantity:    pgtype.Text{String: totalQty, Valid: true},
-			Unit:             pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
-			OriginalQuantity: pgtype.Text{String: string(ing.OriginalQuantity), Valid: ing.OriginalQuantity != ""},
-			OriginalUnit:     pgtype.Text{String: ing.OriginalUnit, Valid: ing.OriginalUnit != ""},
-			Name:             ing.Name,
-		})
-		if err != nil {
-			slog.Error("Failed to save ingredient", "error", err)
-			continue
-		}
-		savedIngredientIDs[i] = pgUUIDToString(savedIng.ID)
-	}
-
-	savedInstructions := make([]generated.RecipeInstruction, len(recipe.Instructions))
-	for i, inst := range recipe.Instructions {
-		var timerData []byte
-		if len(inst.TimerData) > 0 {
-			var err error
-			timerData, err = json.Marshal(inst.TimerData)
+			savedPart, err := p.db.CreateRecipePart(ctx, generated.CreateRecipePartParams{
+				RecipeID:     savedRecipe.ID,
+				Name:         part.Name,
+				Description:  pgtype.Text{String: part.Description, Valid: part.Description != ""},
+				DisplayOrder: int32(partIndex),
+				IsOptional:   part.IsOptional,
+				PrepTime:     prepTime,
+				CookingTime:  cookTime,
+			})
 			if err != nil {
-				slog.Error("Failed to marshal timer data", "error", err)
+				slog.Error("Failed to save recipe part", "error", err, "part_name", part.Name)
+				continue
 			}
+
+			partIngredientIDs, err := p.saveIngredients(ctx, savedRecipe.ID, savedPart.ID, part.Ingredients, recipe.OriginalServings)
+			if err != nil {
+				slog.Error("Failed to save ingredients for part", "error", err, "part_name", part.Name)
+			}
+			savedIngredientIDs = append(savedIngredientIDs, partIngredientIDs...)
+			allIngredients = append(allIngredients, part.Ingredients...)
+
+			partInstructions, err := p.saveInstructions(ctx, savedRecipe.ID, savedPart.ID, part.Instructions, stepNumber)
+			if err != nil {
+				slog.Error("Failed to save instructions for part", "error", err, "part_name", part.Name)
+			}
+			savedInstructions = append(savedInstructions, partInstructions...)
+			allInstructions = append(allInstructions, part.Instructions...)
+
+			stepNumber += len(part.Instructions)
+		}
+	} else {
+		var err error
+		savedIngredientIDs, err = p.saveIngredients(ctx, savedRecipe.ID, pgtype.UUID{}, recipe.Ingredients, recipe.OriginalServings)
+		if err != nil {
+			slog.Error("Failed to save ingredients", "error", err)
 		}
 
-		savedInst, err := p.db.CreateInstruction(ctx, generated.CreateInstructionParams{
-			RecipeID:               savedRecipe.ID,
-			StepNumber:             int32(i + 1),
-			Instruction:            inst.Instruction,
-			TimerData:              timerData,
-			InstructionRich:        pgtype.Text{},
-			InstructionRichVersion: pgtype.Int4{},
-		})
+		savedInstructions, err = p.saveInstructions(ctx, savedRecipe.ID, pgtype.UUID{}, recipe.Instructions, 1)
 		if err != nil {
-			slog.Error("Failed to save instruction", "error", err)
-			continue
+			slog.Error("Failed to save instructions", "error", err)
 		}
-		savedInstructions[i] = savedInst
+
+		allIngredients = recipe.Ingredients
+		allInstructions = recipe.Instructions
 	}
 
-	// Step 5: Save instruction-ingredient junction entries
-	if err := p.saveInstructionIngredients(ctx, savedInstructions, savedIngredientIDs, recipe.Ingredients, recipe.Instructions); err != nil {
+	if err := p.saveInstructionIngredients(ctx, savedInstructions, savedIngredientIDs, allIngredients, allInstructions); err != nil {
 		slog.Warn("Failed to save instruction-ingredient junction entries", "error", err, "recipe_name", recipe.RecipeName)
 	}
 
@@ -889,13 +897,6 @@ func extractIngredientNames(ingredients []groq.Ingredient) []string {
 	return names
 }
 
-func formatQuantity(q string) string {
-	if q == "" {
-		return ""
-	}
-	return q
-}
-
 func (p *RecipeProcessor) enqueueRichInstructionsRetry(ctx context.Context, recipeID string) {
 	if p.asynqClient == nil {
 		return
@@ -1109,6 +1110,88 @@ func (p *RecipeProcessor) HandleProcessBulkImport(ctx context.Context, t *asynq.
 
 	slog.Info("Bulk import fan-out completed", "bulk_job_id", bulkJobID, "url_count", len(urls))
 	return nil
+}
+
+func (p *RecipeProcessor) saveIngredients(
+	ctx context.Context,
+	recipeID pgtype.UUID,
+	partID pgtype.UUID,
+	ingredients []groq.Ingredient,
+	originalServings *int,
+) ([]string, error) {
+	savedIDs := make([]string, len(ingredients))
+
+	for i, ing := range ingredients {
+		totalQty := string(ing.Quantity)
+
+		var perServingQty string
+		if originalServings != nil && *originalServings > 0 {
+			if totalNum, err := strconv.ParseFloat(totalQty, 64); err == nil {
+				perServingNum := totalNum / float64(*originalServings)
+				perServingQty = strconv.FormatFloat(perServingNum, 'f', -1, 64)
+			} else {
+				perServingQty = totalQty
+			}
+		} else {
+			perServingQty = totalQty
+		}
+
+		savedIng, err := p.db.CreateIngredient(ctx, generated.CreateIngredientParams{
+			RecipeID:         recipeID,
+			PartID:           partID,
+			Quantity:         pgtype.Text{String: perServingQty, Valid: true},
+			TotalQuantity:    pgtype.Text{String: totalQty, Valid: true},
+			Unit:             pgtype.Text{String: ing.Unit, Valid: ing.Unit != ""},
+			OriginalQuantity: pgtype.Text{String: string(ing.OriginalQuantity), Valid: ing.OriginalQuantity != ""},
+			OriginalUnit:     pgtype.Text{String: ing.OriginalUnit, Valid: ing.OriginalUnit != ""},
+			Name:             ing.Name,
+		})
+		if err != nil {
+			slog.Error("Failed to save ingredient", "error", err, "name", ing.Name)
+			continue
+		}
+		savedIDs[i] = pgUUIDToString(savedIng.ID)
+	}
+
+	return savedIDs, nil
+}
+
+func (p *RecipeProcessor) saveInstructions(
+	ctx context.Context,
+	recipeID pgtype.UUID,
+	partID pgtype.UUID,
+	instructions []groq.Instruction,
+	startStepNumber int,
+) ([]generated.RecipeInstruction, error) {
+	savedInstructions := make([]generated.RecipeInstruction, 0, len(instructions))
+
+	for i, inst := range instructions {
+		var timerData []byte
+		if len(inst.TimerData) > 0 {
+			var err error
+			timerData, err = json.Marshal(inst.TimerData)
+			if err != nil {
+				slog.Error("Failed to marshal timer data", "error", err)
+			}
+		}
+
+		savedInst, err := p.db.CreateInstruction(ctx, generated.CreateInstructionParams{
+			RecipeID:               recipeID,
+			PartID:                 partID,
+			StepNumber:             int32(startStepNumber + i),
+			Instruction:            inst.Instruction,
+			TimerData:              timerData,
+			InstructionRich:        pgtype.Text{},
+			InstructionRichVersion: pgtype.Int4{},
+		})
+		if err != nil {
+			slog.Error("Failed to save instruction", "error", err, "step", startStepNumber+i)
+			continue
+		}
+		savedInstructions = append(savedInstructions, savedInst)
+	}
+
+	return savedInstructions, nil
 }
 
 func (p *RecipeProcessor) saveInstructionIngredients(

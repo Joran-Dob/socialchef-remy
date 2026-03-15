@@ -85,6 +85,50 @@ func (q *Queries) CreateRecipe(ctx context.Context, arg CreateRecipeParams) (Rec
 	return i, err
 }
 
+const createRecipePart = `-- name: CreateRecipePart :one
+INSERT INTO recipe_parts (
+    recipe_id, name, description, display_order, is_optional, prep_time, cooking_time
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING id, recipe_id, name, description, display_order, is_optional, prep_time, cooking_time, created_at
+`
+
+type CreateRecipePartParams struct {
+	RecipeID     pgtype.UUID
+	Name         string
+	Description  pgtype.Text
+	DisplayOrder int32
+	IsOptional   bool
+	PrepTime     pgtype.Int4
+	CookingTime  pgtype.Int4
+}
+
+// Recipe Parts Queries
+func (q *Queries) CreateRecipePart(ctx context.Context, arg CreateRecipePartParams) (RecipePart, error) {
+	row := q.db.QueryRow(ctx, createRecipePart,
+		arg.RecipeID,
+		arg.Name,
+		arg.Description,
+		arg.DisplayOrder,
+		arg.IsOptional,
+		arg.PrepTime,
+		arg.CookingTime,
+	)
+	var i RecipePart
+	err := row.Scan(
+		&i.ID,
+		&i.RecipeID,
+		&i.Name,
+		&i.Description,
+		&i.DisplayOrder,
+		&i.IsOptional,
+		&i.PrepTime,
+		&i.CookingTime,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteRecipe = `-- name: DeleteRecipe :exec
 DELETE FROM recipes WHERE id = $1 AND created_by = $2
 `
@@ -96,6 +140,15 @@ type DeleteRecipeParams struct {
 
 func (q *Queries) DeleteRecipe(ctx context.Context, arg DeleteRecipeParams) error {
 	_, err := q.db.Exec(ctx, deleteRecipe, arg.ID, arg.CreatedBy)
+	return err
+}
+
+const deleteRecipeParts = `-- name: DeleteRecipeParts :exec
+DELETE FROM recipe_parts WHERE recipe_id = $1
+`
+
+func (q *Queries) DeleteRecipeParts(ctx context.Context, recipeID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteRecipeParts, recipeID)
 	return err
 }
 
@@ -128,6 +181,119 @@ func (q *Queries) GetRecipe(ctx context.Context, id pgtype.UUID) (Recipe, error)
 		&i.IngredientNames,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRecipeParts = `-- name: GetRecipeParts :many
+SELECT id, recipe_id, name, description, display_order, is_optional, prep_time, cooking_time, created_at FROM recipe_parts WHERE recipe_id = $1 ORDER BY display_order
+`
+
+func (q *Queries) GetRecipeParts(ctx context.Context, recipeID pgtype.UUID) ([]RecipePart, error) {
+	rows, err := q.db.Query(ctx, getRecipeParts, recipeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RecipePart
+	for rows.Next() {
+		var i RecipePart
+		if err := rows.Scan(
+			&i.ID,
+			&i.RecipeID,
+			&i.Name,
+			&i.Description,
+			&i.DisplayOrder,
+			&i.IsOptional,
+			&i.PrepTime,
+			&i.CookingTime,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRecipeWithParts = `-- name: GetRecipeWithParts :one
+SELECT r.id, r.recipe_name, r.description, r.prep_time, r.cooking_time, r.total_time, r.original_serving_size, r.difficulty_rating, r.focused_diet, r.estimated_calories, r.origin, r.url, r.language, r.created_by, r.owner_id, r.thumbnail_id, r.embedding, r.search_vector, r.ingredient_names, r.created_at, r.updated_at, 
+       json_agg(json_build_object(
+           'id', p.id,
+           'name', p.name,
+           'display_order', p.display_order,
+           'is_optional', p.is_optional,
+           'ingredients', (
+               SELECT json_agg(i.*) 
+               FROM recipe_ingredients i 
+               WHERE i.part_id = p.id
+           ),
+           'instructions', (
+               SELECT json_agg(ins.* ORDER BY ins.step_number)
+               FROM recipe_instructions ins
+               WHERE ins.part_id = p.id
+           )
+       ) ORDER BY p.display_order) as parts
+FROM recipes r
+LEFT JOIN recipe_parts p ON p.recipe_id = r.id
+WHERE r.id = $1
+GROUP BY r.id
+`
+
+type GetRecipeWithPartsRow struct {
+	ID                  pgtype.UUID
+	RecipeName          string
+	Description         pgtype.Text
+	PrepTime            pgtype.Int4
+	CookingTime         pgtype.Int4
+	TotalTime           pgtype.Int4
+	OriginalServingSize pgtype.Int4
+	DifficultyRating    pgtype.Int2
+	FocusedDiet         pgtype.Text
+	EstimatedCalories   pgtype.Int4
+	Origin              RecipeOrigin
+	Url                 string
+	Language            pgtype.Text
+	CreatedBy           pgtype.UUID
+	OwnerID             pgtype.UUID
+	ThumbnailID         pgtype.UUID
+	Embedding           *pgvector_go.Vector
+	SearchVector        interface{}
+	IngredientNames     []string
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
+	Parts               []byte
+}
+
+func (q *Queries) GetRecipeWithParts(ctx context.Context, id pgtype.UUID) (GetRecipeWithPartsRow, error) {
+	row := q.db.QueryRow(ctx, getRecipeWithParts, id)
+	var i GetRecipeWithPartsRow
+	err := row.Scan(
+		&i.ID,
+		&i.RecipeName,
+		&i.Description,
+		&i.PrepTime,
+		&i.CookingTime,
+		&i.TotalTime,
+		&i.OriginalServingSize,
+		&i.DifficultyRating,
+		&i.FocusedDiet,
+		&i.EstimatedCalories,
+		&i.Origin,
+		&i.Url,
+		&i.Language,
+		&i.CreatedBy,
+		&i.OwnerID,
+		&i.ThumbnailID,
+		&i.Embedding,
+		&i.SearchVector,
+		&i.IngredientNames,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Parts,
 	)
 	return i, err
 }

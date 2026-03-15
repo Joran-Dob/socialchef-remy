@@ -21,6 +21,7 @@ The processing pipeline follows these steps:
 - **Output Quality Check**: Automated scoring based on placeholder detection and minimum content requirements.
 - **Structured Error Handling**: Categorized error types with specific codes for robust debugging and recovery.
 - **Automatic Retry**: Built-in exponential backoff for transient failures during scraping or AI processing.
+- **Split Recipes**: Complex recipes with multiple components (like "Main Dish + Sauce") are automatically split into parts, each with their own ingredients and instructions.
 
 ## Recipe Generation
 
@@ -59,6 +60,134 @@ When `fallback_enabled` is true:
 1. **Retryable Errors**: If the primary provider fails with a rate limit, server error, or credit exhaustion, the system automatically tries the fallback provider.
 2. **Capability Fallback**: If the primary provider doesn't support a feature (e.g., Cerebras for categories), the system automatically uses the fallback provider for that feature.
 3. **Graceful Degradation**: If both providers fail for optional features (categories, rich instructions), the system returns empty results rather than failing the entire recipe generation.
+
+## Split Recipes
+
+Remy automatically handles complex recipes with multiple components (like "Chicken + Sauce" or "Cake + Frosting"). When AI detects distinct parts, the recipe is structured accordingly.
+
+### Parts Structure
+
+Each part contains its own ingredients and instructions:
+
+```json
+{
+  "recipe_id": "uuid",
+  "total_steps": 15,
+  "has_parts": true,
+  "parts": [
+    {
+      "part_id": "uuid",
+      "part_name": "Chicken",
+      "display_order": 1,
+      "is_optional": false,
+      "steps": [
+        {
+          "step_number": 1,
+          "instruction_rich": "Marinate chicken in yogurt and spices for 30 minutes",
+          "ingredients": [...],
+          "timers": [...]
+        }
+      ]
+    },
+    {
+      "part_id": "uuid",
+      "part_name": "Sauce",
+      "display_order": 2,
+      "is_optional": false,
+      "steps": [
+        {
+          "step_number": 1,
+          "instruction_rich": "Saute onions in butter until golden",
+          "ingredients": [...],
+          "timers": [...]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### API Response Examples
+
+**Recipe with parts (from `/api/recipes/{id}/steps`):**
+
+```json
+{
+  "recipe_id": "550e8400-e29b-41d4-a716-446655440000",
+  "total_steps": 12,
+  "has_parts": true,
+  "parts": [
+    {
+      "part_id": "660e8400-e29b-41d4-a716-446655440001",
+      "part_name": "Blueberry Muffins",
+      "is_optional": false,
+      "display_order": 1,
+      "steps": [
+        {
+          "step_number": 1,
+          "instruction_rich": "Preheat oven to 375°F (190°C). Line muffin tin with paper liners.",
+          "ingredients": [],
+          "timers": []
+        },
+        {
+          "step_number": 2,
+          "instruction_rich": "In a large bowl, whisk together 2 cups flour, 1/2 cup sugar, 2 tsp baking powder, and 1/2 tsp salt.",
+          "ingredients": [
+            {
+              "id": "770e8400-e29b-41d4-a716-446655440002",
+              "name": "all-purpose flour",
+              "step_quantity": "2 cups",
+              "total_quantity": "2 cups",
+              "unit": "cups"
+            }
+          ],
+          "timers": []
+        }
+      ]
+    },
+    {
+      "part_id": "660e8400-e29b-41d4-a716-446655440003",
+      "part_name": "Streusel Topping",
+      "is_optional": true,
+      "display_order": 2,
+      "steps": [
+        {
+          "step_number": 1,
+          "instruction_rich": "Mix 1/4 cup flour, 2 tbsp sugar, and 2 tbsp cold butter until crumbly.",
+          "ingredients": [...],
+          "timers": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Recipe without parts (flat structure):**
+
+```json
+{
+  "recipe_id": "550e8400-e29b-41d4-a716-446655440000",
+  "total_steps": 8,
+  "has_parts": false,
+  "steps": [
+    {
+      "step_number": 1,
+      "instruction_rich": "Heat olive oil in a large skillet over medium heat.",
+      "ingredients": [...],
+      "timers": []
+    }
+  ]
+}
+```
+
+### Key Points
+
+- Each part's instructions start from `step_number: 1`
+- Parts are ordered by the `display_order` field
+- `is_optional` indicates parts that can be omitted (like toppings or sauces)
+- Ingredients are scoped to each part but linked to the overall recipe
+- Not all recipes have parts. The field is optional.
 
 ## Error Handling
 

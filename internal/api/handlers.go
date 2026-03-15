@@ -288,6 +288,149 @@ type RecipeStepsResponse struct {
 	Steps      []StepDetail `json:"steps"`
 }
 
+type PartSteps struct {
+	PartID       string       `json:"part_id"`
+	PartName     string       `json:"part_name"`
+	IsOptional   bool         `json:"is_optional"`
+	DisplayOrder int32        `json:"display_order"`
+	Steps        []StepDetail `json:"steps"`
+}
+
+type RecipeStepsWithPartsResponse struct {
+	RecipeID   string       `json:"recipe_id"`
+	TotalSteps int          `json:"total_steps"`
+	HasParts   bool         `json:"has_parts"`
+	Parts      []PartSteps  `json:"parts,omitempty"`
+	Steps      []StepDetail `json:"steps,omitempty"`
+}
+
+type PartIngredient struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Quantity         string `json:"quantity,omitempty"`
+	TotalQuantity    string `json:"total_quantity,omitempty"`
+	Unit             string `json:"unit,omitempty"`
+	OriginalQuantity string `json:"original_quantity,omitempty"`
+	OriginalUnit     string `json:"original_unit,omitempty"`
+}
+
+type PartInstruction struct {
+	ID              string  `json:"id"`
+	StepNumber      int32   `json:"step_number"`
+	Instruction     string  `json:"instruction"`
+	InstructionRich string  `json:"instruction_rich,omitempty"`
+	TimerData       []Timer `json:"timers,omitempty"`
+}
+
+type RecipePartDetail struct {
+	ID           string            `json:"id"`
+	Name         string            `json:"name"`
+	Description  string            `json:"description,omitempty"`
+	DisplayOrder int32             `json:"display_order"`
+	IsOptional   bool              `json:"is_optional"`
+	PrepTime     *int32            `json:"prep_time,omitempty"`
+	CookingTime  *int32            `json:"cooking_time,omitempty"`
+	Ingredients  []PartIngredient  `json:"ingredients,omitempty"`
+	Instructions []PartInstruction `json:"instructions,omitempty"`
+}
+
+type RecipeResponse struct {
+	ID                  string             `json:"id"`
+	RecipeName          string             `json:"recipe_name"`
+	Description         string             `json:"description,omitempty"`
+	PrepTime            *int32             `json:"prep_time,omitempty"`
+	CookingTime         *int32             `json:"cooking_time,omitempty"`
+	TotalTime           *int32             `json:"total_time,omitempty"`
+	OriginalServingSize *int32             `json:"original_serving_size,omitempty"`
+	DifficultyRating    *int16             `json:"difficulty_rating,omitempty"`
+	FocusedDiet         string             `json:"focused_diet,omitempty"`
+	EstimatedCalories   *int32             `json:"estimated_calories,omitempty"`
+	Origin              string             `json:"origin"`
+	Url                 string             `json:"url,omitempty"`
+	Language            string             `json:"language,omitempty"`
+	CreatedBy           string             `json:"created_by"`
+	OwnerID             string             `json:"owner_id,omitempty"`
+	ThumbnailID         string             `json:"thumbnail_id,omitempty"`
+	IngredientNames     []string           `json:"ingredient_names,omitempty"`
+	CreatedAt           string             `json:"created_at"`
+	UpdatedAt           string             `json:"updated_at"`
+	Parts               []RecipePartDetail `json:"parts,omitempty"`
+}
+
+func (s *Server) HandleGetRecipe(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	recipeID := chi.URLParam(r, "recipeID")
+	if recipeID == "" {
+		http.Error(w, "recipe_id is required", http.StatusBadRequest)
+		return
+	}
+
+	result, err := s.db.GetRecipeWithParts(r.Context(), parseUUID(recipeID))
+	if err != nil {
+		slog.Error("Failed to get recipe", "error", err, "recipe_id", recipeID)
+		http.Error(w, "Recipe not found", http.StatusNotFound)
+		return
+	}
+
+	response := RecipeResponse{
+		ID:              uuid.UUID(result.ID.Bytes).String(),
+		RecipeName:      result.RecipeName,
+		Description:     result.Description.String,
+		Origin:          string(result.Origin),
+		Url:             result.Url,
+		Language:        result.Language.String,
+		CreatedBy:       uuid.UUID(result.CreatedBy.Bytes).String(),
+		IngredientNames: result.IngredientNames,
+		CreatedAt:       result.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:       result.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+	}
+
+	if result.PrepTime.Valid {
+		response.PrepTime = &result.PrepTime.Int32
+	}
+	if result.CookingTime.Valid {
+		response.CookingTime = &result.CookingTime.Int32
+	}
+	if result.TotalTime.Valid {
+		response.TotalTime = &result.TotalTime.Int32
+	}
+	if result.OriginalServingSize.Valid {
+		response.OriginalServingSize = &result.OriginalServingSize.Int32
+	}
+	if result.DifficultyRating.Valid {
+		response.DifficultyRating = &result.DifficultyRating.Int16
+	}
+	if result.FocusedDiet.Valid {
+		response.FocusedDiet = result.FocusedDiet.String
+	}
+	if result.EstimatedCalories.Valid {
+		response.EstimatedCalories = &result.EstimatedCalories.Int32
+	}
+	if result.OwnerID.Valid {
+		response.OwnerID = uuid.UUID(result.OwnerID.Bytes).String()
+	}
+	if result.ThumbnailID.Valid {
+		response.ThumbnailID = uuid.UUID(result.ThumbnailID.Bytes).String()
+	}
+
+	if len(result.Parts) > 0 && string(result.Parts) != "[null]" {
+		var parts []RecipePartDetail
+		if err := json.Unmarshal(result.Parts, &parts); err != nil {
+			slog.Error("Failed to unmarshal parts", "error", err, "recipe_id", recipeID)
+		} else {
+			response.Parts = parts
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func (s *Server) HandleGetRecipeSteps(w http.ResponseWriter, r *http.Request) {
 	_, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -301,21 +444,32 @@ func (s *Server) HandleGetRecipeSteps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	recipe, err := s.db.GetRecipe(r.Context(), parseUUID(recipeID))
+	result, err := s.db.GetRecipeWithParts(r.Context(), parseUUID(recipeID))
 	if err != nil {
 		slog.Error("Failed to get recipe", "error", err, "recipe_id", recipeID)
 		http.Error(w, "Recipe not found", http.StatusNotFound)
 		return
 	}
 
-	instructions, err := s.db.GetInstructionsByRecipe(r.Context(), parseUUID(recipeID))
+	hasParts := len(result.Parts) > 0 && string(result.Parts) != "[null]"
+
+	if hasParts {
+		s.handleGetRecipeStepsWithParts(w, r, recipeID, result)
+		return
+	}
+
+	s.handleGetRecipeStepsFlat(w, r, recipeID, result.ID)
+}
+
+func (s *Server) handleGetRecipeStepsFlat(w http.ResponseWriter, r *http.Request, recipeID string, recipeUUID pgtype.UUID) {
+	instructions, err := s.db.GetInstructionsByRecipe(r.Context(), recipeUUID)
 	if err != nil {
 		slog.Error("Failed to get instructions", "error", err, "recipe_id", recipeID)
 		http.Error(w, "Failed to get instructions", http.StatusInternalServerError)
 		return
 	}
 
-	recipeIngredients, err := s.db.GetIngredientsByRecipe(r.Context(), parseUUID(recipeID))
+	recipeIngredients, err := s.db.GetIngredientsByRecipe(r.Context(), recipeUUID)
 	if err != nil {
 		slog.Error("Failed to get recipe ingredients", "error", err, "recipe_id", recipeID)
 		http.Error(w, "Failed to get recipe ingredients", http.StatusInternalServerError)
@@ -370,10 +524,143 @@ func (s *Server) HandleGetRecipeSteps(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	response := RecipeStepsResponse{
-		RecipeID:   uuid.UUID(recipe.ID.Bytes).String(),
+	response := RecipeStepsWithPartsResponse{
+		RecipeID:   recipeID,
 		TotalSteps: len(steps),
+		HasParts:   false,
 		Steps:      steps,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) handleGetRecipeStepsWithParts(w http.ResponseWriter, r *http.Request, recipeID string, result generated.GetRecipeWithPartsRow) {
+	var partsData []struct {
+		ID           string `json:"id"`
+		Name         string `json:"name"`
+		DisplayOrder int32  `json:"display_order"`
+		IsOptional   bool   `json:"is_optional"`
+		Instructions []struct {
+			ID              string          `json:"id"`
+			StepNumber      int32           `json:"step_number"`
+			InstructionRich string          `json:"instruction_rich"`
+			TimerData       json.RawMessage `json:"timer_data"`
+		} `json:"instructions"`
+		Ingredients []struct {
+			ID            string `json:"id"`
+			Name          string `json:"name"`
+			TotalQuantity string `json:"total_quantity"`
+			Unit          string `json:"unit"`
+		} `json:"ingredients"`
+	}
+
+	if err := json.Unmarshal(result.Parts, &partsData); err != nil {
+		slog.Error("Failed to unmarshal parts", "error", err, "recipe_id", recipeID)
+		http.Error(w, "Failed to process recipe parts", http.StatusInternalServerError)
+		return
+	}
+
+	ingredientsByPart := make(map[string]map[string]struct {
+		Name          string
+		TotalQuantity string
+		Unit          string
+	})
+	for _, part := range partsData {
+		ingMap := make(map[string]struct {
+			Name          string
+			TotalQuantity string
+			Unit          string
+		})
+		for _, ing := range part.Ingredients {
+			ingMap[ing.ID] = struct {
+				Name          string
+				TotalQuantity string
+				Unit          string
+			}{
+				Name:          ing.Name,
+				TotalQuantity: ing.TotalQuantity,
+				Unit:          ing.Unit,
+			}
+		}
+		ingredientsByPart[part.ID] = ingMap
+	}
+
+	recipeUUID := parseUUID(recipeID)
+	allInstIngredients, err := s.db.GetInstructionIngredientsByRecipe(r.Context(), recipeUUID)
+	if err != nil {
+		slog.Error("Failed to get instruction ingredients by recipe", "error", err, "recipe_id", recipeID)
+	}
+
+	stepIngredientMap := make(map[string][]StepIngredientDetail)
+	for _, ii := range allInstIngredients {
+		instID := uuid.UUID(ii.InstructionID.Bytes).String()
+		ingredientID := uuid.UUID(ii.IngredientID.Bytes).String()
+
+		var ingName, ingQty, ingUnit string
+		for _, part := range partsData {
+			if ingMap, ok := ingredientsByPart[part.ID]; ok {
+				if ing, ok := ingMap[ingredientID]; ok {
+					ingName = ing.Name
+					ingQty = ing.TotalQuantity
+					ingUnit = ing.Unit
+					break
+				}
+			}
+		}
+
+		stepIngredientMap[instID] = append(stepIngredientMap[instID], StepIngredientDetail{
+			ID:            ingredientID,
+			Name:          ingName,
+			StepQuantity:  ii.StepQuantity.String,
+			TotalQuantity: ingQty,
+			Unit:          ingUnit,
+		})
+	}
+
+	parts := make([]PartSteps, 0, len(partsData))
+	totalSteps := 0
+
+	for _, part := range partsData {
+		steps := make([]StepDetail, 0, len(part.Instructions))
+
+		for _, inst := range part.Instructions {
+			var timers []Timer
+			if len(inst.TimerData) > 0 {
+				if err := json.Unmarshal(inst.TimerData, &timers); err != nil {
+					slog.Error("Failed to parse timer data", "error", err, "instruction_id", inst.ID)
+				}
+			}
+
+			ingredients := stepIngredientMap[inst.ID]
+			if ingredients == nil {
+				ingredients = []StepIngredientDetail{}
+			}
+
+			steps = append(steps, StepDetail{
+				StepNumber:      inst.StepNumber,
+				InstructionRich: inst.InstructionRich,
+				Ingredients:     ingredients,
+				Timers:          timers,
+			})
+		}
+
+		parts = append(parts, PartSteps{
+			PartID:       part.ID,
+			PartName:     part.Name,
+			IsOptional:   part.IsOptional,
+			DisplayOrder: part.DisplayOrder,
+			Steps:        steps,
+		})
+
+		totalSteps += len(steps)
+	}
+
+	response := RecipeStepsWithPartsResponse{
+		RecipeID:   recipeID,
+		TotalSteps: totalSteps,
+		HasParts:   true,
+		Parts:      parts,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

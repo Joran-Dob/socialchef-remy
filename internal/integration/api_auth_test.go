@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -217,7 +218,7 @@ func TestHandleUserImportStatus_WithAuth(t *testing.T) {
 	}
 
 	// Verify we can retrieve only the user's jobs
-	jobs, err := fixtures.mockDB.GetImportJobsByUser(nil, uuidToPgtype(uuid.MustParse(userID)))
+	jobs, err := fixtures.mockDB.GetImportJobsByUser(context.TODO(), uuidToPgtype(uuid.MustParse(userID)))
 	if err != nil {
 		t.Fatalf("failed to get jobs: %v", err)
 	}
@@ -302,7 +303,7 @@ func TestHandleGenerateEmbedding_ValidRequest(t *testing.T) {
 	}
 
 	// Verify the recipe exists in mock DB
-	recipe, err := fixtures.mockDB.GetRecipe(nil, uuidToPgtype(uuid.MustParse(recipeID)))
+	recipe, err := fixtures.mockDB.GetRecipe(context.TODO(), uuidToPgtype(uuid.MustParse(recipeID)))
 	if err != nil {
 		t.Fatalf("failed to get recipe: %v", err)
 	}

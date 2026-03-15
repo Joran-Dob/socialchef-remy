@@ -18,6 +18,7 @@ type Recipe struct {
 	EstimatedCalories   *int          `json:"estimated_calories,omitempty"`
 	Ingredients         []Ingredient  `json:"ingredients"`
 	Instructions        []Instruction `json:"instructions"`
+	Parts               []RecipePart  `json:"parts,omitempty"`
 	Nutrition           Nutrition     `json:"nutrition"`
 	CuisineCategories   []string      `json:"cuisine_categories,omitempty"`
 	MealTypes           []string      `json:"meal_types,omitempty"`
@@ -25,6 +26,19 @@ type Recipe struct {
 	DietaryRestrictions []string      `json:"dietary_restrictions,omitempty"`
 	Equipment           []string      `json:"equipment,omitempty"`
 	Language            string        `json:"language"`
+}
+
+// RecipePart represents a section of a recipe with its own ingredients and instructions
+type RecipePart struct {
+	ID           string        `json:"id,omitempty"`
+	Name         string        `json:"name"`
+	Description  string        `json:"description,omitempty"`
+	DisplayOrder int           `json:"display_order"`
+	IsOptional   bool          `json:"is_optional"`
+	PrepTime     *int          `json:"prep_time,omitempty"`
+	CookingTime  *int          `json:"cooking_time,omitempty"`
+	Ingredients  []Ingredient  `json:"ingredients"`
+	Instructions []Instruction `json:"instructions"`
 }
 
 // StringOrNumber can unmarshal from JSON string or number
@@ -53,6 +67,7 @@ func (s *StringOrNumber) UnmarshalJSON(data []byte) error {
 // Ingredient represents a recipe ingredient
 type Ingredient struct {
 	ID               string         `json:"id,omitempty"` // NEW: Real database ID
+	PartID           *string        `json:"part_id,omitempty"`
 	OriginalQuantity StringOrNumber `json:"original_quantity"`
 	OriginalUnit     string         `json:"original_unit"`
 	TotalQuantity    StringOrNumber `json:"total_quantity"`
@@ -70,6 +85,7 @@ type StepIngredient struct {
 // Instruction represents a recipe instruction step
 type Instruction struct {
 	StepNumber             int              `json:"step_number"`
+	PartID                 *string          `json:"part_id,omitempty"`
 	Instruction            string           `json:"instruction"`
 	TimerData              []Timer          `json:"timer_data,omitempty"`
 	InstructionRich        string           `json:"instruction_rich,omitempty"`
@@ -94,6 +110,37 @@ type Nutrition struct {
 	Fiber   float64 `json:"fiber"`
 }
 
+// HasParts returns true if the recipe has parts
+func (r *Recipe) HasParts() bool {
+	return len(r.Parts) > 0
+}
+
+// FlattenIngredients returns all ingredients from all parts combined
+func (r *Recipe) FlattenIngredients() []Ingredient {
+	if !r.HasParts() {
+		return r.Ingredients
+	}
+
+	var result []Ingredient
+	for _, part := range r.Parts {
+		result = append(result, part.Ingredients...)
+	}
+	return result
+}
+
+// FlattenInstructions returns all instructions from all parts combined
+func (r *Recipe) FlattenInstructions() []Instruction {
+	if !r.HasParts() {
+		return r.Instructions
+	}
+
+	var result []Instruction
+	for _, part := range r.Parts {
+		result = append(result, part.Instructions...)
+	}
+	return result
+}
+
 // recipeResponseInner is the internal response structure for recipe data
 type recipeResponseInner struct {
 	RecipeName        string `json:"recipe_name"`
@@ -112,6 +159,7 @@ type recipeResponseOuter struct {
 	Recipe              recipeResponseInner `json:"recipe"`
 	Ingredients         []Ingredient        `json:"ingredients"`
 	Instructions        []Instruction       `json:"instructions"`
+	Parts               []RecipePart        `json:"parts,omitempty"`
 	Nutrition           Nutrition           `json:"nutrition"`
 	CuisineCategories   []string            `json:"cuisine_categories"`
 	MealTypes           []string            `json:"meal_types"`

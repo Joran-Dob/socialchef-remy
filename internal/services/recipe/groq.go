@@ -117,6 +117,31 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 		return nil, err
 	}
 
+	var ingredients []Ingredient
+	var instructions []Instruction
+	var parts []RecipePart
+
+	if len(raw.Parts) > 0 {
+		parts = raw.Parts
+		for i := range parts {
+			part := &parts[i]
+			if part.DisplayOrder == 0 {
+				part.DisplayOrder = i + 1
+			}
+			for j := range part.Ingredients {
+				part.Ingredients[j].PartID = &part.ID
+			}
+			for j := range part.Instructions {
+				part.Instructions[j].PartID = &part.ID
+			}
+			ingredients = append(ingredients, part.Ingredients...)
+			instructions = append(instructions, part.Instructions...)
+		}
+	} else {
+		ingredients = raw.Ingredients
+		instructions = raw.Instructions
+	}
+
 	return &Recipe{
 		RecipeName:          raw.Recipe.RecipeName,
 		Description:         raw.Recipe.Description,
@@ -127,8 +152,9 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 		DifficultyRating:    raw.Recipe.DifficultyRating,
 		FocusedDiet:         raw.Recipe.FocusedDiet,
 		EstimatedCalories:   raw.Recipe.EstimatedCalories,
-		Ingredients:         raw.Ingredients,
-		Instructions:        raw.Instructions,
+		Ingredients:         ingredients,
+		Instructions:        instructions,
+		Parts:               parts,
 		Nutrition:           raw.Nutrition,
 		CuisineCategories:   raw.CuisineCategories,
 		MealTypes:           raw.MealTypes,
@@ -222,13 +248,6 @@ func (p *GroqProvider) GenerateCategories(ctx context.Context, prompt string) (*
 	}
 
 	return &result, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Recipe) (*RichInstructionResponse, error) {

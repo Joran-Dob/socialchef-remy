@@ -176,3 +176,118 @@ go mod download
 2. Verify `REDIS_URL` in `.env` matches your setup
 3. Check application logs for worker startup messages
 4. Ensure your Asynq server and worker are using the same Redis instance
+
+## Testing Split Recipes
+
+Split recipes are recipes with multiple distinct parts (like "Cake + Frosting" or "Chicken + Sauce"). Here's how to test them.
+
+### Testing with Bruno
+
+The Bruno collection includes dedicated tests for split recipes:
+
+```bash
+# Run all recipe tests including split recipe tests
+bru run --env local --folder "1-Recipe"
+```
+
+**Test Files:**
+- `1-Recipe/import-split-recipe.bru` - Imports a complex recipe with parts
+- `1-Recipe/get-split-recipe-status.bru` - Polls for completion
+- `1-Recipe/verify-split-recipe-parts.bru` - Verifies the parts structure
+
+### Manual Testing Example: Blueberry Muffins
+
+Here's a complete example for testing a split recipe:
+
+**1. Import the recipe:**
+
+```bash
+curl -X POST http://localhost:8080/api/recipe \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "url": "https://www.allrecipes.com/recipe/6865/to-die-for-blueberry-muffins/"
+  }'
+```
+
+**Expected response:**
+```json
+{
+  "job_id": "abc123...",
+  "url": "https://www.allrecipes.com/recipe/6865/to-die-for-blueberry-muffins/"
+}
+```
+
+**2. Check job status:**
+
+```bash
+curl "http://localhost:8080/api/recipe-status?job_id=abc123..." \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+Poll until `status` is `completed` and you get a `recipe_id`.
+
+**3. Get recipe steps with parts:**
+
+```bash
+curl "http://localhost:8080/api/recipes/YOUR_RECIPE_ID/steps" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Expected response for a split recipe:**
+```json
+{
+  "recipe_id": "...",
+  "total_steps": 10,
+  "has_parts": true,
+  "parts": [
+    {
+      "part_id": "...",
+      "part_name": "Blueberry Muffins",
+      "is_optional": false,
+      "display_order": 1,
+      "steps": [...]
+    },
+    {
+      "part_id": "...",
+      "part_name": "Streusel Topping",
+      "is_optional": true,
+      "display_order": 2,
+      "steps": [...]
+    }
+  ]
+}
+```
+
+### What to Verify
+
+When testing split recipes, check:
+
+1. **`has_parts` is true** for multi-part recipes
+2. **`parts` array exists** and contains part objects
+3. **Each part has:**
+   - `part_name` - human-readable name (e.g., "Sauce", "Topping")
+   - `display_order` - parts are ordered correctly (1, 2, 3...)
+   - `is_optional` - correctly identifies optional parts
+   - `steps` - array of instructions with ingredients
+4. **Step numbering** restarts at 1 for each part
+5. **Ingredients** are correctly linked to steps within each part
+
+### Good Test URLs for Split Recipes
+
+These URLs typically produce recipes with parts:
+
+- AllRecipes complex recipes with sauces or toppings
+- Recipes that explicitly mention "For the X:" and "For the Y:" in ingredients
+- Multi-component dishes (main + side + sauce)
+
+### Debugging
+
+If parts aren't being detected:
+
+1. **Check the AI response** in the worker logs
+2. **Verify the recipe structure** - parts need `name`, `display_order`, and `is_optional`
+3. **Check database** - query the recipe to see if `parts` JSON is populated:
+   ```sql
+   SELECT parts FROM recipes WHERE id = 'your-recipe-uuid';
+   ```

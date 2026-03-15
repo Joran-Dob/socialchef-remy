@@ -1,0 +1,73 @@
+meta {
+  name: Verify Recipe Has Parts
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/recipes/{{recipeId}}/steps
+  body: none
+  auth: inherit
+}
+
+script:post-response {
+  test("Status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  
+  test("Response has recipe_id", function() {
+    expect(res.body).to.have.property('recipe_id');
+    expect(res.body.recipe_id).to.be.a('string');
+  });
+  
+  test("Response has total_steps", function() {
+    expect(res.body).to.have.property('total_steps');
+    expect(res.body.total_steps).to.be.a('number');
+  });
+  
+  test("Response has steps array", function() {
+    expect(res.body).to.have.property('steps');
+    expect(res.body.steps).to.be.an('array');
+  });
+  
+  test("Response contains parts array", function() {
+    expect(res.body).to.have.property('parts');
+    expect(res.body.parts).to.be.an('array');
+  });
+  
+  test("Parts array has at least one part", function() {
+    expect(res.body.parts.length).to.be.greaterThan(0);
+  });
+  
+  test("Each part has required fields", function() {
+    if (res.body.parts.length > 0) {
+      const firstPart = res.body.parts[0];
+      expect(firstPart).to.have.property('name');
+      expect(firstPart.name).to.be.a('string');
+      expect(firstPart).to.have.property('display_order');
+      expect(firstPart.display_order).to.be.a('number');
+      expect(firstPart).to.have.property('ingredients');
+      expect(firstPart.ingredients).to.be.an('array');
+      expect(firstPart).to.have.property('instructions');
+      expect(firstPart.instructions).to.be.an('array');
+      expect(firstPart).to.have.property('is_optional');
+      expect(firstPart.is_optional).to.be.a('boolean');
+    }
+  });
+  
+  test("Parts are ordered by display_order", function() {
+    if (res.body.parts.length > 1) {
+      for (let i = 1; i < res.body.parts.length; i++) {
+        expect(res.body.parts[i].display_order).to.be.greaterThan(res.body.parts[i-1].display_order);
+      }
+    }
+  });
+  
+  test("Part instructions start from step_number 1", function() {
+    if (res.body.parts.length > 0 && res.body.parts[0].instructions.length > 0) {
+      const firstInstruction = res.body.parts[0].instructions[0];
+      expect(firstInstruction).to.have.property('step_number');
+      expect(firstInstruction.step_number).to.equal(1);
+    }
+  });
+}

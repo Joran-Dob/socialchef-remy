@@ -13,14 +13,15 @@ import (
 
 const createIngredient = `-- name: CreateIngredient :one
 INSERT INTO recipe_ingredients (
-    recipe_id, quantity, total_quantity, unit, original_quantity, original_unit, name
+    recipe_id, part_id, quantity, total_quantity, unit, original_quantity, original_unit, name
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, recipe_id, quantity, total_quantity, unit, original_quantity, original_unit, name, created_at
+    $1, $2, $3, $4, $5, $6, $7, $8
+) RETURNING id, recipe_id, quantity, total_quantity, unit, original_quantity, original_unit, name, part_id, created_at
 `
 
 type CreateIngredientParams struct {
 	RecipeID         pgtype.UUID
+	PartID           pgtype.UUID
 	Quantity         pgtype.Text
 	TotalQuantity    pgtype.Text
 	Unit             pgtype.Text
@@ -32,6 +33,7 @@ type CreateIngredientParams struct {
 func (q *Queries) CreateIngredient(ctx context.Context, arg CreateIngredientParams) (RecipeIngredient, error) {
 	row := q.db.QueryRow(ctx, createIngredient,
 		arg.RecipeID,
+		arg.PartID,
 		arg.Quantity,
 		arg.TotalQuantity,
 		arg.Unit,
@@ -49,6 +51,7 @@ func (q *Queries) CreateIngredient(ctx context.Context, arg CreateIngredientPara
 		&i.OriginalQuantity,
 		&i.OriginalUnit,
 		&i.Name,
+		&i.PartID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -56,6 +59,7 @@ func (q *Queries) CreateIngredient(ctx context.Context, arg CreateIngredientPara
 
 type CreateIngredientsParams struct {
 	RecipeID         pgtype.UUID
+	PartID           pgtype.UUID
 	Quantity         pgtype.Text
 	Unit             pgtype.Text
 	OriginalQuantity pgtype.Text
@@ -73,7 +77,7 @@ func (q *Queries) DeleteIngredientsByRecipe(ctx context.Context, recipeID pgtype
 }
 
 const getIngredientsByRecipe = `-- name: GetIngredientsByRecipe :many
-SELECT id, recipe_id, quantity, total_quantity, unit, original_quantity, original_unit, name, created_at FROM recipe_ingredients WHERE recipe_id = $1
+SELECT id, recipe_id, quantity, total_quantity, unit, original_quantity, original_unit, name, part_id, created_at FROM recipe_ingredients WHERE recipe_id = $1
 `
 
 func (q *Queries) GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UUID) ([]RecipeIngredient, error) {
@@ -94,6 +98,47 @@ func (q *Queries) GetIngredientsByRecipe(ctx context.Context, recipeID pgtype.UU
 			&i.OriginalQuantity,
 			&i.OriginalUnit,
 			&i.Name,
+			&i.PartID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getIngredientsByRecipeAndPart = `-- name: GetIngredientsByRecipeAndPart :many
+SELECT id, recipe_id, quantity, total_quantity, unit, original_quantity, original_unit, name, part_id, created_at FROM recipe_ingredients WHERE recipe_id = $1 AND part_id = $2
+`
+
+type GetIngredientsByRecipeAndPartParams struct {
+	RecipeID pgtype.UUID
+	PartID   pgtype.UUID
+}
+
+func (q *Queries) GetIngredientsByRecipeAndPart(ctx context.Context, arg GetIngredientsByRecipeAndPartParams) ([]RecipeIngredient, error) {
+	rows, err := q.db.Query(ctx, getIngredientsByRecipeAndPart, arg.RecipeID, arg.PartID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RecipeIngredient
+	for rows.Next() {
+		var i RecipeIngredient
+		if err := rows.Scan(
+			&i.ID,
+			&i.RecipeID,
+			&i.Quantity,
+			&i.TotalQuantity,
+			&i.Unit,
+			&i.OriginalQuantity,
+			&i.OriginalUnit,
+			&i.Name,
+			&i.PartID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

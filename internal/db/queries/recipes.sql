@@ -10,6 +10,7 @@ INSERT INTO recipes (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
 ) RETURNING *;
+
 -- name: UpdateRecipe :one
 UPDATE recipes 
 SET 
@@ -33,6 +34,42 @@ DELETE FROM recipes WHERE id = $1 AND created_by = $2;
 -- name: UpdateRecipeThumbnail :exec
 UPDATE recipes SET thumbnail_id = $2, updated_at = NOW() WHERE id = $1;
 
-
 -- name: UpdateRecipeEmbedding :exec
 UPDATE recipes SET embedding = $2, updated_at = NOW() WHERE id = $1;
+
+-- Recipe Parts Queries
+-- name: CreateRecipePart :one
+INSERT INTO recipe_parts (
+    recipe_id, name, description, display_order, is_optional, prep_time, cooking_time
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING *;
+
+-- name: GetRecipeParts :many
+SELECT * FROM recipe_parts WHERE recipe_id = $1 ORDER BY display_order;
+
+-- name: DeleteRecipeParts :exec
+DELETE FROM recipe_parts WHERE recipe_id = $1;
+
+-- name: GetRecipeWithParts :one
+SELECT r.*, 
+       json_agg(json_build_object(
+           'id', p.id,
+           'name', p.name,
+           'display_order', p.display_order,
+           'is_optional', p.is_optional,
+           'ingredients', (
+               SELECT json_agg(i.*) 
+               FROM recipe_ingredients i 
+               WHERE i.part_id = p.id
+           ),
+           'instructions', (
+               SELECT json_agg(ins.* ORDER BY ins.step_number)
+               FROM recipe_instructions ins
+               WHERE ins.part_id = p.id
+           )
+       ) ORDER BY p.display_order) as parts
+FROM recipes r
+LEFT JOIN recipe_parts p ON p.recipe_id = r.id
+WHERE r.id = $1
+GROUP BY r.id;

@@ -280,12 +280,14 @@ type RecipeIngredient struct {
 	OriginalQuantity pgtype.Text
 	OriginalUnit     pgtype.Text
 	Name             string
+	PartID           pgtype.UUID
 	CreatedAt        pgtype.Timestamptz
 }
 
 type RecipeInstruction struct {
 	ID                     pgtype.UUID
 	RecipeID               pgtype.UUID
+	PartID                 pgtype.UUID
 	StepNumber             int32
 	Instruction            string
 	TimerData              []byte
@@ -315,6 +317,18 @@ type RecipeOccasion struct {
 	RecipeID   pgtype.UUID
 	OccasionID pgtype.UUID
 	CreatedAt  pgtype.Timestamptz
+}
+
+type RecipePart struct {
+	ID           pgtype.UUID
+	RecipeID     pgtype.UUID
+	Name         string
+	Description  pgtype.Text
+	DisplayOrder int32
+	IsOptional   bool
+	PrepTime     pgtype.Int4
+	CookingTime  pgtype.Int4
+	CreatedAt    pgtype.Timestamptz
 }
 
 type SocialMediaOwner struct {

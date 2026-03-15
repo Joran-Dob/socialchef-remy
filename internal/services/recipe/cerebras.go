@@ -92,7 +92,7 @@ func (p *CerebrasProvider) GenerateRecipe(ctx context.Context, description, tran
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("Cerebras API error (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("cerebras API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
 	var chatResp struct {
@@ -117,6 +117,31 @@ func (p *CerebrasProvider) GenerateRecipe(ctx context.Context, description, tran
 		return nil, err
 	}
 
+	var ingredients []Ingredient
+	var instructions []Instruction
+	var parts []RecipePart
+
+	if len(raw.Parts) > 0 {
+		parts = raw.Parts
+		for i := range parts {
+			part := &parts[i]
+			if part.DisplayOrder == 0 {
+				part.DisplayOrder = i + 1
+			}
+			for j := range part.Ingredients {
+				part.Ingredients[j].PartID = &part.ID
+			}
+			for j := range part.Instructions {
+				part.Instructions[j].PartID = &part.ID
+			}
+			ingredients = append(ingredients, part.Ingredients...)
+			instructions = append(instructions, part.Instructions...)
+		}
+	} else {
+		ingredients = raw.Ingredients
+		instructions = raw.Instructions
+	}
+
 	return &Recipe{
 		RecipeName:          raw.Recipe.RecipeName,
 		Description:         raw.Recipe.Description,
@@ -127,8 +152,9 @@ func (p *CerebrasProvider) GenerateRecipe(ctx context.Context, description, tran
 		DifficultyRating:    raw.Recipe.DifficultyRating,
 		FocusedDiet:         raw.Recipe.FocusedDiet,
 		EstimatedCalories:   raw.Recipe.EstimatedCalories,
-		Ingredients:         raw.Ingredients,
-		Instructions:        raw.Instructions,
+		Ingredients:         ingredients,
+		Instructions:        instructions,
+		Parts:               parts,
 		Nutrition:           raw.Nutrition,
 		CuisineCategories:   raw.CuisineCategories,
 		MealTypes:           raw.MealTypes,

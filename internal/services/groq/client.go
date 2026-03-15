@@ -116,7 +116,7 @@ func (c *Client) GenerateCategories(ctx context.Context, prompt string) (*ai.Cat
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("Groq API error: %s", string(respBody))
+		return nil, fmt.Errorf("groq API error: %s", string(respBody))
 	}
 
 	var chatResp struct {
@@ -308,7 +308,7 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("Groq API error: %s", string(respBody))
+		return nil, fmt.Errorf("groq API error: %s", string(respBody))
 	}
 
 	var chatResp struct {

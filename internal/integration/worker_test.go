@@ -16,11 +16,6 @@ import (
 	"github.com/socialchef/remy/internal/worker"
 )
 
-func createMockTask(payload interface{}) *asynq.Task {
-	data, _ := json.Marshal(payload)
-	return asynq.NewTask("test-task", data)
-}
-
 func TestWorker_HandleProcessRecipe_InvalidPayload(t *testing.T) {
 	task := asynq.NewTask("test-task", []byte("invalid json"))
 

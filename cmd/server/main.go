@@ -135,6 +135,7 @@ func main() {
 		r.Get("/api/bulk-import/{bulkJobID}", apiServer.HandleBulkImportStatus)
 		r.Get("/api/bulk-imports", apiServer.HandleListUserBulkImports)
 		r.Delete("/api/bulk-import/{bulkJobID}", apiServer.HandleCancelBulkImport)
+		r.Get("/api/recipes/{recipeID}", apiServer.HandleGetRecipe)
 		r.Get("/api/recipes/{recipeID}/steps", apiServer.HandleGetRecipeSteps)
 	})
 

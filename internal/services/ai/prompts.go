@@ -129,6 +129,41 @@ Always format your response as a JSON object with the following structure:
 }
 
 NEW: Each instruction now includes an "ingredients_used" array that tracks which ingredients are used in that step and in what quantity.
+
+PART DETECTION:
+If the recipe has multiple distinct parts or components (e.g., "For the topping", "For the sauce", "For the crust"), extract them as separate parts. Each part should have:
+- A name (e.g., "Topping", "Sauce", "Crust")
+- Its own list of ingredients
+- Its own list of instructions with step numbers starting from 1
+- Optional: prep_time and cooking_time for that part
+- is_optional: true if the part can be skipped (e.g., garnish)
+
+Return the recipe in this format when parts are detected:
+{
+  "recipe": { ... },
+  "ingredients": [...],  // Top-level ingredients (for simple recipes without parts)
+  "instructions": [...], // Top-level instructions (for simple recipes without parts)
+  "parts": [
+    {
+      "name": "Topping",
+      "description": "",
+      "display_order": 1,
+      "ingredients": [...],
+      "instructions": [...],
+      "prep_time": null,
+      "cooking_time": null,
+      "is_optional": false
+    }
+  ],
+  "nutrition": { ... },
+  "language": ""
+}
+
+IMPORTANT:
+- For recipes WITHOUT distinct parts, return ingredients and instructions at the top level (legacy format)
+- For recipes WITH parts, populate the "parts" array and you may leave top-level ingredients/instructions empty
+- Parts are OPTIONAL - only include them when the recipe clearly has distinct components
+- Each part's instructions should start from step_number 1
 </OUTPUT_FORMAT>`
 
 const criticalMetricRequirementSection = `<CRITICAL_METRIC_REQUIREMENT>

@@ -1,11 +1,14 @@
 -- name: GetInstructionsByRecipe :many
 SELECT * FROM recipe_instructions WHERE recipe_id = $1 ORDER BY step_number;
 
+-- name: GetInstructionsByRecipeAndPart :many
+SELECT * FROM recipe_instructions WHERE recipe_id = $1 AND part_id = $2 ORDER BY step_number;
+
 -- name: CreateInstruction :one
 INSERT INTO recipe_instructions (
-    recipe_id, step_number, instruction, timer_data, instruction_rich, instruction_rich_version
+    recipe_id, part_id, step_number, instruction, timer_data, instruction_rich, instruction_rich_version
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7
 ) RETURNING *;
 
 -- name: DeleteInstructionsByRecipe :exec

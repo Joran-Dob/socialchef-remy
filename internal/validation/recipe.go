@@ -21,6 +21,7 @@ type Recipe struct {
 	EstimatedCalories   *int
 	Ingredients         []Ingredient
 	Instructions        []Instruction
+	Parts               []RecipePart
 	Nutrition           Nutrition
 	CuisineCategories   []string
 	MealTypes           []string
@@ -28,6 +29,19 @@ type Recipe struct {
 	DietaryRestrictions []string
 	Equipment           []string
 	Language            string
+}
+
+// RecipePart represents a section of a recipe with its own ingredients and instructions
+type RecipePart struct {
+	ID           string
+	Name         string
+	Description  string
+	DisplayOrder int
+	IsOptional   bool
+	PrepTime     *int
+	CookingTime  *int
+	Ingredients  []Ingredient
+	Instructions []Instruction
 }
 
 type Ingredient struct {
@@ -166,6 +180,40 @@ func isGenericInstruction(instruction string) bool {
 	return false
 }
 
+type RecipePartValidationResult struct {
+	IsValid  bool
+	Issues   []string
+	PartName string
+}
+
+func ValidateRecipePart(part RecipePart, config RecipeOutputValidationConfig) RecipePartValidationResult {
+	issues := []string{}
+
+	if part.Name == "" || strings.TrimSpace(part.Name) == "" {
+		issues = append(issues, "Part name is required")
+	}
+
+	if part.DisplayOrder < 0 {
+		issues = append(issues, fmt.Sprintf("Part display order must be >= 0, got %d", part.DisplayOrder))
+	}
+
+	if !part.IsOptional {
+		if len(part.Ingredients) < 1 {
+			issues = append(issues, fmt.Sprintf("Part '%s' requires at least 1 ingredient", part.Name))
+		}
+
+		if len(part.Instructions) < 1 {
+			issues = append(issues, fmt.Sprintf("Part '%s' requires at least 1 instruction", part.Name))
+		}
+	}
+
+	return RecipePartValidationResult{
+		IsValid:  len(issues) == 0,
+		Issues:   issues,
+		PartName: part.Name,
+	}
+}
+
 // ValidateRecipe checks the recipe for placeholders, minimum requirements, and calculates a quality score.
 func ValidateRecipe(recipe Recipe, config RecipeOutputValidationConfig) RecipeValidationResult {
 	if recipe.RecipeName == "" {
@@ -180,6 +228,8 @@ func ValidateRecipe(recipe Recipe, config RecipeOutputValidationConfig) RecipeVa
 	issues := []string{}
 	placeholderCount := 0
 	totalFields := 0
+
+	isSplitRecipe := len(recipe.Parts) > 0
 
 	// Check recipe name
 	totalFields++
@@ -198,41 +248,87 @@ func ValidateRecipe(recipe Recipe, config RecipeOutputValidationConfig) RecipeVa
 		issues = append(issues, "Description is too short")
 	}
 
-	// Check ingredients
-	if len(recipe.Ingredients) < config.MinIngredients {
-		issues = append(issues, fmt.Sprintf("Too few ingredients (%d, need at least %d)", len(recipe.Ingredients), config.MinIngredients))
-	} else {
-		validIngredients := 0
-		for _, ingredient := range recipe.Ingredients {
-			totalFields++
-			if DetectPlaceholders(ingredient.Name) {
-				placeholderCount++
-			} else if ingredient.Name != "" && ingredient.Quantity != "" {
-				validIngredients++
+	// Handle ingredients and instructions based on recipe format
+	var allIngredients []Ingredient
+	var allInstructions []Instruction
+
+	if isSplitRecipe {
+		// Validate each part and collect all ingredients and instructions
+		for i, part := range recipe.Parts {
+			partResult := ValidateRecipePart(part, config)
+			if !partResult.IsValid {
+				issues = append(issues, partResult.Issues...)
+			}
+
+			// Collect ingredients and instructions for overall validation
+			allIngredients = append(allIngredients, part.Ingredients...)
+			allInstructions = append(allInstructions, part.Instructions...)
+
+			// Validate part ingredients and instructions
+			for _, ingredient := range part.Ingredients {
+				totalFields++
+				if DetectPlaceholders(ingredient.Name) {
+					placeholderCount++
+				}
+			}
+
+			for _, inst := range part.Instructions {
+				totalFields++
+				if DetectPlaceholders(inst.Instruction) || isGenericInstruction(inst.Instruction) {
+					placeholderCount++
+				}
+			}
+
+			// Check for parts without display order or with negative display order
+			if part.DisplayOrder != i {
+				issues = append(issues, fmt.Sprintf("Part '%s' has display order %d but is at index %d", part.Name, part.DisplayOrder, i))
 			}
 		}
 
-		if validIngredients < config.MinIngredients {
-			issues = append(issues, fmt.Sprintf("Too few valid ingredients with quantities (%d)", validIngredients))
+		// Validate total ingredients and instructions across all parts
+		if len(allIngredients) < config.MinIngredients {
+			issues = append(issues, fmt.Sprintf("Too few total ingredients across all parts (%d, need at least %d)", len(allIngredients), config.MinIngredients))
 		}
-	}
 
-	// Check instructions
-	if len(recipe.Instructions) < config.MinInstructions {
-		issues = append(issues, fmt.Sprintf("Too few instructions (%d, need at least %d)", len(recipe.Instructions), config.MinInstructions))
+		if len(allInstructions) < config.MinInstructions {
+			issues = append(issues, fmt.Sprintf("Too few total instructions across all parts (%d, need at least %d)", len(allInstructions), config.MinInstructions))
+		}
 	} else {
-		validInstructions := 0
-		for _, inst := range recipe.Instructions {
-			totalFields++
-			if DetectPlaceholders(inst.Instruction) || isGenericInstruction(inst.Instruction) {
-				placeholderCount++
-			} else if inst.Instruction != "" && len(inst.Instruction) >= 10 {
-				validInstructions++
+		// Flat recipe validation (existing logic)
+		if len(recipe.Ingredients) < config.MinIngredients {
+			issues = append(issues, fmt.Sprintf("Too few ingredients (%d, need at least %d)", len(recipe.Ingredients), config.MinIngredients))
+		} else {
+			validIngredients := 0
+			for _, ingredient := range recipe.Ingredients {
+				totalFields++
+				if DetectPlaceholders(ingredient.Name) {
+					placeholderCount++
+				} else if ingredient.Name != "" && ingredient.Quantity != "" {
+					validIngredients++
+				}
+			}
+
+			if validIngredients < config.MinIngredients {
+				issues = append(issues, fmt.Sprintf("Too few valid ingredients with quantities (%d)", validIngredients))
 			}
 		}
 
-		if validInstructions < config.MinInstructions {
-			issues = append(issues, fmt.Sprintf("Too few detailed instructions (%d)", validInstructions))
+		if len(recipe.Instructions) < config.MinInstructions {
+			issues = append(issues, fmt.Sprintf("Too few instructions (%d, need at least %d)", len(recipe.Instructions), config.MinInstructions))
+		} else {
+			validInstructions := 0
+			for _, inst := range recipe.Instructions {
+				totalFields++
+				if DetectPlaceholders(inst.Instruction) || isGenericInstruction(inst.Instruction) {
+					placeholderCount++
+				} else if inst.Instruction != "" && len(inst.Instruction) >= 10 {
+					validInstructions++
+				}
+			}
+
+			if validInstructions < config.MinInstructions {
+				issues = append(issues, fmt.Sprintf("Too few detailed instructions (%d)", validInstructions))
+			}
 		}
 	}
 

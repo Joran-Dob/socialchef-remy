@@ -294,19 +294,6 @@ func interfaceToStringSlice(v interface{}) []string {
 	return []string{}
 }
 
-func interfaceToFloat64(v interface{}) float64 {
-	if v == nil {
-		return 0
-	}
-	if f, ok := v.(float64); ok {
-		return f
-	}
-	if f, ok := v.(float32); ok {
-		return float64(f)
-	}
-	return 0
-}
-
 func (c *Client) buildThumbnailURL(storagePath string) string {
 	if storagePath == "" || c.cfg == nil {
 		return ""

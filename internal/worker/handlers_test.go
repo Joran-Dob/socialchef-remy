@@ -247,6 +247,16 @@ func (m *MockDB) IncrementBulkImportCounters(ctx context.Context, arg generated.
 	return args.Error(0)
 }
 
+func (m *MockDB) CreateRecipePart(ctx context.Context, arg generated.CreateRecipePartParams) (generated.RecipePart, error) {
+	args := m.Called(ctx, arg)
+	return args.Get(0).(generated.RecipePart), args.Error(1)
+}
+
+func (m *MockDB) GetRecipeParts(ctx context.Context, recipeID pgtype.UUID) ([]generated.RecipePart, error) {
+	args := m.Called(ctx, recipeID)
+	return args.Get(0).([]generated.RecipePart), args.Error(1)
+}
+
 type MockInstagramScraper struct {
 	mock.Mock
 }

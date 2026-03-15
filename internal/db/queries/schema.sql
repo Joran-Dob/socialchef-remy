@@ -48,6 +48,19 @@ CREATE TABLE recipes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+-- Recipe parts table
+CREATE TABLE recipe_parts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    is_optional BOOLEAN NOT NULL DEFAULT false,
+    prep_time INTEGER,
+    cooking_time INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Recipe ingredients table
 CREATE TABLE recipe_ingredients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -58,6 +71,7 @@ CREATE TABLE recipe_ingredients (
     original_quantity TEXT,
     original_unit TEXT,
     name TEXT NOT NULL,
+    part_id UUID REFERENCES recipe_parts(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -65,6 +79,7 @@ CREATE TABLE recipe_ingredients (
 CREATE TABLE recipe_instructions (
 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+part_id UUID REFERENCES recipe_parts(id) ON DELETE CASCADE,
 step_number INTEGER NOT NULL,
     instruction TEXT NOT NULL,
     timer_data JSONB DEFAULT NULL,
@@ -157,6 +172,8 @@ ALTER TABLE recipe_import_jobs
     ADD COLUMN bulk_job_id TEXT REFERENCES bulk_import_jobs(job_id) ON DELETE CASCADE;
 
 -- Indexes
+CREATE INDEX idx_recipe_parts_recipe_id ON recipe_parts(recipe_id);
+CREATE INDEX idx_recipe_parts_display_order ON recipe_parts(display_order);
 CREATE INDEX idx_recipes_origin ON recipes(origin);
 CREATE INDEX idx_recipes_recipe_name ON recipes(recipe_name);
 CREATE INDEX idx_recipes_ingredients ON recipes USING gin(ingredient_names);
@@ -263,7 +280,6 @@ CREATE INDEX IF NOT EXISTS recipe_search_idx ON recipes USING GiST (search_vecto
 CREATE INDEX IF NOT EXISTS recipe_embedding_idx ON recipes USING hnsw (embedding vector_cosine_ops);
 
 -- Instruction-Ingredients junction table (temporary addition for sqlc)
--- TODO: Run `make sync-schema` to sync from migrations
 CREATE TABLE IF NOT EXISTS instruction_ingredients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     instruction_id UUID NOT NULL REFERENCES recipe_instructions(id) ON DELETE CASCADE,

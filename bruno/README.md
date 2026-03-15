@@ -96,6 +96,7 @@ Make sure the server is running and the routes are registered in `cmd/server/mai
 - Health check is public (no JWT required)
 - All other endpoints require valid JWT token
 - Search endpoints are now fully functional with category arrays populated
+- Recipe steps endpoint may include `parts` array for recipes with distinct components (e.g., main dish + sauce)
 
 ## Instruction-Ingredient Linking Tests
 
@@ -125,6 +126,65 @@ Response:
   "count": 15
 }
 ```
+
+## Split Recipe Tests
+
+The collection includes tests for recipes with parts - recipes that have distinct components like "Main Dish + Sauce" or multiple courses:
+
+### Test Files
+- `1-Recipe/import-recipe.bru` - Import a recipe (use a complex recipe URL to test parts)
+- `1-Recipe/get-recipe-status.bru` - Poll for import completion
+- `1-Recipe/verify-split-recipe-parts.bru` - Verifies the recipe contains properly structured parts array
+
+### How It Works
+1. Import a complex recipe from a URL (e.g., butter chicken with sauce components)
+2. Poll for job completion
+3. Query the `/api/recipes/{recipeID}/steps` endpoint with the recipe_id
+4. Assert that the response contains a `parts` array with the correct structure
+
+### Parts Structure
+
+When a recipe has parts, the steps response includes:
+
+```json
+{
+  "recipe_id": "uuid",
+  "total_steps": 15,
+  "steps": [...],
+  "parts": [
+    {
+      "name": "Chicken",
+      "display_order": 1,
+      "ingredients": [...],
+      "instructions": [
+        {
+          "step_number": 1,
+          "instruction_rich": "...",
+          "timers": []
+        }
+      ],
+      "prep_time": null,
+      "cooking_time": null,
+      "is_optional": false
+    },
+    {
+      "name": "Sauce",
+      "display_order": 2,
+      "ingredients": [...],
+      "instructions": [...],
+      "prep_time": null,
+      "cooking_time": null,
+      "is_optional": false
+    }
+  ]
+}
+```
+
+### Important Notes
+- Each part's instructions start from `step_number: 1`
+- Parts are ordered by `display_order` field
+- `is_optional` indicates if the part can be omitted
+- Not all recipes have parts - the field is optional
 
 
 ## Known Issues
