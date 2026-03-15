@@ -20,6 +20,7 @@ import (
 
 // Type aliases for backward compatibility
 type Recipe = recipe.Recipe
+type RecipePart = recipe.RecipePart
 type Ingredient = recipe.Ingredient
 type Instruction = recipe.Instruction
 type Nutrition = recipe.Nutrition
@@ -33,6 +34,7 @@ type recipeResponse struct {
 	Recipe              RecipeResponseInner `json:"recipe"`
 	Ingredients         []Ingredient        `json:"ingredients"`
 	Instructions        []Instruction       `json:"instructions"`
+	Parts               []RecipePart        `json:"parts,omitempty"`
 	Nutrition           Nutrition           `json:"nutrition"`
 	CuisineCategories   []string            `json:"cuisine_categories"`
 	MealTypes           []string            `json:"meal_types"`
@@ -265,6 +267,66 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 				},
 			},
 			"language": map[string]interface{}{"type": "string"},
+			"parts": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"name":          map[string]interface{}{"type": "string"},
+						"description":   map[string]interface{}{"type": "string"},
+						"display_order": map[string]interface{}{"type": "integer"},
+						"is_optional":   map[string]interface{}{"type": "boolean"},
+						"prep_time":     map[string]interface{}{"type": []string{"integer", "null"}},
+						"cooking_time":  map[string]interface{}{"type": []string{"integer", "null"}},
+						"ingredients": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"original_quantity": map[string]interface{}{"type": []string{"string", "number", "null"}},
+									"original_unit":     map[string]interface{}{"type": "string"},
+									"quantity":          map[string]interface{}{"type": []string{"number", "null"}},
+									"unit":              map[string]interface{}{"type": "string"},
+									"name":              map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+						"instructions": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"step_number": map[string]interface{}{"type": "integer"},
+									"instruction": map[string]interface{}{"type": "string"},
+									"timer_data": map[string]interface{}{
+										"type": "array",
+										"items": map[string]interface{}{
+											"type": "object",
+											"properties": map[string]interface{}{
+												"duration_seconds": map[string]interface{}{"type": []string{"integer", "null"}},
+												"duration_text":    map[string]interface{}{"type": "string"},
+												"label":            map[string]interface{}{"type": "string"},
+												"type":             map[string]interface{}{"type": "string"},
+												"category":         map[string]interface{}{"type": "string"},
+											},
+										},
+									},
+									"ingredients_used": map[string]interface{}{
+										"type": "array",
+										"items": map[string]interface{}{
+											"type": "object",
+											"properties": map[string]interface{}{
+												"ingredient_name": map[string]interface{}{"type": "string"},
+												"quantity_used":   map[string]interface{}{"type": "string"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -333,6 +395,31 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 		return nil, err
 	}
 
+	var ingredients []Ingredient
+	var instructions []Instruction
+	var parts []RecipePart
+
+	if len(raw.Parts) > 0 {
+		parts = raw.Parts
+		for i := range parts {
+			part := &parts[i]
+			if part.DisplayOrder == 0 {
+				part.DisplayOrder = i + 1
+			}
+			for j := range part.Ingredients {
+				part.Ingredients[j].PartID = &part.ID
+			}
+			for j := range part.Instructions {
+				part.Instructions[j].PartID = &part.ID
+			}
+			ingredients = append(ingredients, part.Ingredients...)
+			instructions = append(instructions, part.Instructions...)
+		}
+	} else {
+		ingredients = raw.Ingredients
+		instructions = raw.Instructions
+	}
+
 	return &Recipe{
 		RecipeName:          raw.Recipe.RecipeName,
 		Description:         raw.Recipe.Description,
@@ -343,8 +430,9 @@ func (c *Client) GenerateRecipe(ctx context.Context, description, transcript, pl
 		DifficultyRating:    raw.Recipe.DifficultyRating,
 		FocusedDiet:         raw.Recipe.FocusedDiet,
 		EstimatedCalories:   raw.Recipe.EstimatedCalories,
-		Ingredients:         raw.Ingredients,
-		Instructions:        raw.Instructions,
+		Ingredients:         ingredients,
+		Instructions:        instructions,
+		Parts:               parts,
 		Nutrition:           raw.Nutrition,
 		CuisineCategories:   raw.CuisineCategories,
 		MealTypes:           raw.MealTypes,
