@@ -550,7 +550,6 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 	if recipe.HasParts() {
 		p.updateProgress(ctx, jobID, userID, "EXECUTING", "Saving recipe parts...")
 
-		stepNumber := 1
 		for partIndex, part := range recipe.Parts {
 			var prepTime, cookTime pgtype.Int4
 			if part.PrepTime != nil {
@@ -581,14 +580,12 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 			savedIngredientIDs = append(savedIngredientIDs, partIngredientIDs...)
 			allIngredients = append(allIngredients, part.Ingredients...)
 
-			partInstructions, err := p.saveInstructions(ctx, savedRecipe.ID, savedPart.ID, part.Instructions, stepNumber)
+			partInstructions, err := p.saveInstructions(ctx, savedRecipe.ID, savedPart.ID, part.Instructions, 1)
 			if err != nil {
 				slog.Error("Failed to save instructions for part", "error", err, "part_name", part.Name)
 			}
 			savedInstructions = append(savedInstructions, partInstructions...)
 			allInstructions = append(allInstructions, part.Instructions...)
-
-			stepNumber += len(part.Instructions)
 		}
 	} else {
 		var err error
