@@ -30,6 +30,7 @@ type Config struct {
 	ProxyAPIKey      string
 	FirecrawlAPIKey  string
 	FirecrawlEnabled bool
+	YouTubeAPIKey    string
 
 	OtelExporterOTLPEndpoint string
 	OtelExporterOTLPHeaders  string
@@ -73,6 +74,7 @@ func Load() (*Config, error) {
 		ProxyAPIKey:              os.Getenv("PROXY_API_KEY"),
 		FirecrawlAPIKey:          os.Getenv("FIRECRAWL_API_KEY"),
 		FirecrawlEnabled:         os.Getenv("FIRECRAWL_ENABLED") == "true",
+		YouTubeAPIKey:            os.Getenv("YOUTUBE_API_KEY"),
 		OtelExporterOTLPEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		OtelExporterOTLPHeaders:  os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"),
 		SentryDSN:                os.Getenv("SENTRY_DSN"),
