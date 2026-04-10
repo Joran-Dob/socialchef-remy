@@ -84,6 +84,9 @@ type InstagramScraper interface {
 type TikTokScraper interface {
 	Scrape(ctx context.Context, postURL string) (*scraper.TikTokPost, error)
 }
+type YouTubeScraper interface {
+	Scrape(ctx context.Context, postURL string) (*scraper.YouTubePost, error)
+}
 type FirecrawlScraper interface {
 	Scrape(ctx context.Context, postURL string) (*scraper.FirecrawlPost, error)
 }
@@ -115,6 +118,7 @@ type RecipeProcessor struct {
 	db        DBQueries
 	instagram InstagramScraper
 	tiktok    TikTokScraper
+	youtube   YouTubeScraper
 	firecrawl FirecrawlScraper
 
 	openai        OpenAIClient
@@ -130,6 +134,7 @@ func NewRecipeProcessor(
 	db DBQueries,
 	instagram InstagramScraper,
 	tiktok TikTokScraper,
+	youtube YouTubeScraper,
 	firecrawl FirecrawlScraper,
 
 	openaiClient OpenAIClient,
@@ -144,6 +149,7 @@ func NewRecipeProcessor(
 		db:        db,
 		instagram: instagram,
 		tiktok:    tiktok,
+		youtube:   youtube,
 		firecrawl: firecrawl,
 
 		openai:        openaiClient,
@@ -238,6 +244,21 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		if err != nil {
 			status = "failure"
 			p.markFailed(ctx, jobID, userID, fmt.Sprintf("TikTok scrape failed: %v", err))
+			return err
+		}
+		caption = post.Caption
+		imageURL = post.ThumbnailURL
+		videoURL = post.VideoURL
+		ownerUsername = post.OwnerUsername
+		ownerAvatar = post.OwnerAvatar
+		ownerID = post.OwnerID
+
+	} else if scraper.IsYouTubeURL(url) {
+		platform = "youtube"
+		post, err := p.youtube.Scrape(ctx, url)
+		if err != nil {
+			status = "failure"
+			p.markFailed(ctx, jobID, userID, fmt.Sprintf("YouTube scrape failed: %v", err))
 			return err
 		}
 		caption = post.Caption
@@ -453,6 +474,8 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		origin = generated.RecipeOriginInstagram
 	} else if platform == "tiktok" {
 		origin = generated.RecipeOriginTiktok
+	} else if platform == "youtube" {
+		origin = generated.RecipeOrigin("youtube")
 	} else {
 		origin = generated.RecipeOriginFirecrawl
 	}
@@ -1104,6 +1127,8 @@ func (p *RecipeProcessor) HandleProcessBulkImport(ctx context.Context, t *asynq.
 		origin := "instagram"
 		if strings.Contains(url, "tiktok") {
 			origin = "tiktok"
+		} else if strings.Contains(url, "youtube") || strings.Contains(url, "youtu.be") {
+			origin = "youtube"
 		}
 
 		_, err = p.db.CreateImportJob(ctx, generated.CreateImportJobParams{

@@ -391,7 +391,7 @@ func TestHandleProcessRecipe_ValidRecipe(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, mockTikTok, nil, mockOpenAI, mockTranscription, mockGroq, mockStorage, mockBroadcaster, nil, nil,
+		mockDB, mockInsta, mockTikTok, nil, nil, mockOpenAI, mockTranscription, mockGroq, mockStorage, mockBroadcaster, nil, nil,
 	)
 
 	// Expectations
@@ -509,7 +509,7 @@ func TestHandleProcessRecipe_ContentValidationFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, nil, nil, nil, nil, mockBroadcaster, nil, nil,
+		mockDB, mockInsta, nil, nil, nil, nil, nil, nil, nil, mockBroadcaster, nil, nil,
 	)
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
@@ -548,7 +548,7 @@ func TestHandleProcessRecipe_TranscriptionFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, nil, mockTranscription, nil, nil, mockBroadcaster, nil, nil,
+		mockDB, mockInsta, nil, nil, nil, nil, mockTranscription, nil, nil, mockBroadcaster, nil, nil,
 	)
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)
@@ -590,7 +590,7 @@ func TestHandleProcessRecipe_OutputValidationFails(t *testing.T) {
 	mockBroadcaster := new(MockBroadcaster)
 
 	processor := NewRecipeProcessor(
-		mockDB, mockInsta, nil, nil, nil, nil, mockGroq, nil, mockBroadcaster, nil, nil,
+		mockDB, mockInsta, nil, nil, nil, nil, nil, mockGroq, nil, mockBroadcaster, nil, nil,
 	)
 
 	mockDB.On("UpdateImportJobStatus", ctx, mock.Anything).Return(nil)

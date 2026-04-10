@@ -21,7 +21,7 @@ func TestWorker_HandleProcessRecipe_InvalidPayload(t *testing.T) {
 
 	processor := worker.NewRecipeProcessor(
 		&generated.Queries{},
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 
 	err := processor.HandleProcessRecipe(context.Background(), task)
