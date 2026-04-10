@@ -36,6 +36,7 @@ type DBQueries interface {
 	CreateRecipe(ctx context.Context, arg generated.CreateRecipeParams) (generated.Recipe, error)
 	GetRecipe(ctx context.Context, id pgtype.UUID) (generated.Recipe, error)
 	UpdateRecipe(ctx context.Context, arg generated.UpdateRecipeParams) (generated.Recipe, error)
+	CreateRecipeRawData(ctx context.Context, arg generated.CreateRecipeRawDataParams) (generated.RecipeRawDatum, error)
 	CreateIngredient(ctx context.Context, arg generated.CreateIngredientParams) (generated.RecipeIngredient, error)
 	CreateInstruction(ctx context.Context, arg generated.CreateInstructionParams) (generated.RecipeInstruction, error)
 	UpdateInstructionRich(ctx context.Context, arg generated.UpdateInstructionRichParams) error
@@ -478,6 +479,42 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		status = "failure"
 		p.markFailed(ctx, jobID, userID, fmt.Sprintf("Failed to save recipe: %v", err))
 		return err
+	}
+
+	// Save raw data for comparison testing
+	p.updateProgress(ctx, jobID, userID, "EXECUTING", "Saving raw source data...")
+	rawData := map[string]interface{}{
+		"caption":    caption,
+		"transcript": transcript,
+		"platform":   platform,
+		"image_url":  imageURL,
+		"video_url":  videoURL,
+	}
+	rawDataJSON, _ := json.Marshal(rawData)
+
+	var imagesJSON []byte
+	if imageURL != "" {
+		images := []string{imageURL}
+		imagesJSON, _ = json.Marshal(images)
+	}
+
+	_, rawDataErr := p.db.CreateRecipeRawData(ctx, generated.CreateRecipeRawDataParams{
+		RecipeID:       savedRecipe.ID,
+		Origin:         platform,
+		SourceUrl:      url,
+		RawData:        rawDataJSON,
+		Caption:        pgtype.Text{String: caption, Valid: caption != ""},
+		Transcript:     pgtype.Text{String: transcript, Valid: transcript != ""},
+		VideoUrl:       pgtype.Text{String: videoURL, Valid: videoURL != ""},
+		ThumbnailUrl:   pgtype.Text{String: imageURL, Valid: imageURL != ""},
+		Images:         imagesJSON,
+		ScrapedAt:      pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		ProcessedAt:    pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		ScraperVersion: pgtype.Text{String: "1.0", Valid: true},
+		ScraperConfig:  nil,
+	})
+	if rawDataErr != nil {
+		slog.Error("Failed to save raw data (non-critical)", "error", rawDataErr, "recipe_id", savedRecipe.ID)
 	}
 
 	// Save categories

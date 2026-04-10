@@ -159,7 +159,8 @@ When a recipe has parts, the steps response includes:
       "instructions": [
         {
           "step_number": 1,
-          "instruction_rich": "...",
+          "instruction": "Plain text instruction",
+          "instruction_rich": "Instruction with {{ingredient:uuid}} placeholders",
           "timers": []
         }
       ],

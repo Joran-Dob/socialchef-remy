@@ -83,7 +83,8 @@ Each part contains its own ingredients and instructions:
       "steps": [
         {
           "step_number": 1,
-          "instruction_rich": "Marinate chicken in yogurt and spices for 30 minutes",
+          "instruction": "Marinate chicken in yogurt and spices for 30 minutes",
+          "instruction_rich": "Marinate chicken in yogurt and spices for {{timer:0}}",
           "ingredients": [...],
           "timers": [...]
         }
@@ -97,7 +98,8 @@ Each part contains its own ingredients and instructions:
       "steps": [
         {
           "step_number": 1,
-          "instruction_rich": "Saute onions in butter until golden",
+          "instruction": "Saute onions in butter until golden",
+          "instruction_rich": "Saute onions in butter until {{timer:0}}",
           "ingredients": [...],
           "timers": [...]
         }
@@ -125,13 +127,15 @@ Each part contains its own ingredients and instructions:
       "steps": [
         {
           "step_number": 1,
+          "instruction": "Preheat oven to 375°F (190°C). Line muffin tin with paper liners.",
           "instruction_rich": "Preheat oven to 375°F (190°C). Line muffin tin with paper liners.",
           "ingredients": [],
           "timers": []
         },
         {
           "step_number": 2,
-          "instruction_rich": "In a large bowl, whisk together 2 cups flour, 1/2 cup sugar, 2 tsp baking powder, and 1/2 tsp salt.",
+          "instruction": "In a large bowl, whisk together 2 cups flour, 1/2 cup sugar, 2 tsp baking powder, and 1/2 tsp salt.",
+          "instruction_rich": "In a large bowl, whisk together {{ingredient:770e8400-e29b-41d4-a716-446655440002}}, {{ingredient:...}}, 2 tsp baking powder, and 1/2 tsp salt.",
           "ingredients": [
             {
               "id": "770e8400-e29b-41d4-a716-446655440002",
@@ -153,7 +157,8 @@ Each part contains its own ingredients and instructions:
       "steps": [
         {
           "step_number": 1,
-          "instruction_rich": "Mix 1/4 cup flour, 2 tbsp sugar, and 2 tbsp cold butter until crumbly.",
+          "instruction": "Mix 1/4 cup flour, 2 tbsp sugar, and 2 tbsp cold butter until crumbly.",
+          "instruction_rich": "Mix 1/4 cup {{ingredient:...}}, 2 tbsp sugar, and 2 tbsp cold butter until crumbly.",
           "ingredients": [...],
           "timers": []
         }
@@ -173,7 +178,8 @@ Each part contains its own ingredients and instructions:
   "steps": [
     {
       "step_number": 1,
-      "instruction_rich": "Heat olive oil in a large skillet over medium heat.",
+      "instruction": "Heat olive oil in a large skillet over medium heat.",
+      "instruction_rich": "Heat {{ingredient:...}} in a large skillet over medium heat.",
       "ingredients": [...],
       "timers": []
     }

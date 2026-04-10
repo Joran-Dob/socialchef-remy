@@ -278,6 +278,7 @@ type StepIngredientDetail struct {
 
 type StepDetail struct {
 	StepNumber      int32                  `json:"step_number"`
+	Instruction     string                 `json:"instruction"`
 	InstructionRich string                 `json:"instruction_rich"`
 	Ingredients     []StepIngredientDetail `json:"ingredients"`
 	Timers          []Timer                `json:"timers"`
@@ -519,6 +520,7 @@ func (s *Server) handleGetRecipeStepsFlat(w http.ResponseWriter, r *http.Request
 
 		steps = append(steps, StepDetail{
 			StepNumber:      inst.StepNumber,
+			Instruction:     inst.Instruction,
 			InstructionRich: inst.InstructionRich.String,
 			Ingredients:     ingredients,
 			Timers:          timers,
@@ -545,6 +547,7 @@ func (s *Server) handleGetRecipeStepsWithParts(w http.ResponseWriter, r *http.Re
 		Instructions []struct {
 			ID              string          `json:"id"`
 			StepNumber      int32           `json:"step_number"`
+			Instruction     string          `json:"instruction"`
 			InstructionRich string          `json:"instruction_rich"`
 			TimerData       json.RawMessage `json:"timer_data"`
 		} `json:"instructions"`
@@ -660,6 +663,7 @@ func (s *Server) handleGetRecipeStepsWithParts(w http.ResponseWriter, r *http.Re
 
 			steps = append(steps, StepDetail{
 				StepNumber:      inst.StepNumber,
+				Instruction:     inst.Instruction,
 				InstructionRich: inst.InstructionRich,
 				Ingredients:     ingredients,
 				Timers:          timers,

@@ -43,6 +43,8 @@ script:post-response {
       const firstStep = res.body.steps[0];
       expect(firstStep).to.have.property('step_number');
       expect(firstStep.step_number).to.be.a('number');
+      expect(firstStep).to.have.property('instruction');
+      expect(firstStep.instruction).to.be.a('string');
       expect(firstStep).to.have.property('instruction_rich');
       expect(firstStep.instruction_rich).to.be.a('string');
       expect(firstStep).to.have.property('ingredients');

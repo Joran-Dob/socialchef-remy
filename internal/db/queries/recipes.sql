@@ -76,3 +76,10 @@ FROM recipes r
 LEFT JOIN recipe_parts p ON p.recipe_id = r.id
 WHERE r.id = $1
 GROUP BY r.id;
+
+-- name: CreateRecipeRawData :one
+INSERT INTO recipe_raw_data (
+    recipe_id, origin, source_url, raw_data, caption, transcript, video_url, thumbnail_url, images, scraped_at, processed_at, scraper_version, scraper_config
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+) RETURNING *;

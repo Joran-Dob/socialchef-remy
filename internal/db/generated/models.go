@@ -331,6 +331,25 @@ type RecipePart struct {
 	CreatedAt    pgtype.Timestamptz
 }
 
+type RecipeRawDatum struct {
+	ID             pgtype.UUID
+	RecipeID       pgtype.UUID
+	Origin         string
+	SourceUrl      string
+	RawData        []byte
+	Caption        pgtype.Text
+	Transcript     pgtype.Text
+	VideoUrl       pgtype.Text
+	ThumbnailUrl   pgtype.Text
+	Images         []byte
+	ScrapedAt      pgtype.Timestamptz
+	ProcessedAt    pgtype.Timestamptz
+	ScraperVersion pgtype.Text
+	ScraperConfig  []byte
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+}
+
 type SocialMediaOwner struct {
 	ID                      pgtype.UUID
 	Username                string

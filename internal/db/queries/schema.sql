@@ -291,3 +291,27 @@ CREATE TABLE IF NOT EXISTS instruction_ingredients (
 
 CREATE INDEX IF NOT EXISTS idx_instruction_ingredients_instruction_id ON instruction_ingredients(instruction_id);
 CREATE INDEX IF NOT EXISTS idx_instruction_ingredients_ingredient_id ON instruction_ingredients(ingredient_id);
+
+-- Recipe raw data storage for comparison testing
+CREATE TABLE IF NOT EXISTS recipe_raw_data (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+    origin TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    raw_data JSONB NOT NULL,
+    caption TEXT,
+    transcript TEXT,
+    video_url TEXT,
+    thumbnail_url TEXT,
+    images JSONB,
+    scraped_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    processed_at TIMESTAMP WITH TIME ZONE,
+    scraper_version TEXT,
+    scraper_config JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(recipe_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_recipe_raw_data_recipe_id ON recipe_raw_data(recipe_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_raw_data_origin ON recipe_raw_data(origin);

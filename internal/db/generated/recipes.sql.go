@@ -129,6 +129,68 @@ func (q *Queries) CreateRecipePart(ctx context.Context, arg CreateRecipePartPara
 	return i, err
 }
 
+const createRecipeRawData = `-- name: CreateRecipeRawData :one
+INSERT INTO recipe_raw_data (
+    recipe_id, origin, source_url, raw_data, caption, transcript, video_url, thumbnail_url, images, scraped_at, processed_at, scraper_version, scraper_config
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+) RETURNING id, recipe_id, origin, source_url, raw_data, caption, transcript, video_url, thumbnail_url, images, scraped_at, processed_at, scraper_version, scraper_config, created_at, updated_at
+`
+
+type CreateRecipeRawDataParams struct {
+	RecipeID       pgtype.UUID
+	Origin         string
+	SourceUrl      string
+	RawData        []byte
+	Caption        pgtype.Text
+	Transcript     pgtype.Text
+	VideoUrl       pgtype.Text
+	ThumbnailUrl   pgtype.Text
+	Images         []byte
+	ScrapedAt      pgtype.Timestamptz
+	ProcessedAt    pgtype.Timestamptz
+	ScraperVersion pgtype.Text
+	ScraperConfig  []byte
+}
+
+func (q *Queries) CreateRecipeRawData(ctx context.Context, arg CreateRecipeRawDataParams) (RecipeRawDatum, error) {
+	row := q.db.QueryRow(ctx, createRecipeRawData,
+		arg.RecipeID,
+		arg.Origin,
+		arg.SourceUrl,
+		arg.RawData,
+		arg.Caption,
+		arg.Transcript,
+		arg.VideoUrl,
+		arg.ThumbnailUrl,
+		arg.Images,
+		arg.ScrapedAt,
+		arg.ProcessedAt,
+		arg.ScraperVersion,
+		arg.ScraperConfig,
+	)
+	var i RecipeRawDatum
+	err := row.Scan(
+		&i.ID,
+		&i.RecipeID,
+		&i.Origin,
+		&i.SourceUrl,
+		&i.RawData,
+		&i.Caption,
+		&i.Transcript,
+		&i.VideoUrl,
+		&i.ThumbnailUrl,
+		&i.Images,
+		&i.ScrapedAt,
+		&i.ProcessedAt,
+		&i.ScraperVersion,
+		&i.ScraperConfig,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const deleteRecipe = `-- name: DeleteRecipe :exec
 DELETE FROM recipes WHERE id = $1 AND created_by = $2
 `

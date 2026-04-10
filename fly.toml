@@ -26,11 +26,15 @@ primary_region = 'arn'
   processes = ['server']
 
   [[http_service.checks]]
-    interval = '30s'
+    interval = '10s'
     timeout = '5s'
-    grace_period = '10s'
-    method = 'GET'
+    grace_period = '30s'
+    method = 'get'
     path = '/health'
+    protocol = 'http'
+
+[restart]
+  policy = 'always'
 
 [[vm]]
   memory = '512mb'
