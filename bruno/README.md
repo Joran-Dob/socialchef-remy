@@ -97,6 +97,7 @@ Make sure the server is running and the routes are registered in `cmd/server/mai
 - All other endpoints require valid JWT token
 - Search endpoints are now fully functional with category arrays populated
 - Recipe steps endpoint may include `parts` array for recipes with distinct components (e.g., main dish + sauce)
+- Recipe import supports YouTube URLs in addition to Instagram and TikTok
 
 ## Instruction-Ingredient Linking Tests
 
