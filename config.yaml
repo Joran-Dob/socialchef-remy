@@ -4,6 +4,6 @@ transcription:
   fallback_provider: groq
 
 recipe_generation:
-  provider: groq
+  provider: cerebras
   fallback_enabled: true
-  fallback_provider: cerebras
+  fallback_provider: groq

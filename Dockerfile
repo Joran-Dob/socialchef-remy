@@ -22,6 +22,7 @@ RUN apk add --no-cache ca-certificates tzdata ffmpeg
 
 COPY --from=builder /server /app/server
 COPY --from=builder /worker /app/worker
+COPY --from=builder /app/config.yaml /app/config.yaml
 
 EXPOSE 8080
 

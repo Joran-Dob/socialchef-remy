@@ -58,7 +58,7 @@ func (p *CerebrasProvider) GenerateRecipe(ctx context.Context, description, tran
 	}
 
 	req := chatRequest{
-		Model: "gpt-oss-120b",
+		Model: "zai-glm-4.7",
 		ResponseFormat: struct {
 			Type string `json:"type"`
 		}{Type: "json_object"},
@@ -248,7 +248,7 @@ func (p *CerebrasProvider) GenerateCategories(ctx context.Context, prompt string
 	}
 
 	req := chatRequest{
-		Model: "gpt-oss-120b",
+		Model: "zai-glm-4.7",
 	}
 	req.ResponseFormat.Type = "json_schema"
 	req.ResponseFormat.JSONSchema = map[string]interface{}{
@@ -405,7 +405,7 @@ func (p *CerebrasProvider) GenerateRichInstructions(ctx context.Context, recipe 
 	}
 
 	req := chatRequest{
-		Model: "gpt-oss-120b",
+		Model: "zai-glm-4.7",
 	}
 	req.ResponseFormat.Type = "json_schema"
 	req.ResponseFormat.JSONSchema = map[string]interface{}{

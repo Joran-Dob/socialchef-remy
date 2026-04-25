@@ -29,7 +29,7 @@ Recipe generation supports multiple AI providers with automatic fallback:
 
 ### Providers
 - **Groq** (default): Uses `openai/gpt-oss-120b` model
-- **Cerebras**: Uses `gpt-oss-120b` model
+- **Cerebras**: Uses `zai-glm-4.7` model
 - **OpenAI**: Uses `gpt-4o` model
 
 ### Configuration
