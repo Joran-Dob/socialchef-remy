@@ -273,6 +273,10 @@ func (p *RecipeProcessor) HandleProcessRecipe(ctx context.Context, t *asynq.Task
 		platform = "firecrawl"
 		post, err := p.firecrawl.Scrape(ctx, url)
 		if err != nil {
+			if err == scraper.ErrUnsupportedSite {
+				p.markCanceled(ctx, jobID, userID, "This website is not supported for recipe import")
+				return nil
+			}
 			status = "failure"
 			p.markFailed(ctx, jobID, userID, fmt.Sprintf("Firecrawl scrape failed: %v", err))
 			return err
@@ -871,6 +875,25 @@ func (p *RecipeProcessor) markFailed(ctx context.Context, jobID, userID, errorMs
 			JobID:   jobID,
 			Status:  "failed",
 			Message: errorMsg,
+		})
+	}
+}
+
+func (p *RecipeProcessor) markCanceled(ctx context.Context, jobID, userID, message string) {
+	slog.Info("Job canceled", "job_id", jobID, "reason", message)
+
+	p.db.UpdateImportJobStatus(ctx, generated.UpdateImportJobStatusParams{
+		JobID:        jobID,
+		Status:       "CANCELED",
+		ProgressStep: pgtype.Text{String: "Canceled", Valid: true},
+		Error:        []byte(message),
+	})
+
+	if p.broadcaster != nil {
+		p.broadcaster.Broadcast(userID, ProgressUpdate{
+			JobID:   jobID,
+			Status:  "canceled",
+			Message: message,
 		})
 	}
 }

@@ -102,7 +102,7 @@ func (s *InstagramScraper) Scrape(ctx context.Context, postURL string) (*Instagr
 
 	graphQLURL := fmt.Sprintf("https://www.instagram.com/api/graphql?variables={\"shortcode\":\"%s\"}&doc_id=10015901848480474", shortcode)
 
-	config := utils.DefaultRetryConfig()
+	config := utils.FastRetryConfig()
 
 	data, err := utils.WithRetry(ctx, func(attemptCtx context.Context) ([]byte, error) {
 		reqBody := map[string]interface{}{

@@ -127,6 +127,9 @@ func (s *FirecrawlScraper) Scrape(ctx context.Context, postURL string) (*Firecra
 	}, config)
 
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "do not support this site") {
+			return nil, ErrUnsupportedSite
+		}
 		slog.Error("Firecrawl scrape failed after all retries",
 			"url", postURL,
 			"error", err,
