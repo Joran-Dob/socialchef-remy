@@ -5,11 +5,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -229,6 +231,11 @@ func parseECPublicKey(crv, xStr, yStr string) (*ecdsa.PublicKey, error) {
 	}, nil
 }
 
+// uuidRegex matches a canonical 8-4-4-4-12 lowercase-or-uppercase UUID. We
+// only allow the X-On-Behalf-Of header to impersonate a valid-looking user
+// uuid so we don't write arbitrary strings into Supabase user_id columns.
+var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
 func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	var jwksManager *JWKSManager
 	if cfg.SupabaseURL != "" {
@@ -237,6 +244,32 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Sibling services (e.g. Sous) may send the shared secret in `X-API-Key`
+			// instead of `Authorization: Bearer` so a hex string is not mistaken for
+			// a JWT. Same rules as the Bearer service-token path: requires
+			// `X-On-Behalf-Of: <user uuid>`.
+			if cfg.InternalServiceToken != "" {
+				xKey := strings.TrimSpace(r.Header.Get("X-API-Key"))
+				if xKey != "" {
+					if subtle.ConstantTimeCompare([]byte(xKey), []byte(cfg.InternalServiceToken)) != 1 {
+						http.Error(w, "Unauthorized: invalid X-API-Key", http.StatusUnauthorized)
+						return
+					}
+					onBehalfOf := strings.TrimSpace(r.Header.Get("X-On-Behalf-Of"))
+					if onBehalfOf == "" {
+						http.Error(w, "Unauthorized: service token requires X-On-Behalf-Of header", http.StatusUnauthorized)
+						return
+					}
+					if !uuidRegex.MatchString(onBehalfOf) {
+						http.Error(w, "Unauthorized: X-On-Behalf-Of must be a user UUID", http.StatusUnauthorized)
+						return
+					}
+					ctx := context.WithValue(r.Context(), UserIDKey, onBehalfOf)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+			}
+
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				http.Error(w, "Unauthorized: Missing Authorization header", http.StatusUnauthorized)
@@ -250,6 +283,24 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 			}
 
 			tokenString := parts[1]
+
+			// Service-token auth path: trusted sibling services (e.g. Sous)
+			// present the shared secret plus `X-On-Behalf-Of: <uuid>` to
+			// impersonate the target user. We short-circuit JWT parsing.
+			if cfg.InternalServiceToken != "" && subtle.ConstantTimeCompare([]byte(tokenString), []byte(cfg.InternalServiceToken)) == 1 {
+				onBehalfOf := strings.TrimSpace(r.Header.Get("X-On-Behalf-Of"))
+				if onBehalfOf == "" {
+					http.Error(w, "Unauthorized: service token requires X-On-Behalf-Of header", http.StatusUnauthorized)
+					return
+				}
+				if !uuidRegex.MatchString(onBehalfOf) {
+					http.Error(w, "Unauthorized: X-On-Behalf-Of must be a user UUID", http.StatusUnauthorized)
+					return
+				}
+				ctx := context.WithValue(r.Context(), UserIDKey, onBehalfOf)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
 
 			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 				switch token.Method.(type) {

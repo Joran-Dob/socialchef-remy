@@ -116,6 +116,166 @@ func TestAuthMiddleware(t *testing.T) {
 	}
 }
 
+func TestAuthMiddlewareXAPIKeyServiceToken(t *testing.T) {
+	cfg := &config.Config{
+		SupabaseURL:          "https://test.supabase.co",
+		SupabaseJWTSecret:    "test-secret",
+		InternalServiceToken: "s3rvice-t0ken",
+	}
+
+	validUUID := "11111111-2222-3333-4444-555555555555"
+
+	tests := []struct {
+		name           string
+		xAPIKey        string
+		onBehalfOf     string
+		authHeader     string
+		expectedStatus int
+		expectedUserID string
+	}{
+		{
+			name:           "X-API-Key matches with valid on-behalf, no Authorization",
+			xAPIKey:        "s3rvice-t0ken",
+			onBehalfOf:     validUUID,
+			expectedStatus: http.StatusOK,
+			expectedUserID: validUUID,
+		},
+		{
+			name:           "X-API-Key wrong is rejected",
+			xAPIKey:        "wrong-key",
+			onBehalfOf:     validUUID,
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "X-API-Key set but missing on-behalf",
+			xAPIKey:        "s3rvice-t0ken",
+			onBehalfOf:     "",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "X-API-Key plus Authorization Bearer JWT still works for normal clients",
+			xAPIKey:    "",
+			onBehalfOf: "",
+			authHeader: func() string {
+				token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+					"sub": "user-123",
+					"iss": "https://test.supabase.co/auth/v1",
+					"exp": time.Now().Add(time.Hour).Unix(),
+				})
+				s, _ := token.SignedString([]byte("test-secret"))
+				return "Bearer " + s
+			}(),
+			expectedStatus: http.StatusOK,
+			expectedUserID: "user-123",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := AuthMiddleware(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				userID, ok := GetUserID(r.Context())
+				if !ok {
+					t.Error("expected userID in context")
+					return
+				}
+				if userID != tt.expectedUserID {
+					t.Errorf("expected userID %q, got %q", tt.expectedUserID, userID)
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req := httptest.NewRequest("GET", "/", nil)
+			if tt.xAPIKey != "" {
+				req.Header.Set("X-API-Key", tt.xAPIKey)
+			}
+			if tt.onBehalfOf != "" {
+				req.Header.Set("X-On-Behalf-Of", tt.onBehalfOf)
+			}
+			if tt.authHeader != "" {
+				req.Header.Set("Authorization", tt.authHeader)
+			}
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("expected status %d, got %d; body=%q", tt.expectedStatus, rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestAuthMiddlewareServiceToken(t *testing.T) {
+	cfg := &config.Config{
+		SupabaseURL:          "https://test.supabase.co",
+		SupabaseJWTSecret:    "test-secret",
+		InternalServiceToken: "s3rvice-t0ken",
+	}
+
+	validUUID := "11111111-2222-3333-4444-555555555555"
+
+	tests := []struct {
+		name           string
+		authHeader     string
+		onBehalfOf     string
+		expectedStatus int
+		expectedUserID string
+	}{
+		{
+			name:           "Service token with valid UUID impersonates user",
+			authHeader:     "Bearer s3rvice-t0ken",
+			onBehalfOf:     validUUID,
+			expectedStatus: http.StatusOK,
+			expectedUserID: validUUID,
+		},
+		{
+			name:           "Service token without X-On-Behalf-Of is rejected",
+			authHeader:     "Bearer s3rvice-t0ken",
+			onBehalfOf:     "",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "Service token with non-UUID on-behalf is rejected",
+			authHeader:     "Bearer s3rvice-t0ken",
+			onBehalfOf:     "not-a-uuid",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "Wrong token falls through to JWT verification and fails",
+			authHeader:     "Bearer not-the-service-token",
+			onBehalfOf:     validUUID,
+			expectedStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := AuthMiddleware(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				userID, ok := GetUserID(r.Context())
+				if !ok {
+					t.Error("expected userID in context")
+				}
+				if userID != tt.expectedUserID {
+					t.Errorf("expected userID %q, got %q", tt.expectedUserID, userID)
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req := httptest.NewRequest("GET", "/", nil)
+			req.Header.Set("Authorization", tt.authHeader)
+			if tt.onBehalfOf != "" {
+				req.Header.Set("X-On-Behalf-Of", tt.onBehalfOf)
+			}
+			rr := httptest.NewRecorder()
+
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("expected status %d, got %d; body=%s", tt.expectedStatus, rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
 func TestRequireAuth(t *testing.T) {
 	t.Run("No user in context", func(t *testing.T) {
 		handler := RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
