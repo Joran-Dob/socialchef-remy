@@ -254,3 +254,4 @@ Transient operations use an automatic retry mechanism with exponential backoff.
 | `PROXY_API_KEY` | Yes | For Instagram scraping proxy authentication. |
 | `SUPABASE_URL` | Yes | Supabase project URL for storage and auth. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Admin key for Supabase operations. |
+| `YOUTUBE_API_KEY` | Yes | For YouTube video scraping. See [setup guide](docs/youtube-api-setup.md). |

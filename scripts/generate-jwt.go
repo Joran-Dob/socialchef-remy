@@ -22,7 +22,7 @@ func main() {
 	}
 
 	// Allow custom user ID via command line arg
-	userID := "test-user-id"
+	userID := "a047a2c6-3ae0-45af-ac93-eb103f8ad1bb"
 	if len(os.Args) > 1 {
 		userID = os.Args[1]
 	}

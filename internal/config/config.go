@@ -19,6 +19,13 @@ type Config struct {
 	SupabaseServiceRoleKey string
 	RecipeStorageBucket    string
 
+	// InternalServiceToken is a shared secret used by trusted sibling
+	// services (e.g. Sous) to call Remy on behalf of an app user. Requests
+	// that present it in `Authorization: Bearer <token>` plus an
+	// `X-On-Behalf-Of: <user-uuid>` header bypass JWT verification and
+	// impersonate the target user.
+	InternalServiceToken string
+
 	RedisURL string
 
 	OpenAIKey   string
@@ -30,6 +37,7 @@ type Config struct {
 	ProxyAPIKey      string
 	FirecrawlAPIKey  string
 	FirecrawlEnabled bool
+	YouTubeAPIKey    string
 
 	OtelExporterOTLPEndpoint string
 	OtelExporterOTLPHeaders  string
@@ -64,6 +72,7 @@ func Load() (*Config, error) {
 		SupabaseJWTSecret:        os.Getenv("SUPABASE_JWT_SECRET"),
 		SupabaseServiceRoleKey:   os.Getenv("SUPABASE_SERVICE_ROLE_KEY"),
 		RecipeStorageBucket:      os.Getenv("RECIPE_STORAGE_BUCKET"),
+		InternalServiceToken:     os.Getenv("INTERNAL_SERVICE_TOKEN"),
 		RedisURL:                 os.Getenv("REDIS_URL"),
 		OpenAIKey:                os.Getenv("OPENAI_API_KEY"),
 		GroqKey:                  os.Getenv("GROQ_API_KEY"),
@@ -73,6 +82,7 @@ func Load() (*Config, error) {
 		ProxyAPIKey:              os.Getenv("PROXY_API_KEY"),
 		FirecrawlAPIKey:          os.Getenv("FIRECRAWL_API_KEY"),
 		FirecrawlEnabled:         os.Getenv("FIRECRAWL_ENABLED") == "true",
+		YouTubeAPIKey:            os.Getenv("YOUTUBE_API_KEY"),
 		OtelExporterOTLPEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		OtelExporterOTLPHeaders:  os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"),
 		SentryDSN:                os.Getenv("SENTRY_DSN"),

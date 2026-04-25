@@ -83,6 +83,7 @@ func main() {
 
 	instagramScraper := scraper.NewInstagramScraper(cfg.ProxyServerURL, cfg.ProxyAPIKey)
 	tiktokScraper := scraper.NewTikTokScraper(cfg.ApifyAPIKey)
+	youtubeScraper := scraper.NewYouTubeScraper(cfg.YouTubeAPIKey)
 
 	// Initialize Firecrawl only if enabled
 	var firecrawlScraper *scraper.FirecrawlScraper
@@ -108,6 +109,7 @@ func main() {
 		queries,
 		instagramScraper,
 		tiktokScraper,
+		youtubeScraper,
 		firecrawlScraper,
 		openaiClient,
 		transcriptionClient,

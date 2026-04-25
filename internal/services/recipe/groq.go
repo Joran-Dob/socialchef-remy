@@ -58,7 +58,7 @@ func (p *GroqProvider) GenerateRecipe(ctx context.Context, description, transcri
 	}
 
 	req := chatRequest{
-		Model: "moonshotai/kimi-k2-instruct-0905",
+		Model: "openai/gpt-oss-120b",
 		ResponseFormat: struct {
 			Type string `json:"type"`
 		}{Type: "json_object"},
@@ -188,7 +188,7 @@ func (p *GroqProvider) GenerateCategories(ctx context.Context, prompt string) (*
 	}
 
 	req := chatRequest{
-		Model: "moonshotai/kimi-k2-instruct-0905",
+		Model: "openai/gpt-oss-120b",
 		ResponseFormat: struct {
 			Type string `json:"type"`
 		}{Type: "json_object"},
@@ -324,7 +324,7 @@ func (p *GroqProvider) GenerateRichInstructions(ctx context.Context, recipe *Rec
 	}
 
 	req := chatRequest{
-		Model: "moonshotai/kimi-k2-instruct-0905",
+		Model: "openai/gpt-oss-120b",
 	}
 	req.ResponseFormat.Type = "json_schema"
 	req.ResponseFormat.JSONSchema.Name = "rich_instruction_response"
